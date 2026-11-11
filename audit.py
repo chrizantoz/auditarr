@@ -2754,7 +2754,7 @@ def ui_state(conn):
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
-    ab_ = about_info(fetch=False); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
+    ab_ = about_info(fetch=False, conn=conn); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
     try:
         apps_ = arr_apps(); latest["setup"] = dict(arrs=sorted(apps_), bazarr=bool(bazarr_conf()[1]), plex=bool(plex_token()), first_run_done=bool(conn.execute("SELECT 1 FROM run WHERE finished IS NOT NULL LIMIT 1").fetchone()), degraded=degraded())
     except Exception as e: latest["setup"] = {"error": repr(e)}
@@ -2867,23 +2867,41 @@ def ui_settings_post(conn, body, actor):
     return 200, {"ok": True, "saved": {k: mask(k, v) for k, v in new.items()}, "applies": "next run (and immediately for trash retention / Plex / notifications)"}
 START_TS = time.time()
 APP_VERSION = E("APP_VERSION", "dev"); APP_REVISION = E("APP_REVISION", ""); APP_REPO = "chrizantoz/auditarr"
-LATEST = {"ts": 0.0, "tag": "", "url": "", "name": "", "error": ""}
+LATEST = {"ts": 0.0, "tag": "", "url": "", "name": "", "error": "", "releases": []}
 def latest_release(fetch=True, refresh=False):
-    """Newest GitHub release (cached 6 h). fetch=False never touches the network (page loads); UPDATE_CHECK=0 disables the check entirely."""
+    """Newest GitHub releases (cached 6 h; pre-releases count, there may be nothing else yet). fetch=False never touches the network (page loads); UPDATE_CHECK=0 disables the check entirely."""
     if E("UPDATE_CHECK", "1") != "1": return LATEST
     if not fetch or (not refresh and LATEST["ts"] and time.time() - LATEST["ts"] < 6 * 3600): return LATEST
     try:
-        req = urllib.request.Request(f"https://api.github.com/repos/{APP_REPO}/releases/latest", headers={"User-Agent": "auditarr", "Accept": "application/vnd.github+json"})
-        j = json.load(urllib.request.urlopen(req, timeout=8)); LATEST.update(ts=time.time(), tag=j.get("tag_name") or "", url=j.get("html_url") or "", name=j.get("name") or "", error="")
+        req = urllib.request.Request(f"https://api.github.com/repos/{APP_REPO}/releases?per_page=6", headers={"User-Agent": "auditarr", "Accept": "application/vnd.github+json"})
+        rel = [r for r in json.load(urllib.request.urlopen(req, timeout=8)) if not r.get("draft")]
+        rels = [dict(tag=r.get("tag_name") or "", name=r.get("name") or r.get("tag_name") or "", url=r.get("html_url") or "", published=(r.get("published_at") or "")[:10], prerelease=bool(r.get("prerelease")), summary=((r.get("body") or "").strip().splitlines() or [""])[0][:140]) for r in rel]
+        top = rels[0] if rels else {}; LATEST.update(ts=time.time(), tag=top.get("tag", ""), url=top.get("url", ""), name=top.get("name", ""), error="", releases=rels)
     except Exception as e: LATEST.update(ts=time.time(), error=str(e)[:120])
     return LATEST
 def _vtuple(v):
     n = re.findall(r"\d+", v or ""); return tuple(int(x) for x in n[:3]) if n else None
-def about_info(fetch=False, refresh=False):
-    """Settings → About: what is running, where, for how long, and whether a newer release exists."""
+def about_info(fetch=False, refresh=False, conn=None):
+    """Settings → About: what is running, where, for how long, library totals, health messages, links, and whether a newer release exists."""
     import platform, shutil
     lr = latest_release(fetch, refresh); cur, new = _vtuple(APP_VERSION), _vtuple(lr["tag"])
-    return dict(version=APP_VERSION, revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
+    c_ = conn or db(); stats = {}
+    try:
+        ri = last_run_info(c_); stats = dict(files=ri.get("files", 0), open_findings=c_.execute("SELECT count(*) FROM finding WHERE resolved_at IS NULL").fetchone()[0], runs=c_.execute("SELECT count(*) FROM run").fetchone()[0],
+                                             actions=c_.execute("SELECT count(*) FROM action").fetchone()[0], last_run=ri.get("finished", ""))
+    except Exception: pass
+    finally:
+        if conn is None: c_.close()
+    h = health_info(); msgs = []
+    if cur and new and new > cur: msgs.append(dict(level="warn", text=f"A new version is available: {lr['tag']} (you run {APP_VERSION})", link=lr["url"]))
+    for d in h.get("degraded") or []: msgs.append(dict(level="error", text=f"{d} could not be reached during the last run", link=""))
+    if h.get("status") == "stale": msgs.append(dict(level="warn", text="The last audit is older than expected - the nightly run may not be happening", link=""))
+    if not (h.get("tests") or {}).get("ok", True): msgs.append(dict(level="warn", text="The built-in self-test did not pass last time (History tab)", link=""))
+    for t in ("ffmpeg", "ffprobe", "mkvpropedit"):
+        if not shutil.which(t): msgs.append(dict(level="error", text=f"{t} is missing from the container - checks that need it are skipped", link=""))
+    links = dict(demo="https://chrizantoz.github.io/auditarr/", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
+                 source=f"https://github.com/{APP_REPO}", sponsors="https://github.com/sponsors/chrizantoz", kofi="https://ko-fi.com/chrizantoz")
+    return dict(version=APP_VERSION, stats=stats, health=msgs, links=links, releases=lr.get("releases", []), revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
                 db_mb=round((os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0) / 1e6, 1), config_dir=CONFIG_DIR, media_dir="/data" if os.path.isdir("/data") else "", timezone=E("TZ", "UTC"),
                 uptime_s=int(time.time() - START_TS), tools={t: bool(shutil.which(t)) for t in ("ffmpeg", "ffprobe", "mkvpropedit", "mkvmerge")},
                 latest=dict(tag=lr["tag"], url=lr["url"], name=lr["name"], checked=datetime.datetime.fromtimestamp(lr["ts"]).isoformat(timespec="minutes") if lr["ts"] else "", error=lr["error"]),
@@ -3043,7 +3061,10 @@ class Handler(SimpleHTTPRequestHandler):
             c_ = db()
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
-        if p == "/api/about": return self._json(200, about_info(fetch="refresh=1" in self.path, refresh="refresh=1" in self.path))
+        if p == "/api/about":
+            c_ = db()
+            try: return self._json(200, about_info(fetch="refresh=1" in self.path, refresh="refresh=1" in self.path, conn=c_))
+            finally: c_.close()
         if p == "/api/selftest":
             threading.Thread(target=run_selftest, daemon=True).start(); return self._json(202, {"ok": True, "note": "self-test started; results in the header chip / History tab in ~1-2 min"})
         if p == "/api/trash": return self._json(200, {"items": trash_list(), "keep": TRASH_KEEP})

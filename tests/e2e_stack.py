@@ -29,6 +29,10 @@ orphan = os.path.join(TV, "Random.Home.Video.mkv"); shutil.copy(W["files"][0]["p
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
 mock = mock_stack.start(W); MP = mock.server_address[1]; MURL = f"http://127.0.0.1:{MP}"
 
+# ---- upgrade test (Q13): start on the newest sample database from a previous release; it must migrate and keep its history
+import glob
+samples = sorted(glob.glob(os.path.join(ROOT, "tests", "db-samples", "*.db")))
+if samples: shutil.copy(samples[-1], os.path.join(CFG, "state.db")); print("seeded with", os.path.basename(samples[-1]))
 # ---- the real daemon
 PORT = free_port()
 env = dict(os.environ, CONFIG_DIR=CFG, REPORT_DIR=os.path.join(CFG, "reports"), ARR_CONFIG_DIR=os.path.join(CFG, "no-arr-dir"), HTTP_PORT=str(PORT), HOST_IP="127.0.0.1", TZ="UTC",
@@ -75,6 +79,8 @@ while time.time() - t0 < 300:
     if phase == "failed": break
     time.sleep(2)
 check("first audit run finished", phase == "done", f"phase={phase}\n{tail(15)}")
+if samples:
+    s, hj = api("/api/history"); check("upgrade: a database from the previous release migrates and keeps its run history", s == 200 and len(hj.get("runs", [])) >= 3, len(hj.get("runs", [])))
 s, st = api("/api/state"); F = st.get("findings", []); H = st.get("health", {})
 byt = {}
 for f in F: byt.setdefault(f["check"], []).append(f)

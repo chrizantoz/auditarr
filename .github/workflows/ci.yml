@@ -11,7 +11,7 @@ jobs:
       - run: pip install -q -r requirements.txt && python -m py_compile audit.py tests/*.py
       - run: pip install -q pyflakes && python -m pyflakes audit.py tests/*.py
       - run: sudo apt-get install -y -qq ffmpeg mkvtoolnix >/dev/null && python tests/synthetic_media.py
-      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py
+      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py
       - run: python tests/fuzz_detectors.py 3000 7 && python tests/fuzz_detectors.py 1500 ${{ github.run_number }}
       - run: python tests/mutation_check.py   # one rotating mutant per day; 'all' locally
       - uses: actions/setup-node@v4
@@ -20,6 +20,9 @@ jobs:
       - run: cd uibot && python3 edge_fixtures.py && for c in empty huge down errors; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
       - run: cd uibot && npx playwright install --with-deps chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
       - run: sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py
+      - run: docker build -q -t auditarr:ci . && docker build -q -t auditarr-uibot:ci uibot
+      - uses: aquasecurity/trivy-action@0.28.0
+        with: { image-ref: "auditarr:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1", format: "table" }
       - run: cd uibot && node visual_diff.js
       - uses: actions/upload-artifact@v4
         if: always()

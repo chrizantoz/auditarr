@@ -48,14 +48,14 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **Q10** (2026-11-11) Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
 - [x] **Q11** (2026-11-11) Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
 - [x] **Q12** (2026-11-11) Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
-- [ ] **Q13** Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
+- [x] **Q13** (2026-11-11) Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
 - [ ] **Q14** Restore drill (weekly, on the host): start a throwaway container on last night's backup and load its page.
 - [ ] **Q15** Chaos in the fake stack: random 500s, timeouts and mid-run disappearance; the audit finishes degraded with no half-done writes.
 - [ ] **Q16** Performance budget: 10k fake files / 5k findings; fail CI when listing, render or memory exceed the budget.
 - [ ] **Q17** Persona scripts: browser-only tasks ("make subtitles for show X", "why is this episode missing", "undo the last move") judged by outcome.
 - [ ] **Q18** Golden digest: the morning push pinned word for word and delivered to a mock ntfy.
-- [ ] **Q19** Authorization test: a POST from a non-private address without the Authelia header is refused.
-- [ ] **Q20** Security scans in CI: dependency audit + container image scan, failing on critical issues.
+- [x] **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.
+- [x] **Q20** (2026-11-11) Security scans in CI: dependency audit + container image scan, failing on critical issues.
 - [ ] **Q21** Flakiness ledger: retries and intermittent failures recorded in History.
 - [ ] **Q22** Publish the fake arr stack (`tests/mock_stack.py`) as a small standalone project ("arr-mock") once it has settled, for other arr companion apps.
 - [x] **Q23** `docs/TESTING.md`: how the harness works (read-only staging + write ledger, per-check promotion gate, synthetic media, plain-language lint, fault drill) so other projects can copy the method.
@@ -93,7 +93,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 ## 🔧 Later: smaller improvements
 
 - [ ] **S1** Content verification for movies (Radarr), not just TV.
-- [ ] **S2** A findings-over-time chart in History.
+- [x] **S2** A findings-over-time chart in History (active findings per run plus the per-library health trend).
 - [ ] **S3** Phone notifications with a link straight to the Trash tab after any file move.
 - [ ] **S4** Per-show learning: problem types you always ignore quietly drop to low on their own.
 - [x] **S6** Re-check orphans against the arr at the end of a run, so files imported mid-run aren't flagged as orphans (added 2026-11-11).

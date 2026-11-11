@@ -46,6 +46,10 @@ GOLDEN = [
  ("PLEX_MISSING", "medium", "Show S01E01", "file exists on disk, Plex has not indexed it", "sonarr", "The file is on disk but Plex has not picked it up. 'Refresh in Plex' makes it rescan the folder."),
  ("TITLE_MISMATCH", "low", "Show S01E02", "[verified 14:24: CONTENT MATCHES S01E02 (3/3 samples)] || embedded title 'x'", "sonarr", "Checked: the dialogue matches this episode. Safe to ignore."),
  ("AV1", "low", "Show S01E01", "AV1 video - PS5 / older Shield / older TVs need a transcode | affects: PlayStation 5", "sonarr", "AV1 video: your PlayStation 5 cannot play it directly, so Plex transcodes for it."),
+ ("SUBS_OUT_OF_SYNC", "medium", "Show S01E01", "external 'x.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/x.en.srt", "sonarr",
+  "The subtitles run about 2 seconds late through the whole file. 'Re-time the subtitles' shifts them into place, no re-download."),
+ ("SUBS_OUT_OF_SYNC", "medium", "Show S01E01", "external 'x.en.srt': subtitles drift: +0.3s at 15% -> +2.9s at 85% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=sidecar:/x.en.srt", "sonarr",
+  "The subtitles start close but slide further out as the file goes on. 'Re-time the subtitles' has Bazarr fit them to the audio again."),
  ("NO_SUBS", "medium", "Anime S01E03", "[working: AI subtitles queued 14:02] || audio=['jpn'] embedded_subs=[] external=[]", "sonarr", "AI subtitles queued 14:02. This row clears by itself when it is done; nothing to do."),
 ]
 for code, sev, label, detail, app, want in GOLDEN:
@@ -69,7 +73,7 @@ SAMPLE_DETAIL = {"WRONG_LANGUAGE": "audio=['fre'] original=eng wanted=['eng']", 
  "RUNTIME_SHORT": "file 12 min vs expected 25 min (1 ep)", "RUNTIME_LONG": "file 48 min vs expected 25 min (1 ep) - extended cut", "RUNTIME_DISAGREE": "ffprobe 20 min vs arr mediaInfo 40 min",
  "SAMPLE_FILE": "40 MB", "TITLE_MISMATCH": "embedded title 'x' does not match 'y'", "DUPLICATE_VIDEO": "900 MB", "ORPHAN_FILE": "900 MB", "BAD_DURATION_HEADER": "container header says 48 min",
  "AUDIO_OFFSET": "audio track starts 2.10s after/before video with no matching cut", "PLEX_MISSING": "x", "RES_MISLABELED": "1280x720 but tagged Bluray-1080p", "HI10P": "10-bit H.264 (yuv420p10le)",
- "AV1": "AV1 video", "INTERLACED": "interlaced video (tt)", "TRUEHD_ONLY": "only lossless audio (TrueHD)", "DV_PROFILE5": "Dolby Vision profile 5", "DV_PROFILE7": "Dolby Vision profile 7 (dual layer, compat id 6)"}
+ "AV1": "AV1 video", "SUBS_OUT_OF_SYNC": "external 'x.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/x.en.srt", "INTERLACED": "interlaced video (tt)", "TRUEHD_ONLY": "only lossless audio (TrueHD)", "DV_PROFILE5": "Dolby Vision profile 5", "DV_PROFILE7": "Dolby Vision profile 7 (dual layer, compat id 6)"}
 for code in audit.CHECK_NAMES:
     if code in ("SPACE", "UNFOUND", "TRASH", "SELFTEST", "HEALTH"): continue
     lint(f"name {code}", audit.CHECK_NAMES[code] + ".", max_words=8)

@@ -35,6 +35,7 @@ Only after all of that does CI publish the image.
 ## 3. Every night, in production
 
 - `/api/selftest` after each run: API and detector checks with reversible actions.
+- `tests/subsync.py`: subtitle timing maths (cue parsing, offset estimate, verdict, file shift, which subtitle gets checked); the stack test runs a fake Whisper and a 3 s-late subtitle file through detection and Re-time.
 - `tests/errors_log.py`: a crash inside a job keeps its traceback (errors.log, About → Recent errors, health count); the stack test fails if errors.log is not empty at the end.
 - `tests/watch_priority.py`: what someone is watching in Plex gets its subtitles first (Bazarr now, AI later, both at the head of the queue).
 - The jsdom bot against the live page (the `auditarr-uibot` image; it fetches the page from the running app unless one is mounted at `/app/ui.html`), result shown in the header chip and the History tab.

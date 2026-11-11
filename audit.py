@@ -204,6 +204,8 @@ SETTABLE = {   # env name: (kind, default, help)
  "AUTO_WHISPER_IMPORT_MINUTES": ("int", "0", "after a new download (import hook): if Bazarr still has no subtitles this many minutes later, make AI subtitles right away (0 = only the nightly AUTO_WHISPER_DAYS rule)"),
  "WATCH_PRIORITY": ("mode", "on", "every 5 minutes: whatever someone is watching in Plex right now, or has next up on their Home, gets its missing subtitles first - a Bazarr search straight away, then AI subtitles if Bazarr still has nothing WATCH_PRIORITY_MINUTES later, both ahead of every other job"),
  "WATCH_PRIORITY_MINUTES": ("int", "20", "how long Bazarr gets to find subtitles for something being watched before AI subtitles are made"),
+ "AUTO_SUBSYNC": ("mode", "on", "nightly: check subtitle timing on files whose external subtitles changed in the last AUTO_SUBSYNC_DAYS days and on what people are watching - Whisper listens to three short samples and compares them with the subtitle times; out-of-sync files become findings with a Re-time button"),
+ "AUTO_SUBSYNC_MAX": ("int", "6", "max subtitle timing checks per night (about a minute each on the GPU)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
@@ -285,7 +287,7 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "UND_AUDIO_NO_SUBS": "Unknown language, no subtitles", "MISSING_EPISODE": "Episode missing", "MISSING_MOVIE": "Movie missing", "MISSING_SCENE": "Scene missing",
  "MISSING_FILE": "File vanished", "ZERO_SIZE": "Empty file", "CORRUPT_HEADER": "Unreadable file", "NO_AUDIO": "No audio", "NO_VIDEO": "No video",
  "RUNTIME_SHORT": "Too short", "RUNTIME_LONG": "Too long", "RUNTIME_DISAGREE": "Length changed", "SAMPLE_FILE": "Sample, not the episode", "TITLE_MISMATCH": "Title names another episode",
- "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "PLEX_MISSING": "Not in Plex",
+ "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "PLEX_MISSING": "Not in Plex",
  "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video",
  "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "UNFOUND": "Nothing found for weeks",
  "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
@@ -376,6 +378,10 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "DUPLICATE_VIDEO": return "There are two files for this episode in the folder. Only one is in use; the other is wasting space."
     if code == "ORPHAN_FILE": return "A video file nobody manages: neither Sonarr nor Radarr knows about it, and Plex may not either."
     if code == "BAD_DURATION_HEADER": return "The file claims the wrong length, so players show a wrong time bar and may stop early. 'Fix the time bar' repairs it without re-downloading."
+    if code == "SUBS_OUT_OF_SYNC":
+        if "drift:" in d: return "The subtitles start close but slide further out as the file goes on. 'Re-time the subtitles' has Bazarr fit them to the audio again."
+        m_ = re.search(r"(\d+(?:\.\d+)?)s (late|early)", d); secs = f"about {round(float(m_.group(1)))} second{'s' if round(float(m_.group(1))) != 1 else ''} {m_.group(2)}" if m_ else "out of step"
+        return f"The subtitles run {secs} through the whole file. 'Re-time the subtitles' shifts them into place, no re-download."
     if code == "AUDIO_OFFSET": return "The audio starts a moment after the video." + (" That is intentional here (the video is cut at the same spot), nothing to do." if "intentional" in d else " 'Fix audio delay' lines it up without re-downloading.")
     if code == "PLEX_MISSING": return "The file is on disk but Plex has not picked it up. 'Refresh in Plex' makes it rescan the folder."
     if code == "RES_MISLABELED": return "The picture is lower resolution than the release claims."
@@ -1753,6 +1759,8 @@ def run_once():
             if not it_ or not it_["ep_ids"] or not it_.get("path") or it_.get("missing"): continue
             enqueue(dict(type="verify", finding=fid_, app=app_, fid=afid_, path=it_["path"], parent_id=it_["parent_id"], ep_ids=it_["ep_ids"], label=label_, actor="nightly")); auto_verified += 1
     if auto_fixed or auto_verified: log(f"night automation: {auto_fixed} headers repaired, {auto_verified} content checks queued")
+    try: auto_sync = do_auto_subsync(conn, apps, items); auto_sync and log(f"night automation: {auto_sync} subtitle timing check(s) queued")
+    except Exception as e: note_error("nightly auto (subsync) failed:", repr(e))
     try: auto_lang = do_auto_acceptlang(conn, apps); auto_ai = do_auto_whisper(conn, apps); (auto_lang or auto_ai) and log(f"night automation: {auto_lang} language(s) accepted, {auto_ai} AI-subtitle job(s) queued")
     except Exception as e: log("nightly auto (acceptlang/whisper) failed:", repr(e))
     try: progress("tracks", "default audio/subtitle flags + Plex selection"); do_track_prefs(conn, items); do_plex_select(conn, items)
@@ -1963,6 +1971,7 @@ def plan_tonight(conn):
     """What the next nightly run would do on its own, from the current findings - the same selection code the night uses, nothing executed."""
     apps = arr_apps(); now = time.time(); out = {"gates": {k: setting(k) for k in ("REMEDIATE", "AUTO_WHISPER", "AUTO_ACCEPTLANG", "AUTO_FIXHEADER", "AUTO_VERIFY", "DEDUPE")}}
     w = []; do_auto_whisper(conn, apps, plan=w); out["ai_subtitles"] = w
+    sc = []; do_auto_subsync(conn, apps, None, plan=sc); out["sync_checks"] = sc
     a = []; do_auto_acceptlang(conn, apps, plan=a); out["accept_language"] = a
     out["fix_headers"] = [dict(label=l, why="repair the wrong time bar") for (l,) in conn.execute("SELECT label FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen LIMIT 10")] if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off" else []
     out["verify"] = [dict(label=l, why=f"check it is the right {'movie' if a_ == 'radarr' else 'episode'} ({check_name(c)})") for l, c, a_ in conn.execute("SELECT label, check_code, app FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr','radarr') ORDER BY first_seen DESC LIMIT ?", (int(setting("AUTO_VERIFY_MAX")),))] if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" else []
@@ -2491,6 +2500,12 @@ def ui_act(conn, body, actor):
         what = ("repaired/dropped " + ", ".join(dropped)) if dropped else "trimmed container at the real end"
         record_action(conn, "on", "fixheader", f["app"], f["fid"], f["label"], f"mkvmerge remux: header {hdr/60:.1f} -> {rd/60:.1f} min via UI by {actor} ({what})", f"original -> {dest}; {resc}; {plx}")
         refresh_reports(conn); return 200, {"ok": True, "header_min": round(hdr / 60, 1), "real_min": round(rd / 60, 1), "note": f"header rewritten ({hdr/60:.0f} -> {rd/60:.0f} min, {what}); original in the trash for {TRASH_DAYS} days"}
+    if action == "subsync":
+        if f["app"] not in ("sonarr", "radarr", "whisparr"): return 400, {"error": "subtitle timing checks work on arr-managed files"}
+        if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
+        enqueue(dict(type="subsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor=actor, prio=3))
+        return 200, {"ok": True, "queued": True, "note": "checking subtitle timing: three short samples through Whisper, about a minute; the result appears on the row and in Actions"}
+    if action == "subsync_fix": return subsync_fix(conn, f, apps, actor, body)
     if action == "fixsync":
         """Lossless mkvmerge remux that removes a container-level audio delay (the AUDIO_OFFSET case). Original goes to the trash."""
         if not path or not path.lower().endswith(".mkv"): return 400, {"error": "sync fixing works on .mkv only"}
@@ -2539,7 +2554,7 @@ def ui_act(conn, body, actor):
 # ---------- Bazarr subtitle search (sequential background queue so a bulk click does not hammer Bazarr) ----------
 import queue
 SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue()
-def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
+def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
 import itertools; _SEQ = itertools.count()
 def _put(job): _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job))   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
 def _subsearch(job):
@@ -2847,6 +2862,250 @@ def verify_content(app, fid, path, parent_id, ep_ids, apps):
         elif lean in mapped_labs: concl = f"mostly consistent with {lean} ({labs.count(lean)}/{len(labs)} samples lean that way, the other(s) elsewhere) - weak evidence either way"
         else: concl = f"inconclusive - dialogue does not clearly match any single description (leaning {lean}, arr says {', '.join(sorted(mapped_labs))})"
     return concl, " | ".join(lines)
+# ---------- F20: subtitle timing (are the subtitles in step with the speech?) ----------
+SUBSYNC_MIN_S = 1.0   # smaller offsets are not worth touching
+def sync_windows(dur):
+    """Three sample windows (start, length) at 15 / 50 / 85 % of the file: 60 s each on a normal file, shorter on tiny ones."""
+    wlen = 60.0 if dur >= 600 else max(8.0, dur / 4)
+    return [(max(0.0, dur * f - wlen / 2), wlen) for f in (0.15, 0.5, 0.85)]
+_TS = re.compile(r"(\d+):(\d\d):(\d\d)[,.](\d{1,3})")
+def _ts(t):
+    m = _TS.match(t); h, mi, se, ms = m.groups(); return int(h) * 3600 + int(mi) * 60 + int(se) + int(ms.ljust(3, "0")) / 1000
+def parse_sub_cues(text):
+    """Cue (start, end) seconds from SRT, VTT or ASS text."""
+    out = [(_ts(m.group(1)), _ts(m.group(2))) for m in re.finditer(r"(\d+:\d\d:\d\d[,.]\d{1,3})\s*-->\s*(\d+:\d\d:\d\d[,.]\d{1,3})", text)]
+    if not out: out = [(_ts(m.group(1)), _ts(m.group(2))) for m in re.finditer(r"^Dialogue:\s*\d+,(\d+:\d\d:\d\d[.,]\d{1,3}),(\d+:\d\d:\d\d[.,]\d{1,3})", text, re.M)]
+    return out
+def estimate_offset(sub_starts, asr_starts, max_off=30.0):
+    """One window: how late the subtitles run against the speech. -> (offset s, share of speech segments explained, matched count). Positive = subtitles late."""
+    if not sub_starts or not asr_starts: return None, 0.0, 0
+    cands = [s_ - a_ for a_ in asr_starts for s_ in sub_starts if abs(s_ - a_) <= max_off]
+    if not cands: return None, 0.0, 0
+    bins = {}
+    for d_ in cands: bins[round(d_ / 0.2)] = bins.get(round(d_ / 0.2), 0) + 1
+    centre = max(bins, key=bins.get) * 0.2
+    near = sorted(d_ for d_ in cands if abs(d_ - centre) <= 0.45); off = near[len(near) // 2]
+    matched = sum(1 for a_ in asr_starts if any(abs((s_ - a_) - off) <= 0.45 for s_ in sub_starts))
+    return off, matched / len(asr_starts), matched
+def decide_sync(windows):
+    """windows: [(position 0..1, offset, support, matched)] -> (status, offset, note); status in: in sync | late | early | drift | unknown."""
+    good = [w for w in windows if w[1] is not None and w[2] >= 0.5 and w[3] >= 4]
+    if len(good) < 2: return "unknown", None, f"too little speech or subtitle text to judge ({len(good)}/{len(windows)} usable samples)"
+    offs = [w[1] for w in good]; spread = max(offs) - min(offs); med = sorted(offs)[len(offs) // 2]
+    if spread > 0.7: return "drift", med, f"drift: {good[0][1]:+.1f}s at {good[0][0]:.0%} -> {good[-1][1]:+.1f}s at {good[-1][0]:.0%} ({len(good)}/{len(windows)} samples)"
+    if abs(med) < SUBSYNC_MIN_S: return "in sync", med, f"within {abs(med):.1f}s ({len(good)}/{len(windows)} samples agree)"
+    return ("late" if med > 0 else "early"), med, f"{abs(med):.1f}s {'late' if med > 0 else 'early'} ({len(good)}/{len(windows)} samples agree)"
+def _asr_segments(path, start, dur, audio_stream=None, lang2=None):
+    """Speech segments (start, end) relative to the window, from the Whisper endpoint's json output."""
+    wav = os.path.join(CONFIG_DIR, f"sync-{os.getpid()}-{int(start)}.wav")
+    try:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-t", str(dur), "-i", path] + (["-map", f"0:{audio_stream}"] if audio_stream is not None else []) + ["-vn", "-ac", "1", "-ar", "16000", wav], capture_output=True, timeout=300, check=True)
+        import uuid; bnd = uuid.uuid4().hex; body = (f"--{bnd}\r\nContent-Disposition: form-data; name=\"audio_file\"; filename=\"a.wav\"\r\nContent-Type: audio/wav\r\n\r\n").encode() + open(wav, "rb").read() + f"\r\n--{bnd}--\r\n".encode()
+        q = "task=transcribe&output=json&encode=false" + (f"&language={lang2}" if lang2 else ""); last = None
+        for base_url in SUBGEN_URLS:
+            try:
+                req = urllib.request.Request(f"{base_url.rstrip('/')}/asr?{q}", data=body, method="POST", headers={"Content-Type": f"multipart/form-data; boundary={bnd}"})
+                with urllib.request.urlopen(req, timeout=900) as r: j = json.loads(r.read().decode("utf-8", "replace"))
+                return [(float(x.get("start") or 0), float(x.get("end") or 0)) for x in (j.get("segments") or []) if (x.get("text") or "").strip()]
+            except Exception as e: last = e; log("sync whisper:", base_url, repr(e))
+        raise last or RuntimeError("no whisper endpoint")
+    finally:
+        try: os.remove(wav)
+        except OSError: pass
+def find_subtitle_source(path, pr):
+    """The subtitles a player would use: an external file in a preferred language first, else the first embedded text track. -> (kind, ref, lang2) or None."""
+    d, base = os.path.split(path); stem = os.path.splitext(base)[0].lower(); best = None
+    try: names = sorted(os.listdir(d))
+    except OSError: names = []
+    for n in names:
+        ln = n.lower(); ext = os.path.splitext(ln)[1]
+        if ext not in (".srt", ".ass", ".ssa", ".vtt") or not ln.startswith(stem): continue
+        rest = ln[len(stem):-len(ext)].strip(".").split("."); tags = [t for t in rest if t not in ("hi", "sdh", "forced", "cc", "default")]
+        if "forced" in rest: continue
+        lang = canon(tags[0]) if tags and len(tags[0]) in (2, 3) else "und"
+        score = (0 if lang in PREF_SUBS else 1 if lang == "und" else 2, len(rest))
+        if score[0] < 2 and (best is None or score < best[0]): best = (score, os.path.join(d, n), lang)
+    if best: return ("sidecar", best[1], TWO_LETTER.get(best[2], "en"))
+    subs = [st for st in pr.get("streams", []) if st.get("codec_type") == "subtitle" and st.get("codec_name") in TEXT_SUB_CODECS and canon((st.get("tags") or {}).get("language", "und") or "und") in (PREF_SUBS | {"und"}) and not is_signs(st) and not (st.get("disposition") or {}).get("forced")]
+    if subs: return ("embedded", subs[0]["index"], TWO_LETTER.get(canon((subs[0].get("tags") or {}).get("language", "und") or "und"), "en"))
+    return None
+def subtitle_sync_check(path, pr=None):
+    """Listen to three short samples and compare the speech times with the subtitle times. -> dict(status, offset, note, source, windows, lang2)."""
+    if pr is None:
+        ok, pr = ffprobe(path)
+        if not ok: return dict(status="unknown", note=f"ffprobe failed: {pr}", source=None)
+    src = find_subtitle_source(path, pr)
+    if not src: return dict(status="unknown", note="no text subtitles to check (picture subtitles cannot be timed this way)", source=None)
+    kind, ref, lang2 = src
+    dur = float((pr.get("format") or {}).get("duration") or 0); rd = real_duration(path) if dur else 0
+    if rd and abs(rd - dur) > 60: dur = rd
+    if not dur: return dict(status="unknown", note="no duration", source=src)
+    a = [st for st in pr.get("streams", []) if st.get("codec_type") == "audio"]
+    a_pick = next((st for st in a if canon((st.get("tags") or {}).get("language", "und") or "und") in PREF_AUDIO), a[0] if a else None)
+    alang = canon((a_pick.get("tags") or {}).get("language", "und") or "und") if a_pick else "und"; audio_stream = a_pick["index"] if a_pick else None
+    asr_lang = TWO_LETTER.get(alang) if alang not in ("und", "") else None
+    all_cues = parse_sub_cues(open(ref, encoding="utf-8-sig", errors="replace").read()) if kind == "sidecar" else None
+    windows = []
+    for start, wlen in sync_windows(dur):
+        if kind == "sidecar": subs = [s_ - start for s_, e_ in all_cues if start <= s_ <= start + wlen + 5]
+        else:
+            o = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(start), "-t", str(wlen), "-i", path, "-map", f"0:{ref}", "-f", "srt", "-"], capture_output=True, text=True, timeout=180).stdout
+            subs = [s_ for s_, e_ in parse_sub_cues(o) if s_ <= wlen + 5]
+        asr = [s_ for s_, e_ in _asr_segments(path, start, wlen, audio_stream, asr_lang)]
+        off, support, matched = estimate_offset(subs, asr); windows.append((start / dur, off, support, matched))
+    status, off, note = decide_sync(windows)
+    return dict(status=status, offset=off, note=note, source=src, windows=windows, lang2=lang2)
+def _subsync_job(job):
+    """Background job: check one file; out of sync -> a SUBS_OUT_OF_SYNC finding (or refresh it); in sync -> clear it."""
+    t0 = time.time(); conn = db()
+    try:
+        try: r = subtitle_sync_check(job["path"])
+        except Exception as e: r = dict(status="unknown", note=err_result(e), source=None)
+        code = "SUBS_OUT_OF_SYNC"; fidh = hashlib.sha1(f"{job['app']}|{job['fid']}|{code}".encode()).hexdigest()[:16]; src = r.get("source"); now = time.time()
+        src_txt = f"external '{os.path.basename(src[1])}'" if src and src[0] == "sidecar" else f"embedded track {src[1]}" if src else "no subtitles"
+        if r["status"] in ("late", "early", "drift"):
+            detail = f"{src_txt}: subtitles {r['note']} | {'fix: re-time in Bazarr' if r['status'] == 'drift' else 'fix: shift'} | lang={r.get('lang2')} | src={src[0]}:{src[1]}"
+            if ignored(load_ignores(), code, job["label"], fidh): res = f"OUT OF SYNC but ignored by rule: {r['note']}"
+            else:
+                row = conn.execute("SELECT first_seen, resolved_at FROM finding WHERE id=?", (fidh,)).fetchone()
+                if row is None or row[1] is not None: conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, job["app"], job["fid"], code, "medium", job["label"], job["path"], detail, now, now))
+                else: conn.execute("UPDATE finding SET last_seen=?, detail=?, path=? WHERE id=?", (now, detail, job["path"], fidh))
+                res = f"OUT OF SYNC: {r['note']}"
+        elif r["status"] == "in sync":
+            if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "subtitles in sync")
+            res = f"in sync: {r['note']}"
+        else: res = f"could not judge: {r['note']}"
+        record_action(conn, "on", "subsync", job["app"], job["fid"], job["label"], f"subtitle timing check by {job['actor']} ({src_txt}, {time.time() - t0:.0f}s)", res[:300])
+        conn.commit(); refresh_reports(conn)
+    finally: conn.close()
+def shift_subtitle_file(src, seconds, dst):
+    """Rewrite an SRT / VTT / ASS file with every time moved by -seconds (subtitles that run late are pulled earlier)."""
+    txt = open(src, encoding="utf-8-sig", errors="replace").read()
+    def fmt(t, style):
+        t = max(0.0, t); h = int(t // 3600); m = int(t % 3600 // 60); s_ = int(t % 60); ms = int(round((t - int(t)) * 1000))
+        if ms == 1000: s_ += 1; ms = 0
+        return f"{h:02d}:{m:02d}:{s_:02d}{style}{ms:03d}" if style in (",", ".") else f"{h}:{m:02d}:{s_:02d}.{ms // 10:02d}"
+    def cue(m): sep = "," if "," in m.group(1) else "."; return fmt(_ts(m.group(1)) - seconds, sep) + " --> " + fmt(_ts(m.group(2)) - seconds, sep)
+    out = re.sub(r"(\d+:\d\d:\d\d[,.]\d{1,3})\s*-->\s*(\d+:\d\d:\d\d[,.]\d{1,3})", cue, txt)
+    if out == txt: out = re.sub(r"^(Dialogue:\s*\d+,)(\d+:\d\d:\d\d[.,]\d{1,3}),(\d+:\d\d:\d\d[.,]\d{1,3})", lambda m: m.group(1) + fmt(_ts(m.group(2)) - seconds, "ass") + "," + fmt(_ts(m.group(3)) - seconds, "ass"), txt, flags=re.M)
+    open(dst, "w", encoding="utf-8").write(out)
+def bazarr_sub_path(kind, id_, lang2):
+    """The path Bazarr itself uses for the external subtitle of this episode/movie (its mounts may differ from ours)."""
+    try:
+        rows = (bazarr_call(f"episodes?episodeid[]={id_}" if kind == "episode" else f"movies?radarrid[]={id_}") or {}).get("data") or []
+        for s_ in (rows[0].get("subtitles") or []) if rows else []:
+            if s_.get("path") and s_.get("code2") == lang2: return s_["path"]
+    except Exception as e: log("bazarr sub path:", repr(e))
+    return None
+def subsync_fix(conn, f, apps, actor, body):
+    """Re-time the subtitles named in a SUBS_OUT_OF_SYNC finding: a constant offset is fixed here (external file rewritten, embedded track remuxed losslessly); drift is handed to Bazarr's sync."""
+    from urllib.parse import urlencode
+    d = (conn.execute("SELECT detail FROM finding WHERE id=?", (f["id"],)).fetchone() or [""])[0] or ""
+    m = re.search(r"src=(sidecar|embedded):(.+?)(?: \||$)", d); off_m = re.search(r"(\d+(?:\.\d+)?)s (late|early)", d)
+    if not m: return 400, {"error": "this finding has no subtitle source recorded - press 'Check subtitle timing' again first"}
+    kind, ref = m.group(1), m.group(2); drift = "drift:" in d; path = f["path"]; lang2 = (re.search(r"lang=(\w\w)", d) or [None, "en"])[1]
+    if drift or body.get("bazarr"):
+        if kind != "sidecar": return 400, {"error": "the drifting subtitles are inside the video file and Bazarr can only re-time an external one - 'Find subtitles' or 'Make AI subtitles' gives you a file that fits"}
+        if not bazarr_conf()[1]: return 400, {"error": "no Bazarr API key - cannot ask Bazarr to re-time"}
+        try: info = arr_file_info(apps, f["app"], f["fid"], path)
+        except Exception as e: return 409, {"error": str(e)}
+        ids = dict(type="episode", id=info["ep_ids"][0]) if info["kind"] == "series" and info["ep_ids"] else dict(type="movie", id=info["parent_id"])
+        bpath = bazarr_sub_path(ids["type"], ids["id"], lang2) or ref
+        bazarr_call(f"subtitles?{urlencode(dict(action='sync', language=lang2, path=bpath, **ids))}", data={}, method="PATCH", timeout=900)
+        record_action(conn, "on", "subsync-fix", f["app"], f["fid"], f["label"], f"Bazarr sync of {os.path.basename(ref)} by {actor}", "asked Bazarr to re-time it against the audio; the timing is checked again afterwards")
+        enqueue(dict(type="subsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor="re-check after Bazarr sync", prio=3)); refresh_reports(conn)
+        return 200, {"ok": True, "queued": True, "note": "Bazarr is re-timing the subtitles against the audio; the timing is checked again when it is done"}
+    if not off_m: return 400, {"error": "no offset recorded on this finding"}
+    seconds = float(off_m.group(1)) * (1 if off_m.group(2) == "late" else -1)
+    if kind == "sidecar":
+        if not os.path.exists(ref): return 404, {"error": "the subtitle file is gone"}
+        tmp = ref + ".retimed.tmp"; shift_subtitle_file(ref, seconds, tmp)
+        dest, _ = quarantine(conn, ref, f"ui subsync_fix by {actor}: moved {-seconds:+.2f}s", "regrab", sidecars=False); os.rename(tmp, ref)
+        try: st0 = os.stat(dest); os.chmod(ref, st0.st_mode & 0o777); os.chown(ref, st0.st_uid, st0.st_gid)
+        except OSError: pass
+        how = f"external file rewritten, every line moved {-seconds:+.2f}s; original -> {dest}"
+    else:
+        if not path or not path.lower().endswith(".mkv"): return 400, {"error": "embedded subtitles can only be re-timed inside .mkv files"}
+        ok, pr = ffprobe(path)
+        if not ok: return 500, {"error": "ffprobe failed", "detail": pr}
+        try: mk = json.loads(subprocess.run(["mkvmerge", "-J", path], capture_output=True, text=True, timeout=120).stdout)
+        except Exception as e: return 500, {"error": f"mkvmerge -J failed: {e!r}"}
+        subs_ff = [s_ for s_ in pr.get("streams", []) if s_.get("codec_type") == "subtitle"]; subs_mk = [t for t in mk.get("tracks", []) if t.get("type") == "subtitles"]
+        pos = next((i for i, s_ in enumerate(subs_ff) if str(s_["index"]) == str(ref)), None)
+        if pos is None or pos >= len(subs_mk): return 500, {"error": "could not map the subtitle track between ffprobe and mkvmerge"}
+        tid = subs_mk[pos]["id"]; tmp = path[:-4] + ".subsync.tmp.mkv"; cmd = ["mkvmerge", "-o", tmp, "--sync", f"{tid}:{int(round(-seconds * 1000))}", path]
+        try:
+            guard_write("mkvmerge remux"); p_ = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
+            if p_.returncode not in (0, 1): raise RuntimeError((p_.stderr or p_.stdout)[-400:])
+            ok2, pr2 = ffprobe(tmp)
+            if not ok2 or len(pr2.get("streams", [])) != len(pr.get("streams", [])): raise RuntimeError("remuxed file unreadable or track count changed")
+        except Exception as e:
+            try: os.remove(tmp)
+            except OSError: pass
+            return 500, {"error": f"remux failed, original untouched: {e}"}
+        dest, _ = quarantine(conn, path, f"ui subsync_fix by {actor}: subtitle track {tid} moved {-seconds:+.2f}s", "regrab", sidecars=False); os.rename(tmp, path)
+        try: st0 = os.stat(dest); os.chmod(path, st0.st_mode & 0o777); os.chown(path, st0.st_uid, st0.st_gid)
+        except OSError: pass
+        conn.execute("DELETE FROM probe WHERE path=?", (path,)); how = f"lossless remux, subtitle track moved {-seconds:+.2f}s; original -> {dest}"
+    resolve_finding(conn, f["id"], "subtitles re-timed"); plx = plex_refresh(path)
+    record_action(conn, "on", "subsync-fix", f["app"], f["fid"], f["label"], f"subtitles re-timed by {actor}", f"{how}; {plx}")
+    enqueue(dict(type="subsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor="re-check after re-timing", prio=3)); refresh_reports(conn)
+    return 200, {"ok": True, "dest": dest, "note": f"subtitles moved {-seconds:+.1f}s; the timing is checked again in a minute, and the original is in the trash for {TRASH_DAYS} days"}
+def recent_subtitle_paths(paths, days):
+    """Of these video paths, the ones whose external text subtitle changed in the last `days` days (one folder listing per folder)."""
+    cut = time.time() - days * 86400; dirs = {}; out = set()
+    for path in paths:
+        d = os.path.dirname(path)
+        if d not in dirs:
+            try: dirs[d] = {n.lower(): os.stat(os.path.join(d, n)).st_mtime for n in os.listdir(d) if os.path.splitext(n)[1].lower() in (".srt", ".ass", ".ssa", ".vtt")}
+            except OSError: dirs[d] = {}
+        stem = os.path.splitext(os.path.basename(path))[0].lower()
+        if any(n.startswith(stem) and mt >= cut for n, mt in dirs[d].items()): out.add(path)
+    return out
+def do_auto_subsync(conn, apps, items, plan=None):
+    """Nightly: queue subtitle timing checks for files whose external subtitles are new, and for what people are watching. Returns the number queued."""
+    mode = gate(setting("AUTO_SUBSYNC"), "AUTO_SUBSYNC")
+    if mode == "off" or not SUBGEN_URLS: return 0
+    mx = int(setting("AUTO_SUBSYNC_MAX")); days = int(setting("AUTO_SUBSYNC_DAYS"))
+    if items is None:
+        if plan is not None: plan.append(dict(label=f"up to {mx} files whose subtitles changed in the last {days} days, or are being watched", why="listen to three samples and compare with the subtitle times"))
+        return 0
+    recent = {l for (l,) in conn.execute("SELECT label FROM action WHERE kind='subsync' AND ts > ?", (time.time() - 30 * 86400,))}
+    open_ = {(a, f) for a, f in conn.execute("SELECT app, fid FROM finding WHERE resolved_at IS NULL AND check_code='SUBS_OUT_OF_SYNC'")}
+    cands = [it for it in items if it.get("path") and it["app"] in ("sonarr", "radarr") and not it.get("missing") and it["label"] not in recent and (it["app"], it["fid"]) not in open_]
+    up = upcoming_map(conn); fresh = recent_subtitle_paths([it["path"] for it in cands], days)
+    picks = [it for it in cands if (it["app"], it["fid"]) in up] + [it for it in cands if it["path"] in fresh and (it["app"], it["fid"]) not in up]
+    n = 0
+    for it in picks[:mx]:
+        if plan is not None: plan.append(dict(label=it["label"], why="being watched" if (it["app"], it["fid"]) in up else f"subtitles changed in the last {days} days")); n += 1; continue
+        if mode == "dryrun": record_action(conn, "dryrun", "subsync", it["app"], it["fid"], it["label"], "would check subtitle timing", "dryrun"); n += 1; continue
+        enqueue(dict(type="subsync", fid=it["fid"], app=it["app"], path=it["path"], label=it["label"], actor="nightly")); n += 1
+    return n
+def ui_subsync(conn, body, actor):
+    """{show, season?} or {movie} -> queue a subtitle timing check for every file of that title."""
+    apps = arr_apps(); q = (body.get("show") or body.get("movie") or "").strip().lower(); season = body.get("season"); jobs = []
+    if not q: return 400, {"error": "need show or movie"}
+    if body.get("movie"):
+        if "radarr" not in apps: return 400, {"error": "Radarr is not connected"}
+        base, key, _ = apps["radarr"]; m = next((x for x in api(base, key, "movie") if x["title"].lower().startswith(q)), None)
+        if not m or not (m.get("movieFile") or {}).get("path"): return 404, {"error": f"no Radarr movie with a file starting with {q!r}"}
+        jobs.append(dict(type="subsync", app="radarr", fid=m["movieFile"]["id"], path=m["movieFile"]["path"], label=f"{m['title']} ({m.get('year')})", actor=actor, prio=3))
+    else:
+        if "sonarr" not in apps: return 400, {"error": "Sonarr is not connected"}
+        base, key, _ = apps["sonarr"]; srs = next((x for x in api(base, key, "series") if x["title"].lower().startswith(q)), None)
+        if not srs: return 404, {"error": f"no Sonarr series starting with {q!r}"}
+        eps = {e["episodeFileId"]: e for e in api(base, key, f"episode?seriesId={srs['id']}") if e.get("episodeFileId")}
+        for ef in api(base, key, f"episodefile?seriesId={srs['id']}"):
+            e = eps.get(ef["id"])
+            if not e or not ef.get("path"): continue
+            if season not in (None, "", 0) and int(e["seasonNumber"]) != int(season): continue
+            jobs.append(dict(type="subsync", app="sonarr", fid=ef["id"], path=ef["path"], label=f"{srs['title']} S{e['seasonNumber']:02d}E{e['episodeNumber']:02d}", actor=actor, prio=3))
+        jobs.sort(key=lambda j: j["label"])
+    if not jobs: return 404, {"error": "nothing matched (no files for that selection)"}
+    jobs = jobs[:40]
+    for j in jobs: enqueue(j)
+    record_action(conn, "on", "subsync", jobs[0]["app"], len(jobs), jobs[0]["label"].rsplit(" S", 1)[0] if body.get("show") else jobs[0]["label"], f"timing checks queued by {actor}", f"{len(jobs)} file(s) queued; about a minute each"); refresh_reports(conn)
+    return 200, {"ok": True, "queued": len(jobs), "note": f"{len(jobs)} timing check(s) queued, about a minute each - files that are out of step show up as findings with a Re-time button"}
 def _verify_job(job):
     t0 = time.time()
     try: concl, det = verify_content(job["app"], job["fid"], job["path"], job["parent_id"], job["ep_ids"], arr_apps())
@@ -2878,7 +3137,7 @@ def sub_worker(q=None):
         finally: conn.close()
         try:
             if E("JOBS", "on") == "off": st = "skipped"   # staging copy: record, never run (would hit the real Bazarr/Whisper)
-            else: ({"whisper": _whisper_job, "verify": _verify_job}.get(job.get("type"), _subsearch))(job); st = "done"
+            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job}.get(job.get("type"), _subsearch))(job); st = "done"
         except Exception as e: note_error("sub worker:", repr(e)); st = "failed"
         finally:
             conn = db()
@@ -2980,7 +3239,7 @@ def today_summary(conn, since=None):
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
         key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
-               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
+               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
         if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
@@ -3354,6 +3613,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/purge": code, obj = ui_purge(conn, body, actor)
             elif p == "/api/settings": code, obj = ui_settings_post(conn, body, actor)
             elif p == "/api/whisper": code, obj = ui_whisper(conn, body, actor)
+            elif p == "/api/subsync": code, obj = ui_subsync(conn, body, actor)
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
             elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
             elif p == "/api/update": code, obj = ui_update(conn, actor)

@@ -2,7 +2,7 @@
 Proves the whole chain: listing -> probing -> findings -> API actions move real files -> Undo brings them back -> arr commands go out,
 then hands the live page to the real-browser bot (uibot/browser_bot.js) which clicks the real buttons.
 Needs: a writable /data (CI: sudo mkdir -p /data && sudo chown $USER /data), ffmpeg, node + playwright in uibot/.  Exit 1 on failure."""
-import json, os, shutil, subprocess, sys, time, tempfile, urllib.request, urllib.error, socket
+import re, json, os, shutil, subprocess, sys, time, tempfile, urllib.request, urllib.error, socket
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from synthlib import make  # noqa: E402
@@ -39,7 +39,7 @@ env = dict(os.environ, CONFIG_DIR=CFG, REPORT_DIR=os.path.join(CFG, "reports"), 
            RUN_AT="23:59", RUN_ON_START="1", SONARR_URL=f"{MURL}/sonarr", SONARR_APIKEY="test", RADARR_URL=f"{MURL}/radarr", RADARR_APIKEY="test", WHISPARR_APIKEY="",
            BAZARR_URL=f"{MURL}/bazarr", BAZARR_APIKEY="test", PLEX_CHECK="off", PLEX_REFRESH="off", PLEX_TOKEN="", PAPERCLIP="off", NTFY_URL="", TRASH_DIR=TRASH,
            DEDUPE="off", REMEDIATE="off", SUBTAG="off", AUTO_FIXHEADER="off", AUTO_VERIFY="off", AUTO_WHISPER="off", AUTO_ACCEPTLANG="off", TRACK_PREFS="off", ARR_RESCAN="on",
-           MISSING_MIN_DAYS="3", SUBGEN_URLS="", DOCKER_API="", PROBE_WORKERS="2", TAUTULLI_INI=os.path.join(CFG, "none.ini"), DISCOVER_EXTRA=f"{MURL}/sonarr,{MURL}/radarr,{MURL}/bazarr")
+           MISSING_MIN_DAYS="3", SUBGEN_URLS=f"{MURL}/whisper", DOCKER_API="", PROBE_WORKERS="2", TAUTULLI_INI=os.path.join(CFG, "none.ini"), DISCOVER_EXTRA=f"{MURL}/sonarr,{MURL}/radarr,{MURL}/bazarr")
 log = open(os.path.join(CFG, "daemon.log"), "w")
 daemon = subprocess.Popen([sys.executable, os.path.join(ROOT, "audit.py"), "--daemon"], env=env, stdout=log, stderr=subprocess.STDOUT)
 BASE = f"http://127.0.0.1:{PORT}"
@@ -221,6 +221,30 @@ if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     if "Executable doesn't exist" in (p.stderr + p.stdout): print("SKIP browser bot (Chromium not downloaded here; CI runs it)")
     else: check("real-browser bot passes against the live app", p.returncode == 0, "; ".join(bad)[:200] or p.stderr[-300:])
 else: print("SKIP browser bot (uibot/node_modules/playwright missing)")
+# F20: subtitle timing. S01E01 gets an English subtitle file whose lines all run 3 s behind the (fake) speech; the check must measure that, the Re-time button must fix it.
+SPEECH = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5]   # = mock_stack.SPEECH, relative to each window
+def srt_time(t): h = int(t // 3600); m = int(t % 3600 // 60); s_ = int(t % 60); return f"{h:02d}:{m:02d}:{s_:02d},{int(round((t - int(t)) * 1000)):03d}"
+windows = [(0.5, 8.0), (11.0, 8.0), (21.5, 8.0)]   # audit.sync_windows(30) - pinned by tests/subsync.py
+cues = sorted({round(ws + t + 3.0, 3) for ws, wl in windows for t in SPEECH if t < wl - 0.5})
+side = os.path.splitext(W["files"][0]["path"])[0] + ".en.srt"
+open(side, "w").write("".join(f"{i+1}\n{srt_time(t)} --> {srt_time(t + 1.0)}\nline {i+1}\n\n" for i, t in enumerate(cues)))
+s, j = api("/api/subsync", {"show": "alpha show"}); check("the timing tool queues a check for every file of the show", s == 200 and j.get("queued") == 3, (s, j))
+for _ in range(60):
+    time.sleep(1); s, st = api("/api/state"); hit = next((f for f in st.get("findings", []) if f["check"] == "SUBS_OUT_OF_SYNC" and "S01E01" in f["title"]), None)
+    if hit: break
+check("the file with the late subtitles becomes a SUBS_OUT_OF_SYNC finding", hit is not None, [f["check"] for f in st.get("findings", []) if "S01E01" in f["title"]])
+check("…measured at about 3 s late, from the external file", hit and re.search(r"\b(2\.[89]|3\.[0-2])s late", hit["detail"]) and "external" in hit["detail"], hit and hit["detail"][:160])
+check("…and explained in plain words", hit and "about 3 seconds late" in hit["plain"], hit and hit["plain"])
+s, j = api("/api/act", {"id": hit["id"], "action": "subsync_fix"}) if hit else (0, {})
+check("Re-time rewrites the subtitle file and clears the finding", s == 200 and os.path.exists(side), (s, j))
+import re as _re
+t0 = _re.search(r"(\d\d:\d\d:\d\d,\d{3}) -->", open(side).read()).group(1); check("…every line moved 3 s earlier", t0 == srt_time(cues[0] - 3.0), (t0, srt_time(cues[0] - 3.0)))
+for _ in range(60):
+    time.sleep(1); s, st = api("/api/state"); gone = not any(f["check"] == "SUBS_OUT_OF_SYNC" for f in st.get("findings", []))
+    s2, hist = api("/api/history"); rechecked = [a for a in (st.get("jobs", {}).get("recent") or []) if a.get("type") == "subsync" and a.get("status") == "done"]
+    if gone and len(rechecked) >= 4: break
+check("the re-check after re-timing finds the subtitles in sync and the finding stays cleared", gone, [f["check"] for f in st.get("findings", []) if "S01E01" in f["title"]])
+check("the other two files report no text subtitles rather than failing", not any(f["check"] == "SUBS_OUT_OF_SYNC" and "S01E0[23]" in f["title"] for f in st.get("findings", [])))
 # Q25: nothing unexpected may have happened during all of the above
 errlog = os.path.join(CFG, "reports", "errors.log"); errtxt = open(errlog, encoding="utf-8", errors="replace").read() if os.path.exists(errlog) else ""
 check("no unexpected error was recorded during the whole stack test (errors.log empty)", not errtxt.strip(), errtxt[-600:])

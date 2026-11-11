@@ -45,7 +45,9 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path); q = parse_qs(u.query); parts = u.path.strip("/").split("/")
         if u.path == "/__calls": return self._send(200, self.server.calls)
         if u.path == "/__reset": self.server.calls.clear(); return self._send(200, {"ok": True})
-        app = parts[0] if parts else ""; body = self._body() if method != "GET" else None
+        app = parts[0] if parts else ""
+        if app == "whisper": return self._asr(parts[1:], q)   # fake Whisper: speech at fixed irregular times, so a shifted subtitle file is measurable
+        body = self._body() if method != "GET" else None
         ch = getattr(self.server, "chaos", None)   # Q15: random 500s, slow answers, one service vanishing mid-run
         if ch and app in ("sonarr", "radarr", "whisparr", "bazarr"):
             ch["n"][app] = ch["n"].get(app, 0) + 1; r = ch["rnd"].random()
@@ -61,6 +63,13 @@ class Handler(BaseHTTPRequestHandler):
         if app in ("sonarr", "radarr", "whisparr"): return self._arr(app, method, parts[1:], q, body)
         if app == "bazarr": return self._bazarr(method, parts[1:], q, body)
         return self._send(404, {})
+    SPEECH = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5, 31.0, 33.4, 35.2, 37.7, 38.9, 41.3, 43.0, 45.6, 47.2, 49.9, 51.4, 53.8, 55.1, 57.6, 59.0]
+    def _asr(self, parts, q):
+        n = int(self.headers.get("Content-Length") or 0); self.rfile.read(n) if n else b""
+        if parts != ["asr"] or (q.get("output") or [""])[0] != "json": return self._send(503, {"error": "mock whisper only answers json timing requests"})
+        secs = max(0.0, (n - 300) / 32000.0)   # 16 kHz mono 16-bit wav -> seconds in the window
+        self.server.calls.append(dict(app="whisper", method="POST", path="/asr", query=q, body={"seconds": round(secs, 1)}))
+        return self._send(200, {"text": "la", "segments": [{"start": t, "end": t + 1.0, "text": "la la"} for t in self.SPEECH if t < secs - 0.5]})
     def _arr(self, app, method, parts, q, body):
         W = self.server.world
         if parts == ["ping"]: return self._send(200, {"status": "OK"})
@@ -112,6 +121,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == "episodes/subtitles" and method == "PATCH": return self._send(204)
         if p == "movies/subtitles" and method == "PATCH": return self._send(204)
         if p in ("episodes/history", "movies/history"): return self._send(200, {"data": []})
+        if p == "subtitles" and method == "PATCH": return self._send(204)   # sync / translate / mods
+        if p == "episodes" and q.get("episodeid[]"): return self._send(200, {"data": [{"sonarrEpisodeId": int(q["episodeid[]"][0]), "subtitles": []}]})
+        if p == "movies" and q.get("radarrid[]"): return self._send(200, {"data": [{"radarrId": int(q["radarrid[]"][0]), "subtitles": []}]})
         if p.startswith("providers/"): return self._send(200, {"data": []} if method == "GET" else {})
         if p == "system/settings": return self._send(204 if method == "POST" else 200, None if method == "POST" else {})
         if p == "system/status": return self._send(200, {"data": {"bazarr_version": "1.4.0"}})

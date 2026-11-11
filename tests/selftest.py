@@ -47,6 +47,10 @@ random.seed(int(time.time()) // 86400)
 for code in sorted(by):
     for _, sev, label, path, detail in random.sample(by[code], min(N, len(by[code]))):
         if not os.path.exists(path): continue
+        try:   # a file rewritten after it was flagged (a label set, a remux) is not a detector failure: the next check decides, this one skips
+            seen_at = next((r[0] for r in c.execute("SELECT last_seen FROM finding WHERE path=? AND check_code=? AND resolved_at IS NULL", (path, code))), None)
+            if seen_at and os.path.getmtime(path) > float(seen_at) + 1: print(f"skip detector {code}: {label[:40]} (file changed after it was flagged)"); continue
+        except Exception: pass
         try:
             pr = probe(path)
             if not pr.get("streams"): time.sleep(3); pr = probe(path)   # a file being moved/rewritten at this very second is not a detector failure

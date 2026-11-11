@@ -1663,11 +1663,8 @@ def run_once():
     def upsert(app, fid, code, sev, label, path, detail):
         fidh = hashlib.sha1(f"{app}|{fid}|{code}".encode()).hexdigest()[:16]
         if ignored(rules, code, label, fidh): return
-        seen.add(fidh); row = conn.execute("SELECT first_seen, resolved_at FROM finding WHERE id=?", (fidh,)).fetchone()
-        if row is None or row[1] is not None:
-            conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, app, fid, code, sev, label, path, detail, started, started))
-            new.append((sev, code, label, detail)); progress(recent=[f"[{sev}] {code}: {label} - {detail}"])
-        else: conn.execute("UPDATE finding SET last_seen=?, detail=?, severity=?, label=?, path=?, seen_runs=seen_runs+1 WHERE id=?", (started, detail, sev, label, path, fidh))
+        seen.add(fidh)
+        if upsert_finding(conn, fidh, app, fid, code, sev, label, path, detail, started, count_run=True) == "new": new.append((sev, code, label, detail)); progress(recent=[f"[{sev}] {code}: {label} - {detail}"])
     progress("checking", "running checks", 0, len(items)); profile = series_language_profile(items); rt_profile = season_runtime_profile(items)
     found = {}; REALDUR_CACHE.clear(); REALDUR_CACHE.update({r[0]: (r[1], r[2]) for r in conn.execute("SELECT path, mtime, dur FROM realdur")}); REALDUR_BUDGET["left"] = REALDUR_MAX
     for n_it, it in enumerate(items):
@@ -1898,6 +1895,14 @@ def clear_working(conn, path=None, app=None, afid=None):
     for fid_, d_ in rows: conn.execute("UPDATE finding SET detail=? WHERE id=?", (d_.split("] || ", 1)[1] if "] || " in d_ else d_, fid_))
     if rows: conn.commit()
     return len(rows)
+def upsert_finding(conn, fidh, app, fid, code, sev, label, path, detail, started, count_run=False):
+    """Write a finding a check just produced. -> 'new' | 'kept' | 'skipped'. A finding resolved at or after `started` was fixed while this check
+    was running (a button pressed mid-audit): the check's older view must not re-open it - the next check decides."""
+    row = conn.execute("SELECT first_seen, resolved_at FROM finding WHERE id=?", (fidh,)).fetchone()
+    if row and row[1] is not None and float(row[1]) >= float(started) - 1: return "skipped"
+    if row is None or row[1] is not None:
+        conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, app, fid, code, sev, label, path, detail, started, started)); return "new"
+    conn.execute(f"UPDATE finding SET last_seen=?, detail=?, severity=?, label=?, path=?{', seen_runs=seen_runs+1' if count_run else ''} WHERE id=?", (started, detail, sev, label, path, fidh)); return "kept"
 def resolve_finding(conn, fid, note=None):
     conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); conn.commit()
 def add_ignore_rule(line):
@@ -2256,9 +2261,7 @@ def audit_one(app, parent_id, path, reason):
             for code, sev, detail in check(it, bz_eps, bz_movs, profile, rt_profile):
                 fidh = hashlib.sha1(f"{app}|{it['fid']}|{code}".encode()).hexdigest()[:16]
                 if ignored(rules, code, it["label"], fidh): continue
-                row = conn.execute("SELECT first_seen, resolved_at FROM finding WHERE id=?", (fidh,)).fetchone()
-                if row is None or row[1] is not None: conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, app, it["fid"], code, sev, it["label"], it["path"], detail, started, started))
-                else: conn.execute("UPDATE finding SET last_seen=?, detail=?, severity=?, label=?, path=? WHERE id=?", (started, detail, sev, it["label"], it["path"], fidh))
+                upsert_finding(conn, fidh, app, it["fid"], code, sev, it["label"], it["path"], detail, started)
                 out.append((sev, code, it["label"], detail))
         for it in targets:   # an import re-check also clears this file's earlier findings that are gone now (a replaced or re-tagged file), instead of leaving them until the night
             still = {c for _, c, l, _ in out if l == it["label"]}
@@ -2384,7 +2387,7 @@ def ui_act(conn, body, actor):
                 return 500, {"error": "the rewritten file did not verify after the swap; the original was put back. Nothing changed. (This protects against a storage hiccup; try again later or report it.)"}
         conn.execute("DELETE FROM probe WHERE path=?", (path,)); resolve_finding(conn, fid)
         resc = rescan_for_path(apps, path) if f["app"] in apps else ""; plx = plex_refresh(path)
-        record_action(conn, "on", "fixtag", f["app"], f["fid"], f["label"], f"set audio track(s) {targets} language={lang} via UI by {actor}", f"mkvpropedit rc={p.returncode}; {resc}; {plx}")
+        record_action(conn, "on", "fixtag", f["app"], f["fid"], f["label"], f"set audio track(s) {targets} language={lang} via UI by {actor}", f"{'mkvpropedit' if ext == '.mkv' else 'lossless mp4 remux'} rc={p.returncode}; {resc}; {plx}")
         refresh_reports(conn); return 200, {"ok": True, "tracks": targets, "lang": lang, "rescan": f"{resc}; {plx}"}
     if action == "search":
         if f["check"] not in ("MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE") or f["app"] not in apps: return 400, {"error": "search is for missing episodes/movies"}
@@ -3014,9 +3017,7 @@ def _subsync_job(job):
             detail = f"{src_txt}: subtitles {r['note']} | {'fix: re-time in Bazarr' if r['status'] == 'drift' else 'fix: shift'} | lang={r.get('lang2')} | src={src[0]}:{src[1]}"
             if ignored(load_ignores(), code, job["label"], fidh): res = f"OUT OF SYNC but ignored by rule: {r['note']}"
             else:
-                row = conn.execute("SELECT first_seen, resolved_at FROM finding WHERE id=?", (fidh,)).fetchone()
-                if row is None or row[1] is not None: conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, job["app"], job["fid"], code, "medium", job["label"], job["path"], detail, now, now))
-                else: conn.execute("UPDATE finding SET last_seen=?, detail=?, path=? WHERE id=?", (now, detail, job["path"], fidh))
+                upsert_finding(conn, fidh, job["app"], job["fid"], code, "medium", job["label"], job["path"], detail, now)
                 res = f"OUT OF SYNC: {r['note']}"
         elif r["status"] == "in sync":
             if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "subtitles in sync")

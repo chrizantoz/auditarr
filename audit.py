@@ -604,6 +604,13 @@ def db():
 def record_regrab(conn, app, kind, parent_id, fid, ep_ids, label, orig_path, dest, code, actor):
     conn.execute("INSERT INTO regrab(ts,app,kind,parent_id,fid,ep_ids,label,orig_path,trash_dest,code,status,note,actor) VALUES(?,?,?,?,?,?,?,?,?,?,'pending','waiting for the arr to import a replacement',?)",
                  (time.time(), app, kind, parent_id, fid, json.dumps(ep_ids or []), label, orig_path, dest, code, actor)); conn.commit()
+def sample_hash(path, chunk=4 << 20):
+    """Cheap fingerprint of a large media file: size + sha256 of the first, middle and last 4 MB (the MP4 index lives at one end)."""
+    h = hashlib.sha256(); size = os.path.getsize(path); h.update(str(size).encode())
+    with open(path, "rb") as fh:
+        for off in (0, max(0, size // 2 - chunk // 2), max(0, size - chunk)):
+            fh.seek(off); h.update(fh.read(chunk))
+    return h.hexdigest()
 def restore_file(dest, orig):
     """Move a quarantined file (and sidecars) back to its original path."""
     guard_write(f"restore {dest}")
@@ -1966,9 +1973,15 @@ def ui_act(conn, body, actor):
                 try: os.remove(tmp)
                 except OSError: pass
                 return 500, {"error": "mp4 remux failed, original untouched", "detail": (p.stderr or p.stdout)[-300:]}
-            dest, _ = quarantine(conn, path, f"ui fixtag mp4 remux by {actor}", "regrab", sidecars=False); os.rename(tmp, path)
+            sig_tmp = sample_hash(tmp); dest, _ = quarantine(conn, path, f"ui fixtag mp4 remux by {actor}", "regrab", sidecars=False); os.rename(tmp, path)
             try: st0 = os.stat(dest); os.chmod(path, st0.st_mode & 0o777); os.chown(path, st0.st_uid, st0.st_gid)
             except OSError: pass
+            ok3, pr3 = ffprobe(path); n_streams = len((pr3 or {}).get("streams", [])) if ok3 else 0   # S7: prove the file that now sits at the path is the one we verified
+            if not ok3 or n_streams < len(pr.get("streams", [])) or sample_hash(path) != sig_tmp:
+                try: restore_file(dest, path) if not os.path.exists(path) else (os.replace(dest, path))
+                except Exception as e2: log("fixtag mp4: rollback failed:", repr(e2))
+                record_action(conn, "on", "fixtag", f["app"], f["fid"], f["label"], f"mp4 remux by {actor}", f"REFUSED: the swapped file did not match the verified copy (streams {n_streams}, probe ok={ok3}) - original put back")
+                return 500, {"error": "the rewritten file did not verify after the swap; the original was put back. Nothing changed. (This protects against a storage hiccup; try again later or report it.)"}
         conn.execute("DELETE FROM probe WHERE path=?", (path,)); resolve_finding(conn, fid)
         resc = rescan_for_path(apps, path) if f["app"] in apps else ""; plx = plex_refresh(path)
         record_action(conn, "on", "fixtag", f["app"], f["fid"], f["label"], f"set audio track(s) {targets} language={lang} via UI by {actor}", f"mkvpropedit rc={p.returncode}; {resc}; {plx}")

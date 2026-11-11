@@ -60,6 +60,17 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🟢 **Q22** (2026-11-11) Published as [arr-mock](https://github.com/chrizantoz/arr-mock): the fake stack, chaos mode and `synthlib`, with a README and self-check. `tests/mock_stack.py` stays the source; sync by hand when it changes.
 - 🟢 **Q23** `docs/TESTING.md`: how the harness works (read-only staging + write ledger, per-check promotion gate, synthetic media, plain-language lint, fault drill) so other projects can copy the method.
 
+🤖 **Bots, third layer (added 2026-11-11 after a day of real misses, ranked)**
+Each of these would have caught something that reached production this week.
+- 🔴 **Q24** Real answers in the fake stack: a nightly job records sanitised API replies from a real Bazarr/Sonarr/Radarr/Plex (shapes and formats, titles replaced) and the mock replays them, so CI sees Bazarr's real date formats and field names. *Would have caught: the AI-subtitle `str >= float` crash, twice.*
+- 🔴 **Q25** No swallowed errors: every `except` that turns into an "ERROR …" result also writes the full traceback to `errors.log`; the end-to-end test and the staging soak fail if that file or the daemon log gains a line; the daily digest and the About health list show "errors in the last 24 h". *Would have given the line number instead of a one-line repr.*
+- 🔴 **Q26** Staging soak before promotion: the new image runs one full read-only nightly on real data, the UI bot clicks through staging, the self-test passes and zero ERROR actions are recorded; only then does the deploy script switch production. The findings of staging and production are diffed, and a new or vanished kind of problem blocks the switch.
+- 🔴 **Q27** Bot drift guard: the live bot and CI must run the same number of checks against the same page version (the page embeds its revision; the bot refuses a mismatch). *Would have flagged the stale page copy on day one: 34 checks live versus 46 in CI.*
+- 🔴 **Q28** Data-relative checks only: a lint rejects fixed counts in the bots (`> 5`), and a "tidy library" fixture (few kinds of problem, nothing urgent) joins the edge cases, since a clean library is what success looks like. *Would have caught the dropdown check.*
+- 🔴 **Q29** Settings type safety: one place parses every setting by its declared type, and a test saves every setting through the UI (which stores text) and then runs each code path that reads it. *Would have caught the whole class of text-versus-number bugs.*
+- 🔴 **Q30** CI watchdog: every step has a timeout, a scheduled weekly run exercises CI on a quiet day, and a failed scheduled run sends a push, so a broken runner, mirror or dependency shows up before a release needs it. *Today: five runs sat 25 to 50 minutes on a package mirror.*
+- 🔴 **Q31** Error budget in the open: the Today panel and the digest state "0 errors since yesterday" as a positive line, and any ERROR action older than one hour that has not been retried becomes a Needs-you row with a Retry button.
+
 ## 📦 Next: let someone else install it
 
 - 🟢 **L1** Setup wizard — the **Setup** tab asks for your Sonarr / Radarr / Bazarr / Plex addresses and keys, tests each one, keeps them in Auditarr's own database (masked afterwards) and checks that the media folders are visible; config-file mounts remain the hands-off alternative.

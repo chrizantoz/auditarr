@@ -2,6 +2,9 @@
 
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
+## Unreleased
+- Sign-in: the role written into the session cookie now comes from the account name alone; the password check is only the gate. Clears a scanner warning that mistook the role for the password. The read-only account can no longer share a name with the main account.
+
 ## v0.9.1 — 2026-11-11
 
 ### Added

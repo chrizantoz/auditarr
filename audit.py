@@ -100,13 +100,21 @@ def set_password(conn, user, password, persist=True, role="admin"):
         if not password: conf.pop("viewer", None)
         else:
             if len(password) < 8: raise ValueError("password must be at least 8 characters")
+            if (user or "viewer").strip()[:64] == old.get("user"): raise ValueError("the read-only account needs a different name from the main account")
             salt = secrets.token_hex(16); conf["viewer"] = {"user": (user or "viewer").strip()[:64], "salt": salt, "hash": hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()}
     else:
         if len(password or "") < 8: raise ValueError("password must be at least 8 characters")
+        if old.get("viewer") and (user or "admin").strip()[:64] == old["viewer"].get("user"): raise ValueError("the main account needs a different name from the read-only account")
         salt = secrets.token_hex(16); h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()
         conf = {"user": (user or "admin").strip()[:64], "salt": salt, "hash": h, "secret": old.get("secret") or secrets.token_hex(32), **({"viewer": old["viewer"]} if old.get("viewer") else {})}
     if persist: conn.execute("INSERT OR REPLACE INTO kv VALUES('auth',?)", (json.dumps(conf),)); conn.commit()
     AUTH["loaded"] = True; AUTH["conf"] = conf; return conf
+def account_role(conf, user):
+    """Which account a username names: 'admin', 'viewer' or None. Decided by the name alone, never by the password."""
+    if not conf or not user: return None
+    if user == conf.get("user"): return "admin"
+    if user == (conf.get("viewer") or {}).get("user"): return "viewer"
+    return None
 def check_password(conf, user, password):
     """-> 'admin', 'viewer' or None."""
     import hmac
@@ -3172,8 +3180,9 @@ class Handler(SimpleHTTPRequestHandler):
             from urllib.parse import parse_qs
             form = parse_qs(self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode("utf-8", "replace")); conf = auth_conf()
             user = (form.get("user") or [""])[0].strip(); pw = (form.get("password") or [""])[0]
-            role_ = check_password(conf, user, pw) if conf else None
-            if role_:
+            # the role written into the cookie comes from the username only; the password check is just the gate (CodeQL #9)
+            role_ = account_role(conf, user)
+            if role_ and check_password(conf, user, pw) == role_:
                 secure = "; Secure" if (self.headers.get("X-Forwarded-Proto") or "").lower() == "https" else ""
                 self.send_response(303); self.send_header("Set-Cookie", f"auditarr_s={session_cookie(conf, role=role_)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000{secure}"); self.send_header("Location", "/"); self.end_headers(); return
             time.sleep(1.5); log(f"login failed for {user!r} from {self.client_address[0]}"); return self._login_page(bad=True)

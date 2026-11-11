@@ -79,6 +79,14 @@ p = make("alpha.show.s01e01.truehd.mkv", seconds=5, aopts=["-c:a", "truehd", "-s
 if p: check("TrueHD-only audio -> TRUEHD_ONLY low", sev(item(p), "TRUEHD_ONLY") == "low", codes(item(p)))
 else: print("SKIP TRUEHD_ONLY (no truehd encoder)")
 
+# device profiles (F4): compatibility notes follow the players you own
+p = make("alpha.show.s01e01.hi10p2.mkv", vopts=["-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p10le"])
+os.environ["DEVICES"] = "desktop"; check("players that can play 10-bit -> no HI10P note", "HI10P" not in codes(item(p)), codes(item(p)))
+os.environ["DEVICES"] = "ps5,lg-tv"; r = audit.check(item(p), set(), set()); d = next((x[2] for x in r if x[0] == "HI10P"), "")
+check("players that cannot -> HI10P note names them", "affects: PlayStation 5, LG TV (webOS app)" in d, d)
+check("...and the sentence says so in plain words", "your PlayStation 5, LG TV (webOS app) cannot play it directly" in audit.plain_sentence("HI10P", "low", "x", d, "sonarr"), audit.plain_sentence("HI10P", "low", "x", d, "sonarr"))
+os.environ.pop("DEVICES", None)
+
 # a stale arr record: the path is gone
 it = item(ok_path); it["path"] = os.path.join(MEDIA, "gone.mkv"); it["missing"] = True
 check("arr lists a file that is not on disk -> MISSING_FILE high + rescan", sev(it, "MISSING_FILE") == "high" and it.get("needs_rescan"), codes(it))

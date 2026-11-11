@@ -21,7 +21,7 @@ jobs:
       - run: cd uibot && npx playwright install --with-deps chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
       - run: sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py
       - run: docker build -q -t auditarr:ci . && docker build -q -t auditarr-uibot:ci uibot
-      - uses: aquasecurity/trivy-action@0.28.0
+      - uses: aquasecurity/trivy-action@v0.33.1
         with: { image-ref: "auditarr:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1", format: "table" }
       - run: cd uibot && node visual_diff.js
       - uses: actions/upload-artifact@v4

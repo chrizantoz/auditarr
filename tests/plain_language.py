@@ -45,6 +45,7 @@ GOLDEN = [
   "The audio starts a moment after the video. That is intentional here (the video is cut at the same spot), nothing to do."),
  ("PLEX_MISSING", "medium", "Show S01E01", "file exists on disk, Plex has not indexed it", "sonarr", "The file is on disk but Plex has not picked it up. 'Refresh in Plex' makes it rescan the folder."),
  ("TITLE_MISMATCH", "low", "Show S01E02", "[verified 14:24: CONTENT MATCHES S01E02 (3/3 samples)] || embedded title 'x'", "sonarr", "Checked: the dialogue matches this episode. Safe to ignore."),
+ ("AV1", "low", "Show S01E01", "AV1 video - PS5 / older Shield / older TVs need a transcode | affects: PlayStation 5", "sonarr", "AV1 video: your PlayStation 5 cannot play it directly, so Plex transcodes for it."),
 ]
 for code, sev, label, detail, app, want in GOLDEN:
     got = audit.plain_sentence(code, sev, label, detail, app); check(f"golden {code}/{sev}", got == want, f"got: {got}")

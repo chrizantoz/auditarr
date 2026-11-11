@@ -36,6 +36,10 @@ The left column is the internal code (handy for searching); the middle column is
 
 🏷️ **Tell it how you want a title handled** with arr tags: `audit-ignore`, `audit-lang-xxx`, `audit-nosubs`, `audit-noremediate`. For one-offs, use `ignore.txt` or the ignore buttons in the UI.
 
+## 📺 Knows your players
+
+Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV, Roku, Samsung, Plex Web, desktop, phones). Compatibility notes about 10-bit video, AV1, Dolby Vision, lossless audio and interlacing then name the player that would need a transcode, and are dropped when none of yours cares.
+
 ## 🙂 Built for people, not just operators
 
 - Plain names and a one-sentence explanation on every finding; buttons are verbs. Codes, file paths and setting names stay out of the way (in **Advanced** view or tooltips).

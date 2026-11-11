@@ -149,6 +149,7 @@ SETTABLE = {   # env name: (kind, default, help)
  "WHISPARR_URL": ("url", "", "Whisparr address (optional)"), "WHISPARR_APIKEY": ("secret", "", "Whisparr API key (optional)"),
  "BAZARR_URL": ("url", "", "Bazarr address, e.g. http://192.168.1.10:6767"), "BAZARR_APIKEY": ("secret", "", "Bazarr API key (Settings > General); blank = env or the mounted config.yaml"),
  "PLEX_URL": ("url", "", "Plex address, e.g. http://192.168.1.10:32400"), "PLEX_TOKEN": ("secret", "", "Plex token (X-Plex-Token); blank = env or the mounted Preferences.xml"),
+ "DEVICES": ("csv", "", "players you own, comma list of keys (ps5, shield, lg-tv, ...): compatibility notes then name the affected player or disappear; blank = generic notes"),
  "DEDUPE": ("mode", "off", "quarantine unmanaged duplicate files next to the arr-managed copy"),
  "DEDUPE_MAX": ("int", "50", "max duplicates quarantined per run"), "DEDUPE_MIN_RUNS": ("int", "2", "a duplicate must be seen this many runs first"),
  "REMEDIATE": ("mode", "off", "quarantine a bad file and have the arr search again (needs REMEDIATE_CONFIRM in the container env for 'on')"),
@@ -203,6 +204,9 @@ def validate_setting(name, value):
         try: float(value)
         except ValueError: raise ValueError(f"{name}: must be a number")
     if kind == "csv": value = ",".join(p.strip() for p in value.split(",") if p.strip()) or SETTABLE[name][1]
+    if name == "DEVICES":
+        unknown = [d for d in value.split(",") if d and d not in DEVICE_PROFILES]
+        if unknown: raise ValueError(f"DEVICES: unknown player key(s) {unknown}; choose from {', '.join(DEVICE_PROFILES)}")
     if kind == "url" and value and not re.match(r"^https?://[^\s/]+", value): raise ValueError(f"{name}: must start with http:// or https:// and name a host")
     if kind == "url": value = value.rstrip("/")
     return value
@@ -249,6 +253,37 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "UNFOUND": "Nothing found for weeks",
  "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
 SEV_NAMES = {"critical": "Won't play", "high": "Wrong", "medium": "Waiting", "low": "FYI"}
+# F4: what common players can direct-play. True = plays as-is, False = Plex has to transcode (or it fails). Edit freely; this is a best-effort table.
+DEVICE_PROFILES = {   # key: (name, {capability: ok})
+ "ps5":        ("PlayStation 5",          {"h264_10bit": False, "av1": False, "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+ "xbox":       ("Xbox Series",            {"h264_10bit": False, "av1": False, "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+ "shield":     ("NVIDIA Shield",          {"h264_10bit": False, "av1": False, "dv_p5": True,  "dv_p7": True,  "lossless_audio": True,  "interlaced": True}),
+ "apple-tv":   ("Apple TV 4K",            {"h264_10bit": False, "av1": False, "dv_p5": True,  "dv_p7": True,  "lossless_audio": True,  "interlaced": True}),
+ "google-tv":  ("Chromecast / Google TV", {"h264_10bit": False, "av1": True,  "dv_p5": True,  "dv_p7": True,  "lossless_audio": False, "interlaced": True}),
+ "fire-tv":    ("Fire TV 4K",             {"h264_10bit": False, "av1": True,  "dv_p5": True,  "dv_p7": True,  "lossless_audio": False, "interlaced": True}),
+ "roku":       ("Roku",                   {"h264_10bit": False, "av1": False, "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+ "lg-tv":      ("LG TV (webOS app)",      {"h264_10bit": False, "av1": True,  "dv_p5": True,  "dv_p7": True,  "lossless_audio": False, "interlaced": True}),
+ "samsung-tv": ("Samsung TV (Tizen app)", {"h264_10bit": False, "av1": True,  "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+ "plex-web":   ("Plex Web / browser",     {"h264_10bit": False, "av1": True,  "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+ "desktop":    ("Plex Desktop / HTPC",    {"h264_10bit": True,  "av1": True,  "dv_p5": False, "dv_p7": True,  "lossless_audio": True,  "interlaced": True}),
+ "phone":      ("Phone / tablet apps",    {"h264_10bit": False, "av1": False, "dv_p5": False, "dv_p7": False, "lossless_audio": False, "interlaced": True}),
+}
+COMPAT_CAP = {"HI10P": "h264_10bit", "AV1": "av1", "DV_PROFILE5": "dv_p5", "DV_PROFILE7": "dv_p7", "TRUEHD_ONLY": "lossless_audio", "INTERLACED": "interlaced"}
+def devices_chosen():
+    try: return [d for d in str(setting("DEVICES") or "").split(",") if d.strip() in DEVICE_PROFILES]
+    except Exception: return []
+def apply_device_profiles(out):
+    """With players declared, a compatibility note is kept only if one of them cannot direct-play the file, and it names them; otherwise it is dropped."""
+    devs = devices_chosen()
+    if not devs: return out
+    res = []
+    for code, sev, detail in out:
+        cap = COMPAT_CAP.get(code)
+        if not cap: res.append((code, sev, detail)); continue
+        hit = [DEVICE_PROFILES[d][0] for d in devs if not DEVICE_PROFILES[d][1].get(cap, True)]
+        if not hit: continue
+        res.append((code, "high" if code == "DV_PROFILE5" else "low", f"{detail} | affects: {', '.join(hit)}"))
+    return res
 def check_name(code): return CHECK_NAMES.get(code) or code.replace("_", " ").capitalize()
 def canon(code):
     code = (code or "").strip().lower()
@@ -304,6 +339,10 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "AUDIO_OFFSET": return "The audio starts a moment after the video." + (" That is intentional here (the video is cut at the same spot), nothing to do." if "intentional" in d else " 'Fix audio delay' lines it up without re-downloading.")
     if code == "PLEX_MISSING": return "The file is on disk but Plex has not picked it up. 'Refresh in Plex' makes it rescan the folder."
     if code == "RES_MISLABELED": return "The picture is lower resolution than the release claims."
+    aff = (re.search(r"\| affects: (.+)$", d) or [None, None])[1]
+    if aff and code in COMPAT_CAP:
+        what = {"HI10P": "10-bit H.264 video", "AV1": "AV1 video", "DV_PROFILE5": "Dolby Vision without a normal fallback", "DV_PROFILE7": "dual-layer Dolby Vision", "TRUEHD_ONLY": "lossless-only audio", "INTERLACED": "interlaced video"}[code]
+        return f"{what}: your {aff} cannot play it directly, so Plex transcodes for {'it' if ',' not in aff else 'them'}." + (" Re-download or expect green/purple colours there." if code == "DV_PROFILE5" else "")
     if code == "HI10P": return "10-bit H.264 video: normal for anime, but TVs and consoles cannot play it directly, so Plex transcodes."
     if code == "AV1": return "AV1 video: the PS5 and older TVs cannot play it directly, so Plex transcodes."
     if code == "INTERLACED": return "Old-style interlaced video (TV broadcast). Plays fine; some players show comb lines."
@@ -962,7 +1001,7 @@ def check(it, bz_eps, bz_movs, profile=None, rt_profile=None):
         def lossless(st): return (st.get("codec_name") or "") in ("truehd", "mlp") or ((st.get("codec_name") == "dts") and "MA" in (st.get("profile") or ""))
         if a and all(lossless(s) for s in a):
             F("TRUEHD_ONLY", "low", f"only lossless audio ({', '.join(sorted({(s.get('profile') or s.get('codec_name') or '?') for s in a}))}) - no AC3/EAC3 fallback track, PS5/Shield transcode")
-    return out
+    return apply_device_profiles(out)
 
 def orphan_scan(items, roots):
     """Walk the arr root folders for video files no arr manages."""
@@ -2571,7 +2610,7 @@ def ui_state(conn):
             if st_ == "running" and started_: e_["running_for"] = max(e_.get("running_for", 0), int(time.time() - started_))
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
-    latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user")}
+    latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user")}
     try:
         apps_ = arr_apps(); latest["setup"] = dict(arrs=sorted(apps_), bazarr=bool(bazarr_conf()[1]), plex=bool(plex_token()), first_run_done=bool(conn.execute("SELECT 1 FROM run WHERE finished IS NOT NULL LIMIT 1").fetchone()), degraded=degraded())
     except Exception as e: latest["setup"] = {"error": repr(e)}

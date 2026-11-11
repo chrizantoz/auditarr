@@ -80,7 +80,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **F13** (2026-11-11) Built-in sign-in: user + hashed password set on the Setup page or via env, session cookie, login page, Sign out; `/health` and the token-protected webhook stay open; `TRUST_PROXY_AUTH=1` for Authelia-style proxies.
 - [x] **F2** (2026-11-11) Watch-ahead priority: Plex On Deck + Tautulli history decide which files get checked first and hardest (content check, subtitles, defaults).
 - [x] **F3** (2026-11-11) Library score and trend per library, from open findings weighted by severity, graphed over weeks.
-- [ ] **F4** Device profiles: declare your players (PS5, Shield, TV, Plex Web); compatibility notes become real "will not direct-play on X" verdicts, and noise for players you do not own disappears.
+- [x] **F4** (2026-11-11) Device profiles: declare your players (PS5, Shield, TV, Plex Web); compatibility notes become real "will not direct-play on X" verdicts, and noise for players you do not own disappears.
 - [ ] **F5** Image subtitles to text: OCR PGS/VobSub tracks to SRT once so files direct-play with proper subtitles.
 - [ ] **F6** Per-person preferences: language defaults per Plex user, applied to each account's track selection.
 - [ ] **F7** Upgrade candidates: files below the profile cutoff, oldest encodes, same movie at two resolutions, with the disk space each decision frees or costs.

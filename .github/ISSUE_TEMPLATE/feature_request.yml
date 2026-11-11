@@ -1,0 +1,19 @@
+name: ✨ Idea or feature
+description: Something Auditarr should check, fix, or explain better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem you hit in your library
+      description: What goes wrong at watch time, or what you keep fixing by hand?
+    validations: { required: true }
+  - type: textarea
+    id: idea
+    attributes:
+      label: What Auditarr could do about it
+  - type: input
+    id: roadmap
+    attributes:
+      label: Is it already on the roadmap?
+      description: Check ROADMAP.md and mention the item code if so (e.g. F4).

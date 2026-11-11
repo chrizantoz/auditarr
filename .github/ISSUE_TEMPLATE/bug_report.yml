@@ -1,0 +1,36 @@
+name: 🐛 Something is wrong
+description: A finding that is not right, a button that did not do what it said, or an error.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: In your own words. What did you expect instead?
+    validations: { required: true }
+  - type: textarea
+    id: log
+    attributes:
+      label: Live tab log lines
+      description: Open the page, switch Advanced on, Live tab, copy the last lines (or `docker logs auditarr --tail 50`). Remove anything private.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Image / version
+      placeholder: ghcr.io/chrizantoz/auditarr:latest pulled on 2026-11-11
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it run?
+      options: [Unraid, docker compose, something else]
+  - type: checkboxes
+    id: apps
+    attributes:
+      label: Connected apps
+      options:
+        - label: Sonarr
+        - label: Radarr
+        - label: Whisparr
+        - label: Bazarr
+        - label: Plex

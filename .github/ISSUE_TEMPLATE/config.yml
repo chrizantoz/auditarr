@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Questions and setup help
+    url: https://github.com/chrizantoz/auditarr/discussions
+    about: Not sure if it is a bug? Ask here first.
+  - name: 📘 User guide
+    url: https://github.com/chrizantoz/auditarr/blob/main/docs/USER-GUIDE.md
+    about: What every tab and button does, in plain words.

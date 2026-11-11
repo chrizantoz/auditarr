@@ -104,19 +104,29 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🟢 **F23** (2026-11-11) About panel + update check: version/build/runtime/uptime, newest release checked daily, "update available" chip, Check for updates, Update now via `UPDATE_HOOK_URL`. Owner request.
 - 🔴 **F24** Export and import: settings, device profiles and the ignore list as one file, for moving to a new box or recovering (pairs with the restore drill).
 - 🔴 **F25** Per-library rules: different language, subtitle and automation policies for anime, kids, movies.
+- 🔴 **F26** Act from the phone: ntfy action buttons on the morning push ("Ignore", "Download a better copy", "Make AI subtitles") that call the API with a one-time token, so the common fixes never need the page.
+- 🔴 **F27** Ask in plain words: a small box that answers questions about your library from the findings ("why does Jersey Shore keep transcoding", "what is wrong with the anime library this week") using a local model (Ollama) or none at all for the simple ones.
+- 🔴 **F28** Health badge: a public, token-free `/badge.svg` with the library score for a README, Homepage or a forum signature.
+- 🔴 **F29** Snooze instead of ignore: "remind me in 30 days" on a finding; it disappears and comes back once, with a note that it was snoozed.
+- 🔴 **F30** Weekly report card: one push or email on Sunday with the score trend, the week's fixes and the three things most worth doing, in the same plain words as the morning push.
 
 ## 🙂 Later: even friendlier (added 2026-11-11, ranked)
 
 - 🔴 **U11** Guided first visit: a three-step overlay on the first open (Today → a row → its buttons), dismissible, never shown again.
 - 🔴 **U12** "What if" on every row: one tap expands what happens if you ignore it, fix it or wait, in two sentences each.
 - 🔴 **U13** Undo for more than file moves: a ten-second undo on Ignore, on settings changes and on accept-language.
-- 🔴 **U14** Setup auto-discovery: find Sonarr, Radarr, Bazarr and Plex on the Docker network or the LAN, read keys from mounted config folders, prefill the Setup page; the user only presses Test.
-- 🔴 **U15** Errors that say what to do: every failure message maps to a plain cause and a next step ("Bazarr key is wrong - Settings → General in Bazarr, then paste it here").
+- 🟢 **U14** (2026-11-11) Setup auto-discovery: **Find my apps** probes the Docker host, the gateway, compose-style container names and `DISCOVER_EXTRA` addresses on the usual ports, identifies each app by its public page, says whether a key is already mounted, and fills the address on **Use this**.
+- 🟢 **U15** (2026-11-11) Errors that say what to do: connection tests answer with what happened and a next step (wrong key → where to copy it; nothing listening → the Docker 'localhost' trap; name not found; timed out; URL base; certificate). Shown under the red chip on the Setup page.
 - 🔴 **U16** One-click "fix everything safe" per show: all reversible, low-risk fixes for a title behind one confirm, with a summary of what it did.
 - 🔴 **U17** Search that understands intent: "anime no subtitles", "4k movies wrong language" filter by library, kind and problem at once.
 - 🔴 **U18** Phone layout, second pass: big Today buttons, swipe to ignore or fix on a row, sticky filter bar.
 - 🔴 **U19** Keyboard and screen-reader pass: shortcuts for the common actions, a larger-text mode, focus order checked by the browser bot.
 - 🔴 **U20** Help that answers questions: a search box over the user guide inside the "?" panel ("how do I make subtitles for a whole show").
+- 🔴 **U21** Try it on one show first: the first audit offers to check a single show before the whole library, so a new user sees a result in two minutes instead of twenty-five.
+- 🔴 **U22** "What is in this file" in plain words: a per-row panel that lists the tracks like a person would ("1 video 1080p · English audio 5.1 · Japanese audio stereo · no subtitles"), instead of ffprobe output.
+- 🔴 **U23** Schedule from the page: pick the nightly time and the days in Settings instead of an environment variable; show the next run time on Today.
+- 🔴 **U24** Progress you can read: the first audit shows "checked 1,200 of 14,000 · about 18 minutes left" on Today, not only on the Live tab.
+- 🔴 **U25** Done-for-you defaults by library: when a library is named Anime or Kids, the matching language and subtitle switches are suggested on the Setup page with one click to accept.
 
 ## 🔧 Later: smaller improvements
 

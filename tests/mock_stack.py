@@ -56,12 +56,17 @@ class Handler(BaseHTTPRequestHandler):
             if r < ch.get("p500", 0.08): return self._send(500, {"error": "chaos"})
             if r < ch.get("p500", 0.08) + ch.get("pslow", 0.04): time.sleep(ch.get("slow_s", 2))
         if method != "GET": self.server.calls.append(dict(app=app, method=method, path="/" + "/".join(parts[1:]), query=q, body=body))
-        if self.headers.get("X-Api-Key") != KEY and self.headers.get("X-API-KEY") != KEY: return self._send(401, {"error": "bad key"})
+        public = (len(parts) <= 1) or parts[1:] in (["ping"], []) or (app == "bazarr" and len(parts) == 1)
+        if not public and self.headers.get("X-Api-Key") != KEY and self.headers.get("X-API-KEY") != KEY: return self._send(401, {"error": "bad key"})
         if app in ("sonarr", "radarr", "whisparr"): return self._arr(app, method, parts[1:], q, body)
         if app == "bazarr": return self._bazarr(method, parts[1:], q, body)
         return self._send(404, {})
     def _arr(self, app, method, parts, q, body):
         W = self.server.world
+        if parts == ["ping"]: return self._send(200, {"status": "OK"})
+        if parts == [] or parts == [""]:
+            body_ = f"<!doctype html><html><head><title>{app.capitalize()}</title></head><body></body></html>".encode()
+            self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(body_))); self.end_headers(); self.wfile.write(body_); return
         if parts[:2] != ["api", "v3"]: return self._send(404, {})
         p = "/".join(parts[2:])
         if p == "tag":
@@ -97,6 +102,9 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {})
     def _bazarr(self, method, parts, q, body):
         W = self.server.world; p = "/".join(parts[1:]) if parts and parts[0] == "api" else "/".join(parts)
+        if parts in ([], [""]):
+            body_ = b"<!doctype html><html><head><title>Bazarr</title></head><body></body></html>"
+            self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(body_))); self.end_headers(); self.wfile.write(body_); return
         if p == "episodes/wanted": return self._send(200, {"data": [{"sonarrEpisodeId": i} for i in W["wanted_eps"]]})
         if p == "movies/wanted": return self._send(200, {"data": [{"radarrId": i} for i in W["wanted_movies"]]})
         if p == "episodes" and method == "GET":

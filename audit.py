@@ -1921,22 +1921,93 @@ def _probe(url, headers=None, timeout=8):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read(); ct = r.headers.get("Content-Type") or ""
         return json.loads(raw) if "json" in ct or raw[:1] in b"{[" else raw.decode("utf-8", "replace")
+SERVICE_NAMES = {"sonarr": "Sonarr", "radarr": "Radarr", "whisparr": "Whisparr", "bazarr": "Bazarr", "plex": "Plex"}
+KEY_PLACE = {"plex": "Plex Web → open any item → ⋯ → Get info → View XML; the X-Plex-Token is at the end of that page's address.", "bazarr": "Bazarr → Settings → General → Security → API Key."}
+def plain_error(kind, e):
+    """U15: turn an exception from talking to a service into (what happened, what to do), in plain words."""
+    name = SERVICE_NAMES.get(kind, kind); where = KEY_PLACE.get(kind, f"{name} → Settings → General → Security → API Key.")
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code in (401, 403): return (f"{name} rejected the key." if kind != "plex" else "Plex rejected the token."), f"Copy it again from {where} Paste it here and press Test."
+        if e.code == 404: return f"The address answers, but not as {name}.", f"Check the port, and whether {name} runs under a URL base (for example http://host:8989/sonarr)."
+        if e.code >= 500: return f"{name} answered with a server error ({e.code}).", f"Open {name} in your browser. If it works there, try again in a minute."
+        return f"{name} answered HTTP {e.code}.", "Check the address and the key."
+    if isinstance(e, urllib.error.URLError):
+        r = getattr(e, "reason", e); rs = str(r).lower()
+        if "refused" in rs: return "Nothing is listening at that address.", "Check host and port. From inside Docker, 'localhost' is the Auditarr container itself: use the server's IP, or the container name when both are on the same Docker network."
+        if "name or service" in rs or "nodename" in rs or "getaddrinfo" in rs or "not known" in rs: return "That host name cannot be found.", "Use the IP address, or the container name if both run on the same Docker network."
+        if "timed out" in rs or isinstance(r, TimeoutError): return "That address did not answer in time.", "A firewall, a VLAN, or the wrong port. Try opening the address in a browser from this server."
+        if "certificate" in rs or "ssl" in rs: return "The https certificate is not trusted here.", "Use http:// on your own network, or the exact https name that is on the certificate."
+        if "no route" in rs or "unreachable" in rs: return "No route to that address.", "Is it on another VLAN or a Docker network Auditarr is not part of?"
+        return "Cannot connect to that address.", "Check the address, and that the service is running."
+    if isinstance(e, TimeoutError) or type(e).__name__ == "timeout": return "That address did not answer in time.", "A firewall, a VLAN, or the wrong port."
+    return f"Unexpected answer from {name}.", repr(e)[:120]
+def discover_services(extra=None):
+    """U14 setup auto-discovery: look for Sonarr, Radarr, Whisparr, Bazarr and Plex on the Docker network and the LAN, and say whether a key was found in mounted config files."""
+    ports = {"sonarr": 8989, "radarr": 7878, "whisparr": 6969, "bazarr": 6767, "plex": 32400}
+    hosts = []
+    if HOST_IP: hosts.append(HOST_IP)
+    try:   # the container's default gateway is the Docker host on a bridge network
+        for line in open("/proc/net/route").read().splitlines()[1:]:
+            f = line.split()
+            if f[1] == "00000000" and len(f[2]) == 8: hosts.append(".".join(str(int(f[2][i:i + 2], 16)) for i in (6, 4, 2, 0))); break
+    except Exception: pass
+    hosts += ["host.docker.internal"]
+    cands = []
+    for h in dict.fromkeys(hosts):
+        for k, p in ports.items(): cands.append((k, f"http://{h}:{p}"))
+    for k, p in ports.items(): cands.append((k, f"http://{k}:{p}"))   # compose-style container names
+    for u in (extra or []):
+        u = u.strip().rstrip("/")
+        if u: cands += [(k, u) for k in ports]
+    for u in (E("DISCOVER_EXTRA") or "").split(","):
+        u = u.strip().rstrip("/")
+        if u: cands += [(k, u) for k in ports]
+    def fetch(u, accept="*/*"):
+        req = urllib.request.Request(u, headers={"User-Agent": "auditarr", "Accept": accept})
+        with urllib.request.urlopen(req, timeout=2.5) as r: return r.status, r.read(4096).decode("utf-8", "replace")
+    def probe(item):
+        kind, base = item
+        try:
+            if kind == "plex":
+                st, body = fetch(f"{base}/identity")
+                return dict(kind=kind, url=base) if "MediaContainer" in body and "machineIdentifier" in body else None
+            if kind == "bazarr":
+                st, body = fetch(f"{base}/")
+                return dict(kind=kind, url=base) if re.search(r"<title>\s*Bazarr", body, re.I) else None
+            st, body = fetch(f"{base}/ping")
+            if '"status"' not in body.lower() and "ok" not in body.lower(): return None
+            st2, html = fetch(f"{base}/")
+            m = re.search(r"<title>\s*(Sonarr|Radarr|Whisparr)", html, re.I); found = (m.group(1).lower() if m else None)
+            if found and found != kind: return None
+            return dict(kind=kind, url=base, sure=bool(m))
+        except Exception: return None
+    found = {}
+    with ThreadPoolExecutor(16) as ex:
+        for r in ex.map(probe, cands):
+            if r and r["kind"] not in found: found[r["kind"]] = r
+    out = []
+    for kind, r in found.items():
+        if kind in ("sonarr", "radarr", "whisparr"): key = bool(conn_value(f"{kind.upper()}_APIKEY")) or (os.path.exists(os.path.join(ARR_DIR, f"{kind}.xml")) and bool(read_key(os.path.join(ARR_DIR, f"{kind}.xml"))))
+        elif kind == "bazarr": key = bool(bazarr_conf()[1])
+        else: key = bool(plex_token())
+        out.append(dict(kind=kind, name=SERVICE_NAMES[kind], url=r["url"], key_found=bool(key)))
+    return dict(found=out, scanned=len(cands), hosts=list(dict.fromkeys(hosts)))
 def test_connection(kind, url, key):
-    """One real request to a service with the given address and key. Returns what a person needs to know: reachable?, version, root folders and whether this container can see them."""
+    """One real request to a service with the given address and key. Returns what a person needs to know: reachable?, version, root folders and whether this container can see them, and on failure what happened and what to do."""
     url = (url or "").rstrip("/"); out = {"kind": kind, "ok": False}
-    if not url: out["error"] = "no address"; return out
+    if not url: out["error"] = "No address yet."; out["fix"] = f"Type the address you open {SERVICE_NAMES.get(kind, kind)} at in your browser, for example http://192.168.1.10:{ {'sonarr': 8989, 'radarr': 7878, 'whisparr': 6969, 'bazarr': 6767, 'plex': 32400}[kind] if kind in SERVICE_NAMES else 80}."; return out
     try:
         if kind in ("sonarr", "radarr", "whisparr"):
-            if not key: out["error"] = "no API key"; return out
+            if not key: out["error"] = "No API key yet."; out["fix"] = f"Copy it from {KEY_PLACE.get(kind, SERVICE_NAMES[kind] + ' → Settings → General → Security → API Key.')}"; return out
             st = _probe(f"{url}/api/v3/system/status", {"X-Api-Key": key}); out.update(ok=True, version=st.get("version"), name=st.get("appName") or kind)
             roots = [r.get("path") for r in (_probe(f"{url}/api/v3/rootfolder", {"X-Api-Key": key}) or []) if isinstance(r, dict)]
             out["roots"] = [{"path": r, "visible": bool(r) and os.path.isdir(r)} for r in roots]
         elif kind == "bazarr":
-            if not key: out["error"] = "no API key"; return out
+            if not key: out["error"] = "No API key yet."; out["fix"] = f"Copy it from {KEY_PLACE['bazarr']}"; return out
             st = _probe(f"{url}/api/system/status", {"X-API-KEY": key}); d = st.get("data", st) if isinstance(st, dict) else {}
             out.update(ok=True, version=d.get("bazarr_version") or d.get("version"), name="Bazarr")
         elif kind == "plex":
-            if not key: out["error"] = "no token"; return out
+            if not key: out["error"] = "No token yet."; out["fix"] = KEY_PLACE["plex"]; return out
             idn = _probe(f"{url}/identity?X-Plex-Token={key}", {"Accept": "application/json"}); mc = idn.get("MediaContainer", {}) if isinstance(idn, dict) else {}
             out.update(ok=True, version=mc.get("version"), name="Plex", machine=mc.get("machineIdentifier"))
             secs = _probe(f"{url}/library/sections?X-Plex-Token={key}", {"Accept": "application/json"}); locs = []
@@ -1944,8 +2015,7 @@ def test_connection(kind, url, key):
                 for l in sct.get("Location", []): locs.append({"section": sct.get("title"), "path": l.get("path"), "visible": os.path.isdir(l.get("path") or ""), "mapped": any(os.path.isdir((l.get("path") or "").replace(b_, a_, 1)) for a_, b_ in _plex_maps() if (l.get("path") or "").startswith(b_))})
             out["locations"] = locs
         else: out["error"] = f"unknown service {kind}"
-    except urllib.error.HTTPError as e: out["error"] = f"HTTP {e.code}" + (" - wrong API key?" if e.code in (401, 403) else "")
-    except Exception as e: out["error"] = {"URLError": "cannot connect - wrong address, or the service is not running"}.get(type(e).__name__, repr(e)[:120])
+    except Exception as e: out["error"], out["fix"] = plain_error(kind, e)
     return out
 def ui_setup(conn):
     """What the setup page shows: per service where its details come from and whether it answers, which media folders are visible, and whether a first run happened."""
@@ -3061,6 +3131,7 @@ class Handler(SimpleHTTPRequestHandler):
             c_ = db()
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
+        if p == "/api/discover": return self._json(200, discover_services())
         if p == "/api/about":
             c_ = db()
             try: return self._json(200, about_info(fetch="refresh=1" in self.path, refresh="refresh=1" in self.path, conn=c_))
@@ -3150,7 +3221,7 @@ class Handler(SimpleHTTPRequestHandler):
                     except ValueError as e: code, obj = 400, {"error": str(e)}
             elif p == "/api/test_connection":
                 k_ = str(body.get("kind") or ""); key_ = body.get("key") or ""
-                if str(key_).startswith("••••"): key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ("sonarr", "radarr", "whisparr") else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
+                if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ("sonarr", "radarr", "whisparr") else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
                 code, obj = 200, test_connection(k_, body.get("url") or "", key_)
             elif p == "/api/archive": code, obj = ui_archive(conn, body, actor)
             elif p == "/api/whisper_progress":

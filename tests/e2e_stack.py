@@ -39,7 +39,7 @@ env = dict(os.environ, CONFIG_DIR=CFG, REPORT_DIR=os.path.join(CFG, "reports"), 
            RUN_AT="23:59", RUN_ON_START="1", SONARR_URL=f"{MURL}/sonarr", SONARR_APIKEY="test", RADARR_URL=f"{MURL}/radarr", RADARR_APIKEY="test", WHISPARR_APIKEY="",
            BAZARR_URL=f"{MURL}/bazarr", BAZARR_APIKEY="test", PLEX_CHECK="off", PLEX_REFRESH="off", PLEX_TOKEN="", PAPERCLIP="off", NTFY_URL="", TRASH_DIR=TRASH,
            DEDUPE="off", REMEDIATE="off", SUBTAG="off", AUTO_FIXHEADER="off", AUTO_VERIFY="off", AUTO_WHISPER="off", AUTO_ACCEPTLANG="off", TRACK_PREFS="off", ARR_RESCAN="on",
-           MISSING_MIN_DAYS="3", SUBGEN_URLS="", DOCKER_API="", PROBE_WORKERS="2", TAUTULLI_INI=os.path.join(CFG, "none.ini"))
+           MISSING_MIN_DAYS="3", SUBGEN_URLS="", DOCKER_API="", PROBE_WORKERS="2", TAUTULLI_INI=os.path.join(CFG, "none.ini"), DISCOVER_EXTRA=f"{MURL}/sonarr,{MURL}/radarr,{MURL}/bazarr")
 log = open(os.path.join(CFG, "daemon.log"), "w")
 daemon = subprocess.Popen([sys.executable, os.path.join(ROOT, "audit.py"), "--daemon"], env=env, stdout=log, stderr=subprocess.STDOUT)
 BASE = f"http://127.0.0.1:{PORT}"
@@ -149,6 +149,10 @@ if ns:
 mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
 check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
 s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)
+s, j = api("/api/discover"); found = {f["kind"]: f for f in (j.get("found") or [])}
+check("discovery finds the fake Sonarr, Radarr and Bazarr by their public pages", s == 200 and {"sonarr", "radarr", "bazarr"} <= set(found), (s, sorted(found)))
+s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "wrongkey"}); check("a wrong key gets a plain explanation and a next step", s == 200 and not j.get("ok") and "rejected" in j.get("error", "") and "Settings" in j.get("fix", ""), j)
+s, j = api("/api/test_connection", {"kind": "radarr", "url": "http://127.0.0.1:9", "key": "x"}); check("a dead address says nothing is listening and what to check", s == 200 and "listening" in j.get("error", "") and "port" in j.get("fix", "").lower(), j)
 s, j = api("/api/about"); check("About reports version, uptime, database size and tools", s == 200 and all(k in j for k in ("version", "uptime_s", "db_mb", "tools", "latest")), j)
 s, j = api("/api/update", {}); check("Update without a host hook explains how to update instead", s == 400 and "update" in j.get("error", "").lower(), (s, j))
 s, st = api("/api/state"); sc = st.get("scores") or {}

@@ -2789,7 +2789,7 @@ def today_summary(conn, since=None):
                 new=run_.get("new", 0), resolved=run_.get("resolved", 0), active=run_.get("active", 0), trash=run_.get("trash", {}))
 def digest_text(t):
     lines = [f"Needs you: {len(t['needs'])}" if t["needs"] else "Needs you: nothing"]
-    lines += [f"  - [{x['sev']}] {x['check']}: {x['title'][:60]}" for x in t["needs"][:6]]
+    lines += [f"  - {SEV_NAMES.get(x['sev'], x['sev'])} · {x.get('name') or check_name(x['check'])}: {x['title'][:60]}" for x in t["needs"][:6]]
     if len(t["needs"]) > 6: lines.append(f"  ... and {len(t['needs'])-6} more")
     lines.append("Night did: " + (", ".join(f"{v} {k}" for k, v in sorted(t["did"].items(), key=lambda kv: -kv[1])) or "nothing to do"))
     if t["regrab_outcomes"]: lines.append("Re-grab results: " + ", ".join(f"{v} {k}" for k, v in t["regrab_outcomes"].items()))

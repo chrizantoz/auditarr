@@ -11,7 +11,7 @@ jobs:
       - run: pip install -q -r requirements.txt && python -m py_compile audit.py tests/*.py
       - run: pip install -q pyflakes && python -m pyflakes audit.py tests/*.py
       - run: sudo apt-get install -y -qq ffmpeg mkvtoolnix >/dev/null && python tests/synthetic_media.py
-      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py
+      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py && python tests/golden_digest.py
       - run: python tests/fuzz_detectors.py 3000 7 && python tests/fuzz_detectors.py 1500 ${{ github.run_number }}
       - run: python tests/mutation_check.py   # one rotating mutant per day; 'all' locally
       - uses: actions/setup-node@v4

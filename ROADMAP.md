@@ -53,7 +53,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **Q15** Chaos in the fake stack: random 500s, timeouts and mid-run disappearance; the audit finishes degraded with no half-done writes.
 - [ ] **Q16** Performance budget: 10k fake files / 5k findings; fail CI when listing, render or memory exceed the budget.
 - [ ] **Q17** Persona scripts: browser-only tasks ("make subtitles for show X", "why is this episode missing", "undo the last move") judged by outcome.
-- [ ] **Q18** Golden digest: the morning push pinned word for word and delivered to a mock ntfy.
+- [x] **Q18** (2026-11-11) Golden digest: `tests/golden_digest.py` pins the push text and checks delivery (title, priority, Click link) against a mock ntfy.
 - [x] **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.
 - [x] **Q20** (2026-11-11) Security scans in CI: dependency audit + container image scan, failing on critical issues.
 - [ ] **Q21** Flakiness ledger: retries and intermittent failures recorded in History.

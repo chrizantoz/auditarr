@@ -72,6 +72,14 @@ Each of these would have caught something that reached production this week.
 - 🟢 **Q31** (2026-11-11) Error budget in the open: the Today panel and the digest state "0 errors since yesterday" as a positive line, and a background job that ended in an error (AI subtitles, Bazarr search, content check, timing check) becomes a Needs-you row with a Retry button; the row disappears once a retry is queued or a later run succeeds. Today already says ✓ no errors when nothing went wrong.
 - 🟢 **Q32** (2026-11-11) Every button gets pressed: `uibot/lint_buttons.py` fails CI when a button id or a click hook on the page is not referenced by any bot (seven excused with a reason), and the jsdom bot ends every run with a sweep that presses one button of each kind on every tab, accepting confirm boxes, with no JavaScript error allowed. *Would have caught the Save-connections bug that the first outside user hit: that button had never been pressed by a test.* Added the same day the bug was reported.
 - 🟢 **Q33** (2026-11-11) First-run walkthrough in a real browser: the stack test starts a second, blank Auditarr next to the fake services; `uibot/first_run_bot.js` drives Chromium through what a new person does - the Setup tab opens by itself, type addresses and keys, Test says connected, Save connections confirms what it saved, reload keeps the values and shows connected, Find my apps lists the services, the first audit runs and findings appear. *The path the first outside user took.*
+🤖 **Bots, fourth layer (added 2026-11-11 evening, ranked)**
+- 🔴 **Q34** Fuzz the page's data: a thousand mangled states (missing fields, nulls, empty lists, odd types, huge strings) through the page in jsdom with no JavaScript error allowed, the way the detectors are fuzzed.
+- 🔴 **Q35** Screenshot baselines for every tab (Settings, About, Setup, History, Space, Trash), phone and desktop, so a broken layout anywhere fails CI, not only on Findings.
+- 🔴 **Q36** Sign-in and read-only account in a real browser: set a password, reload, wrong and right login, then the viewer account sees no action buttons and every write is refused.
+- 🔴 **Q37** A phone persona: complete a task at phone width in the simple view (find a row, act, confirm, undo).
+- 🔴 **Q38** Error-path personas: press Find subtitles with Bazarr down, Make AI subtitles with no Whisper, Run now twice; each must end in a plain sentence, never silence or a code dump.
+- 🔴 **Q39** A long-open page: keep the page open across several refreshes and an audit in the staging soak; memory must stay flat and pending results must apply by themselves.
+- 🔴 **Q40** The public demo as a nightly canary: the browser bot runs against demo.chrizantoz.com each night, so the whole ingress path is checked before a visitor finds a problem.
 
 ## 📦 Next: let someone else install it
 

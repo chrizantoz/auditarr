@@ -20,6 +20,18 @@ It is deliberately small: one Python file, one HTML page, a local SQLite file fo
 
 Beta. Auditarr was built for one homelab (about 14,000 files across Sonarr, Radarr, Whisparr, Bazarr and Plex on Unraid) and then generalized: the Setup tab, the install docs and the test suites exist so that a second person can run it. Expect rough edges around setups that differ from that one (other players, other path layouts, no Plex). Issues with a copy of the Live tab's log lines are welcome.
 
+## 🖼️ Screenshots
+
+Taken by the test bot in CI from real (sanitised) data, so they are always current.
+
+| Findings, dark | Findings, light |
+|---|---|
+| ![Findings in dark mode](docs/screenshots/findings-dark.png) | ![Findings in light mode](docs/screenshots/findings-light.png) |
+
+| A small test library with one of each problem | On a phone |
+|---|---|
+| ![End-to-end test library](docs/screenshots/live-demo-dark.png) | ![Phone layout](docs/screenshots/phone-dark.png) |
+
 ## 🧰 What you'll need
 
 - The arr apps and/or Plex you already run. You don't need all of them — Auditarr uses whichever it can reach.

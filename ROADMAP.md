@@ -30,7 +30,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **U8b** Repository public (2026-11-11): GPL-3.0, description and topics set, container package public and linked, social preview uploaded, Pages demo live.
 - [x] **U9** (built 2026-11-11; Pages deploy switches on automatically when the repo is public) Static demo on GitHub Pages: the real page with the sanitized fixtures as its API, a "demo data, actions simulated" banner, republished by CI on every release; linked from the README as "Try it in your browser".
 - [ ] **U10** Live sandbox (later, once public): the app + the fake arr stack on a small host behind a tunnel, reset hourly, real buttons on synthetic files.
-- [ ] **U8c** README screenshots section (Findings, Today, Setup) refreshed from CI's screenshots on each release.
+- [x] **U8c** (2026-11-11) README screenshots section (Findings, Today, Setup) refreshed from CI's screenshots on each release.
 
 ## 🤖 Now: the self-testing bots (same rule — checked means done)
 

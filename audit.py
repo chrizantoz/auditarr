@@ -392,6 +392,46 @@ def plain_sentence(code, sev, label, detail, app=None):
     return d[:160]
 def canon_set(codes): return {canon(c) for c in codes if c and canon(c) not in ("", "zxx")}
 def log(*a): print(datetime.datetime.now().strftime("%H:%M:%S"), *a, flush=True)
+ERRORS = []   # Q25: last 50 unexpected errors in memory (time, where, text, traceback); the full record is REPORT_DIR/errors.log
+def note_error(*a, where=None):
+    """Like log(), but when called inside an except block the full traceback is kept: appended to errors.log and to the About tab's Recent errors.
+    Use it for failures that should not happen (a job crashing, a hook failing), not for expected conditions like a service being switched off."""
+    log(*a); import traceback, sys as _sys
+    et, ev, tb = _sys.exc_info(); text = " ".join(str(x) for x in a)
+    trace = "".join(traceback.format_exception(et, ev, tb)) if ev else ""
+    if where is None:
+        try: where = _sys._getframe(1).f_code.co_name
+        except Exception: where = ""
+    ERRORS.append(dict(ts=time.time(), where=where, text=text[:300], trace=trace[-4000:])); del ERRORS[:-50]
+    try:
+        os.makedirs(REPORT_DIR, exist_ok=True); path = os.path.join(REPORT_DIR, "errors.log")
+        if os.path.exists(path) and os.path.getsize(path) > 2_000_000: os.replace(path, path + ".1")
+        with open(path, "a", encoding="utf-8") as f: f.write(f"=== {datetime.datetime.now().isoformat(timespec='seconds')} {where}: {text}\n{trace}\n")
+    except Exception: pass
+def err_result(e):
+    """Inside `except Exception as e:` - record the traceback and return the 'ERROR …' text an action result expects."""
+    import sys as _sys
+    try: where = _sys._getframe(1).f_code.co_name
+    except Exception: where = ""
+    note_error(f"{where}: {e!r}", where=where); return f"ERROR {e!r}"
+def errors_recent(hours=24, limit=20):
+    """What went wrong lately: in-memory tracebacks plus the tail of errors.log (survives restarts), newest first."""
+    out = list(ERRORS)
+    try:
+        path = os.path.join(REPORT_DIR, "errors.log")
+        if os.path.exists(path):
+            raw = open(path, encoding="utf-8", errors="replace").read()[-200_000:]
+            seen = {(int(e["ts"]), e["text"]) for e in out}
+            for block in ("\n" + raw).split("\n=== ")[1:]:
+                head, _, trace = block.partition("\n"); ts_s, _, rest = head.partition(" "); where, _, text = rest.partition(": ")
+                try: ts_ = datetime.datetime.fromisoformat(ts_s).timestamp()
+                except Exception: continue
+                if (int(ts_), text[:300]) in seen: continue
+                out.append(dict(ts=ts_, where=where, text=text[:300], trace=trace[-4000:]))
+    except Exception: pass
+    cut = time.time() - hours * 3600
+    out = [e for e in out if e["ts"] >= cut]; out.sort(key=lambda e: -e["ts"])
+    return [dict(e, when=datetime.datetime.fromtimestamp(e["ts"]).isoformat(timespec="seconds")) for e in out[:limit]]
 
 PROGRESS = {"phase": "idle", "detail": "", "done": 0, "total": 0, "started": None, "updated": None, "recent": [], "actions": []}
 def progress(phase=None, detail=None, done=None, total=None, recent=None, action=None):
@@ -784,7 +824,7 @@ def check_regrabs(conn, apps, items, found, started):
                 try:
                     restore_file(dest, orig); conn.execute("DELETE FROM probe WHERE path=?", (orig,)); resc = rescan_for_path(apps, orig)
                     status, note = "restored", f"nothing imported in {wait:g} days - original restored from the trash; {resc}"
-                except Exception as e: status, note = "restore_failed", f"ERROR {e!r}"
+                except Exception as e: status, note = "restore_failed", err_result(e)
             elif os.path.exists(orig): status, note = "restored", "original is back in place"
             else: status, note = "lost", "nothing imported and the quarantined copy is gone (purged or moved by hand)"
         if status:
@@ -793,6 +833,7 @@ def check_regrabs(conn, apps, items, found, started):
             queue_plex((cur or {}).get("path") or orig)
     conn.commit(); return out
 def record_action(conn, mode, kind, app, target, label, detail, result):
+    if str(result).startswith("ERROR") and sys.exc_info()[1] is not None: note_error(f"{kind} {label}: {str(result)[:160]}")
     conn.execute("INSERT INTO action VALUES(?,?,?,?,?,?,?,?)", (time.time(), mode, kind, app, str(target), label, detail, result)); conn.commit()
     msg = f"[{mode}] {kind} {app} {label}: {detail} -> {result}"; log("ACTION", msg); progress(action=msg)
 
@@ -1164,7 +1205,7 @@ def do_rescans(conn, apps, items):
         try:
             r = api(base, key, "command", "POST", cmd, timeout=60); record_action(conn, "on", "rescan", app, pid, it["title"], json.dumps(cmd), f"command id {(r or {}).get('id')} {(r or {}).get('status')}")
             conn.execute("INSERT OR REPLACE INTO rescan_log VALUES(?,?,?)", (app, pid, now)); conn.commit(); done += 1
-        except Exception as e: record_action(conn, "on", "rescan", app, pid, it["title"], json.dumps(cmd), f"ERROR {e!r}")
+        except Exception as e: record_action(conn, "on", "rescan", app, pid, it["title"], json.dumps(cmd), err_result(e))
     if len(targets) > ARR_RESCAN_MAX: log(f"rescan: {len(targets) - ARR_RESCAN_MAX} more deferred to next run")
     return done
 def do_dedupe(conn, items, run_started):
@@ -1193,7 +1234,7 @@ def do_dedupe(conn, items, run_started):
             dest, moved = quarantine(conn, path, f"dedupe twin={twin['path']}", "dedupe"); queue_plex(path)
             record_action(conn, "on", "dedupe", "disk", fid, label, plan, f"moved {len(moved)} file(s) to {dest}"); done += 1
             conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid))
-        except Exception as e: record_action(conn, "on", "dedupe", "disk", fid, label, plan, f"ERROR {e!r}")
+        except Exception as e: record_action(conn, "on", "dedupe", "disk", fid, label, plan, err_result(e))
     if skipped: log(f"dedupe: {skipped} duplicates skipped (not seen {min_runs}+ runs, missing, or no healthy twin)")
     return done
 def do_subtag(conn, items, found):
@@ -1216,7 +1257,7 @@ def do_subtag(conn, items, found):
                 conn.execute("UPDATE finding SET resolved_at=? WHERE resolved_at IS NULL AND app=? AND fid=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (time.time(), it["app"], it["fid"]))
             record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], f"{it['und_subs']} untagged subtitle track(s)", note[:200])
             conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", (it["path"], os.stat(it["path"]).st_mtime if os.path.exists(it["path"]) else it.get("mtime"), note[:200], time.time()))
-        except Exception as e: record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], "subtitle tagging", f"ERROR {e!r}")
+        except Exception as e: record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], "subtitle tagging", err_result(e))
     conn.commit(); return done
 def do_remediation(conn, apps, items, run_started):
     mode = gate(cfg("REMEDIATE", REMEDIATE), "REMEDIATE"); mx = int(cfg("REMEDIATE_MAX", REMEDIATE_MAX))
@@ -1252,7 +1293,7 @@ def do_remediation(conn, apps, items, run_started):
             r1 = api(base, key, "command", "POST", rescan, timeout=60)
             r2 = api(base, key, "command", "POST", search, timeout=60)
             record_action(conn, "on", "regrab", app, it["fid"], label, f"{code}: {plan}", f"moved {len(moved)} file(s) to {dest}; rescan cmd {(r1 or {}).get('id')}, search cmd {(r2 or {}).get('id')}"); acted += 1
-        except Exception as e: record_action(conn, "on", "regrab", app, it["fid"], label, f"{code}: {plan}", f"ERROR {e!r}")
+        except Exception as e: record_action(conn, "on", "regrab", app, it["fid"], label, f"{code}: {plan}", err_result(e))
     if len(cands) > mx: log(f"remediate: {len(cands) - mx} more candidates deferred (REMEDIATE_MAX={mx})")
     return acted
 def paperclip_token():
@@ -2101,7 +2142,7 @@ def whisper_followup(app, afid, path, label, minutes, since=0):
         else: job.update(radarrid=info["parent_id"])
         enqueue(job); record_action(conn, "on", "import-check", app, afid, label, "AI subtitles queued after import", f"Bazarr still had nothing {minutes} min after the download")
         log(f"import follow-up: AI subtitles queued for {label} (Bazarr found nothing in {minutes} min)")
-    except Exception as e: log("import follow-up failed:", repr(e))
+    except Exception as e: note_error("import follow-up failed:", repr(e))
     finally: conn.close()
 # ---------- F31: subtitles first for what people are watching ----------
 def plex_watch_items(meta, why):
@@ -2216,7 +2257,7 @@ def audit_one(app, parent_id, path, reason):
         if mins > 0 and gate(setting("AUTO_WHISPER"), "AUTO_WHISPER") == "on" and any(c in ("NO_SUBS", "UND_AUDIO_NO_SUBS") for _, c, _, _ in out):
             it0 = targets[0]; t_ = threading.Timer(mins * 60, whisper_followup, (app, it0["fid"], it0["path"], it0["label"], mins, time.time())); t_.daemon = True; t_.start()
             log(f"import hook: {label} has no subtitles - AI subtitles in {mins} min unless Bazarr finds some")
-    except Exception as e: log("import hook failed:", repr(e))
+    except Exception as e: note_error("import hook failed:", repr(e))
     finally: conn.close()
 def ui_search_show(conn, body, actor):
     """{show} -> one search command per arr covering every open missing episode/movie/scene of that title."""
@@ -2511,7 +2552,7 @@ def _subsearch(job):
         try:
             with urllib.request.urlopen(req, timeout=300) as r: results.append(f"HTTP {r.status}")
         except urllib.error.HTTPError as e: results.append(f"HTTP {e.code} {e.read()[:80].decode('utf-8','replace')}".strip())
-        except Exception as e: results.append(f"ERROR {e!r}")
+        except Exception as e: results.append(err_result(e))
     conn = db()
     try:
         got = external_subs(job["path"]) if job.get("path") else set(); ok = bool(got & PREF_SUBS) or "und" in got
@@ -2561,7 +2602,7 @@ def _whisper_job(job):
                     time.sleep(10)
                     if whisper_done_since(t0): ok = True; break
                 result = (f"whisper subtitle landed after {(time.time()-t0)/60:.1f} min" if ok else "submitted to Bazarr, still transcribing after 50 min (check Bazarr history later)") + f" ({w.get('release_info', [''])[0] if w.get('release_info') else 'translate/transcribe'})"
-    except Exception as e: result = f"ERROR {e!r}"
+    except Exception as e: result = err_result(e)
     conn = db()
     try:
         record_action(conn, "on", "whisper", job["app"], job.get("episodeid") or job.get("radarrid"), job["label"], f"Whisper subtitles via Bazarr by {job['actor']}", result[:200])
@@ -2809,7 +2850,7 @@ def verify_content(app, fid, path, parent_id, ep_ids, apps):
 def _verify_job(job):
     t0 = time.time()
     try: concl, det = verify_content(job["app"], job["fid"], job["path"], job["parent_id"], job["ep_ids"], arr_apps())
-    except Exception as e: concl, det = f"ERROR {e!r}", ""
+    except Exception as e: concl, det = err_result(e), ""
     conn = db()
     try:
         row = conn.execute("SELECT detail FROM finding WHERE id=?", (job["finding"],)).fetchone()
@@ -2838,7 +2879,7 @@ def sub_worker(q=None):
         try:
             if E("JOBS", "on") == "off": st = "skipped"   # staging copy: record, never run (would hit the real Bazarr/Whisper)
             else: ({"whisper": _whisper_job, "verify": _verify_job}.get(job.get("type"), _subsearch))(job); st = "done"
-        except Exception as e: log("sub worker:", repr(e)); st = "failed"
+        except Exception as e: note_error("sub worker:", repr(e)); st = "failed"
         finally:
             conn = db()
             try: conn.execute("UPDATE jobs SET status=?, done_at=? WHERE id=?", (st, time.time(), jid)); conn.commit()
@@ -3065,11 +3106,14 @@ def about_info(fetch=False, refresh=False, conn=None):
     for d in h.get("degraded") or []: msgs.append(dict(level="error", text=f"{d} could not be reached during the last run", link=""))
     if h.get("status") == "stale": msgs.append(dict(level="warn", text="The last audit is older than expected - the nightly run may not be happening", link=""))
     if not (h.get("tests") or {}).get("ok", True): msgs.append(dict(level="warn", text="The built-in self-test did not pass last time (History tab)", link=""))
+    errs = errors_recent()
+    if h.get("errors_24h") or errs: msgs.append(dict(level="warn", text=f"{max(h.get('errors_24h', 0), len(errs))} error(s) in the last 24 hours - see Recent errors below", link=""))
+    else: msgs.append(dict(level="ok", text="No errors in the last 24 hours", link=""))
     for t in ("ffmpeg", "ffprobe", "mkvpropedit"):
         if not shutil.which(t): msgs.append(dict(level="error", text=f"{t} is missing from the container - checks that need it are skipped", link=""))
     links = dict(forum="https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/", demo="https://chrizantoz.github.io/auditarr/", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
                  source=f"https://github.com/{APP_REPO}", sponsors="https://github.com/sponsors/chrizantoz", kofi="https://ko-fi.com/chrizantoz")
-    return dict(version=APP_VERSION, stats=stats, health=msgs, links=links, releases=lr.get("releases", []), revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
+    return dict(version=APP_VERSION, stats=stats, health=msgs, errors=errs, links=links, releases=lr.get("releases", []), revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
                 db_mb=round((os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0) / 1e6, 1), config_dir=CONFIG_DIR, media_dir="/data" if os.path.isdir("/data") else "", timezone=E("TZ", "UTC"),
                 uptime_s=int(time.time() - START_TS), tools={t: bool(shutil.which(t)) for t in ("ffmpeg", "ffprobe", "mkvpropedit", "mkvmerge")},
                 latest=dict(tag=lr["tag"], url=lr["url"], name=lr["name"], checked=datetime.datetime.fromtimestamp(lr["ts"]).isoformat(timespec="minutes") if lr["ts"] else "", error=lr["error"]),
@@ -3154,8 +3198,11 @@ def health_info():
     elif PROGRESS.get("phase") == "failed": st = "failed"
     elif age_h is None: st = "ok" if (time.time() - START_TS) / 3600 < STALE_HOURS else "stale"
     else: st = "stale" if age_h > STALE_HOURS else "ok"
-    ts_ = tests_status()
-    return dict(status=st, read_only=READ_ONLY, write_attempts=len(WRITE_LEDGER), write_log=[w for _, w in WRITE_LEDGER[-10:]], degraded=degraded(), busy=INFLIGHT["n"] + (1 if RUN_LOCK.locked() else 0), deps={k: dict(ok=v["ok"], error=v["error"]) for k, v in DEPS.items()},
+    ts_ = tests_status(); err24 = 0
+    try:
+        c = sqlite3.connect(DB_PATH, timeout=10); err24 = c.execute("SELECT count(*) FROM action WHERE result LIKE 'ERROR%' AND ts > ?", (time.time() - 86400,)).fetchone()[0]; c.close()
+    except Exception: pass
+    return dict(status=st, errors_24h=err24 + len([e for e in ERRORS if e["ts"] > time.time() - 86400]), read_only=READ_ONLY, write_attempts=len(WRITE_LEDGER), write_log=[w for _, w in WRITE_LEDGER[-10:]], degraded=degraded(), busy=INFLIGHT["n"] + (1 if RUN_LOCK.locked() else 0), deps={k: dict(ok=v["ok"], error=v["error"]) for k, v in DEPS.items()},
                 last_run=datetime.datetime.fromtimestamp(last).isoformat(timespec="seconds") if last else None, age_hours=round(age_h, 1) if age_h is not None else None,
                 stale_after_hours=STALE_HOURS, phase=PROGRESS.get("phase"), sub_queue=SUB_Q.qsize(),
                 tests=dict(ok=ts_["ok"], selftest=f"{ts_['selftest'].get('passed', '?')}/{ts_['selftest'].get('total', '?')} @ {str(ts_['selftest'].get('ts', ''))[:16]}" if ts_["selftest"] else "never", uibot=f"{ts_['uibot'].get('passed', '?')}/{ts_['uibot'].get('total', '?')} @ {str(ts_['uibot'].get('ts', ''))[:16]}" if ts_["uibot"] else "never"))
@@ -3230,6 +3277,8 @@ class Handler(SimpleHTTPRequestHandler):
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
         if p == "/api/discover": return self._json(200, discover_services())
+        if p == "/api/errors":
+            m_ = re.search(r"[?&]hours=(\d+)", self.path); return self._json(200, dict(errors=errors_recent(hours=int(m_.group(1)) if m_ else 24)))
         if p == "/api/about":
             c_ = db()
             try: return self._json(200, about_info(fetch="refresh=1" in self.path, refresh="refresh=1" in self.path, conn=c_))
@@ -3350,7 +3399,7 @@ def guarded_run():
     if not RUN_LOCK.acquire(blocking=False): log("run already in progress"); return
     try: run_once(); LAST_RUN = datetime.datetime.now().isoformat(timespec="seconds")
     except Exception as e:
-        import traceback; log("run failed:", repr(e)); traceback.print_exc(); progress("failed", repr(e))
+        note_error("run failed:", repr(e)); progress("failed", repr(e))
     finally: RUN_LOCK.release()
 def daemon():
     os.makedirs(REPORT_DIR, exist_ok=True); open(os.path.join(REPORT_DIR, "live.html"), "w").write(LIVE_HTML)
@@ -3382,7 +3431,7 @@ def daemon():
                 c_ = db()
                 try: watch_priority_pass(c_)
                 finally: c_.close()
-            except Exception as e: log("watch priority:", repr(e))
+            except Exception as e: note_error("watch priority:", repr(e))
             time.sleep(300)
     threading.Thread(target=_watch_loop, daemon=True).start()
     hh, mm = [int(x) for x in RUN_AT.split(":")]

@@ -221,4 +221,8 @@ if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     if "Executable doesn't exist" in (p.stderr + p.stdout): print("SKIP browser bot (Chromium not downloaded here; CI runs it)")
     else: check("real-browser bot passes against the live app", p.returncode == 0, "; ".join(bad)[:200] or p.stderr[-300:])
 else: print("SKIP browser bot (uibot/node_modules/playwright missing)")
+# Q25: nothing unexpected may have happened during all of the above
+errlog = os.path.join(CFG, "reports", "errors.log"); errtxt = open(errlog, encoding="utf-8", errors="replace").read() if os.path.exists(errlog) else ""
+check("no unexpected error was recorded during the whole stack test (errors.log empty)", not errtxt.strip(), errtxt[-600:])
+if errtxt.strip(): print("---- errors.log ----\n" + errtxt[-4000:])
 finish(0)

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- No swallowed errors (Q25): any failure inside a job or hook now keeps its full traceback in errors.log and on the About tab under Recent errors, ready to paste into a bug report. About shows a green "No errors in the last 24 hours" line when all is well, Today says ✓ no errors, and the health check counts errors.
 - Subtitles first for what people are watching (F31): every 5 minutes, whatever is playing in Plex or next up on a Home gets its missing subtitles pushed to the front: Bazarr search now, AI subtitles if Bazarr still has nothing 20 minutes later. Settings WATCH_PRIORITY and WATCH_PRIORITY_MINUTES. Rows show ▶ watching now.
 - The page shows when it is busy (U26): a moving bar while a request is in flight, a spinner in the pressed button, pulsing chips for running work.
 - History: the actions-per-day table and the 90-day summary now also count AI subtitles made, dialogue checks, default-track fixes, time-bar repairs and Plex refreshes. Failed attempts are not counted.

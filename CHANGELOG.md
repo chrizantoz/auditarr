@@ -8,6 +8,7 @@ All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizan
 - 👁️ **Read-only login** (F9): Setup → Protect the page → read-only account. A viewer sees the whole page without buttons, and the server answers 403 to any change from that session; the role travels in the signed session cookie.
 - 🎬 **Content check for movies** (S1): the dialogue is compared with the movie's synopsis against two dozen decoy synopses from the same Radarr library (matches / mislabeled / inconclusive). Nightly auto-verify and Tonight's plan include movies.
 - 📲 **Pushes open the page** (S3): every ntfy notification carries a link to the Findings tab (Trash when files were moved); the page reads `#findings`, `#trash` and the other tab names from the address. `PUBLIC_URL` sets the address used in links.
+- ⏱️ Performance budget in CI: a 10,000-file / 5,000-finding library must build its report and page state within fixed time and size limits.
 - 🌪️ Chaos test in CI: the fake stack throws 500s, slow answers and a vanishing Radarr at the audit; it must finish degraded, keep that app's findings, write nothing, and recover on the next run.
 - 📲 The morning push lists problems by their plain names ("Won't play · No audio: Beta Movie") instead of codes, and is now pinned by a golden test.
 - ⏳ Rows with a running job (AI subtitles) show **working**, leave Needs you immediately and resolve by themselves when the subtitles land; if the job gives up the row returns. (Owner: "if I trigger Make AI subtitles it should leave the row and Needs you.")

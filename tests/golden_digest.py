@@ -2,7 +2,7 @@
 Builds a small, fixed world (findings, actions, a 'working' row that must stay out of Needs-you), renders digest_text(today_summary())
 and compares it with tests/golden/digest.txt. A changed wording is a deliberate change: run with --update to re-pin.
 Run: python tests/golden_digest.py [--update]   Exit 1 on failure."""
-import os, sys, tempfile, threading, time
+import json, os, sys, tempfile, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TMP = tempfile.mkdtemp(prefix="auditarr-golden-"); os.environ["CONFIG_DIR"] = TMP; os.environ["REPORT_DIR"] = os.path.join(TMP, "r"); os.makedirs(os.environ["REPORT_DIR"])
@@ -26,7 +26,8 @@ acts = [("on", "fixtag", "sonarr", "Alpha Show S01E01", "eng written"), ("on", "
         ("on", "whisper", "sonarr", "Kakegurui S01E02", "ERROR TypeError('boom')"), ("on", "regrab", "sonarr", "Alpha Show S01E02", "moved -> trash"), ("on", "settings", "ui", "x", "changed"), ("dryrun", "dedupe", "disk", "y.mkv", "would move"),
         ("on", "plex-refresh", "sonarr", "Alpha Show", "refreshed"), ("on", "subsearch", "sonarr", "Anime S01E02", "no subtitle found yet")]
 for k, (mode, kind, app, label, result) in enumerate(acts): conn.execute("INSERT INTO action VALUES(?,?,?,?,?,?,?,?)", (now - 3600 - k, mode, kind, app, str(k), label, "golden", result))
-conn.execute("INSERT INTO run(started,finished,files,probed,active,new,resolved) VALUES(?,?,?,?,?,?,?)", (now - 7200, now - 5400, 1234, 40, 6, 2, 3)); conn.commit()
+conn.execute("INSERT INTO run(started,finished,files,probed,active,new,resolved,extra) VALUES(?,?,?,?,?,?,?,?)", (now - 7200, now - 5400, 1234, 40, 6, 2, 3, "{}"))
+conn.execute("INSERT OR REPLACE INTO kv VALUES('last_run_info', ?)", (json.dumps(dict(files=1234, probed=40, new=2, resolved=3, active=6, finished="2026-11-11T02:30:00", trash={"files": 1, "gb": 0.9})),)); conn.commit()
 
 audit.refresh_reports(conn); t = audit.today_summary(conn, since); text = audit.digest_text(t)
 gold = os.path.join(ROOT, "tests", "golden", "digest.txt")

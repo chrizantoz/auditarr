@@ -4,4 +4,4 @@ Needs you: 3
   - Wrong · Sample, not the episode: Alpha Show S01E05
 Night did: 2 audio tags fixed, 1 AI subtitles made, 1 re-grabs started, 1 Plex folder refreshes
 Errors: whisper: Kakegurui S01E02 - ERROR TypeError('boom')
-Findings: 0 active (0 new, 0 resolved) · trash 0 files / 0 GB
+Findings: 6 active (2 new, 3 resolved) · trash 1 files / 0.9 GB

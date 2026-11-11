@@ -51,7 +51,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **Q13** (2026-11-11) Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
 - [ ] **Q14** Restore drill (weekly, on the host): start a throwaway container on last night's backup and load its page.
 - [x] **Q15** (2026-11-11) Chaos in the fake stack: `tests/e2e_chaos.py` + `mock_stack.chaos()` (500s, slow answers, Radarr vanishing); degraded finish, findings kept, no writes, clean recovery.
-- [ ] **Q16** Performance budget: 10k fake files / 5k findings; fail CI when listing, render or memory exceed the budget.
+- [x] **Q16** (2026-11-11) Performance budget: `tests/perf_budget.py` seeds 10k files / 5k findings and fails CI when the report, page state, Today, plan or memory exceed their budgets (today: all under 0.1 s, 55 MB).
 - [ ] **Q17** Persona scripts: browser-only tasks ("make subtitles for show X", "why is this episode missing", "undo the last move") judged by outcome.
 - [x] **Q18** (2026-11-11) Golden digest: `tests/golden_digest.py` pins the push text and checks delivery (title, priority, Click link) against a mock ntfy.
 - [x] **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.

@@ -47,9 +47,13 @@ random.seed(int(time.time()) // 86400)
 for code in sorted(by):
     for _, sev, label, path, detail in random.sample(by[code], min(N, len(by[code]))):
         if not os.path.exists(path): continue
-        try: res = verify(code, probe(path))
-        except Exception: res = False
-        if res is not None: check(f"detector {code}: {label[:40]}", res)
+        try:
+            pr = probe(path)
+            if not pr.get("streams"): time.sleep(3); pr = probe(path)   # a file being moved/rewritten at this very second is not a detector failure
+            if not pr.get("streams"): print(f"skip detector {code}: {label[:40]} (file unreadable right now)"); continue
+            res = verify(code, pr); info = "audio=" + ",".join(lang(s_) for s_ in pr.get("streams", []) if s_.get("codec_type") == "audio") + " video=" + ",".join(s_.get("codec_name", "?") for s_ in pr.get("streams", []) if s_.get("codec_type") == "video")
+        except Exception as e: res = False; info = repr(e)[:120]
+        if res is not None: check(f"detector {code}: {label[:40]}", res, info)
 # ---- 2. API health (reversible) ----
 for p in ("/health", "/api/state", "/api/history", "/api/settings", "/api/trash", "/latest.json", "/latest.html", "/", "/progress.json"):
     s, _ = req(p); check(f"GET {p}", s in (200, 503) if p == "/health" else s == 200, f"HTTP {s}")

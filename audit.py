@@ -3366,7 +3366,8 @@ def about_info(fetch=False, refresh=False, conn=None):
     if h.get("status") == "stale": msgs.append(dict(level="warn", text="The last audit is older than expected - the nightly run may not be happening", link=""))
     if not (h.get("tests") or {}).get("ok", True): msgs.append(dict(level="warn", text="The built-in self-test did not pass last time (History tab)", link=""))
     errs = errors_recent()
-    if h.get("errors_24h") or errs: msgs.append(dict(level="warn", text=f"{max(h.get('errors_24h', 0), len(errs))} error(s) in the last 24 hours - see Recent errors below", link=""))
+    if errs: msgs.append(dict(level="warn", text=f"{max(h.get('errors_24h', 0), len(errs))} error(s) in the last 24 hours - see Recent errors below", link=""))
+    elif h.get("errors_24h"): msgs.append(dict(level="warn", text=f"{h['errors_24h']} failed action(s) in the last 24 hours - the Actions tab lists them; from this version on the exact cause is kept too", link=""))
     else: msgs.append(dict(level="ok", text="No errors in the last 24 hours", link=""))
     for t in ("ffmpeg", "ffprobe", "mkvpropedit"):
         if not shutil.which(t): msgs.append(dict(level="error", text=f"{t} is missing from the container - checks that need it are skipped", link=""))

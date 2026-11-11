@@ -15,7 +15,7 @@ jobs:
       - run: python tests/fuzz_detectors.py 3000 7 && python tests/fuzz_detectors.py 1500 ${{ github.run_number }}
       - run: python tests/mutation_check.py   # one rotating mutant per day; 'all' locally
       - uses: actions/setup-node@v4
-        with: { node-version: "20" }
+        with: { node-version: "24" }
       - run: cd uibot && npm install --silent && node ui_bot.js ../ui.html fixtures
       - run: cd uibot && python3 edge_fixtures.py && for c in empty huge down errors; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
       - run: cd uibot && npx playwright install --with-deps chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures

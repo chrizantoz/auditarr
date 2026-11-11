@@ -3,6 +3,8 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- AI subtitles via Bazarr: the job now waits for a new Bazarr history entry instead of comparing clocks, so Bazarr and Auditarr may run in different time zones (found by the fake Bazarr answering in real shapes).
+- Testing (Q24, second half): the fake stack gained a Plex (sections, library, On Deck, sessions, refresh) and real-shaped Bazarr answers; the stack test now covers not-in-Plex, next-up, watch priority and a landed AI subtitle end to end.
 - Testing (Q33): a real browser now walks through a blank first install in CI: Setup, Test, Save connections, reload, Find my apps, first audit.
 - Testing (Q32): every button on the page is now pressed by a bot in CI, and a lint fails the build when a new button is added without a press.
 - Fixed: the Save connections button on the Setup page did nothing (an error was thrown before the request was sent, with no message). Reported by the first outside user on the Unraid forum. The page now also shows a message whenever something goes wrong instead of failing silently, and the fresh-install bot presses Save connections in CI.

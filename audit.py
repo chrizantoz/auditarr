@@ -2600,6 +2600,11 @@ def _whisper_job(job):
                 except (TypeError, ValueError): continue
             return 0
         return any(r.get("provider") == "whisperai" and _ts(r) >= ts - 5 for r in rows)
+    def whisper_rows():
+        """Identity of every whisperai history row right now: Bazarr may live in another time zone, so 'landed' means a row that was not there before, not a clock comparison."""
+        try: rows = (bazarr_call(hist_path, timeout=60) or {}).get("data", [])
+        except Exception: return None
+        return {(r.get("id"), r.get("parsed_timestamp") or r.get("timestamp"), r.get("subtitles_path")) for r in rows if r.get("provider") == "whisperai"}
     try:
         if whisper_done_since(time.time() - 86400): result = "skipped - a Whisper subtitle was already made for this in the last 24 h"
         else:
@@ -2609,13 +2614,14 @@ def _whisper_job(job):
             if not w: result = "Bazarr offered no whisperai candidate (is the provider enabled / subgen up?)"
             else:
                 form = {"hi": "false", "forced": "false", "original_format": "false", "provider": "whisperai", "subtitle": w["subtitle"]}
+                before = whisper_rows() or set()
                 if kind == "series": form.update(seriesid=job["seriesid"], episodeid=job["episodeid"]); bazarr_call("providers/episodes", form, "POST", timeout=600)
                 else: form.update(radarrid=job["radarrid"]); bazarr_call("providers/movies", form, "POST", timeout=600)
                 # Bazarr answers immediately and transcribes in the background: wait for the history entry so jobs run one at a time
                 deadline = time.time() + 50 * 60; ok = False
                 while time.time() < deadline:
-                    time.sleep(10)
-                    if whisper_done_since(t0): ok = True; break
+                    time.sleep(10); now_rows = whisper_rows()
+                    if (now_rows is not None and now_rows - before) or whisper_done_since(t0): ok = True; break
                 result = (f"whisper subtitle landed after {(time.time()-t0)/60:.1f} min" if ok else "submitted to Bazarr, still transcribing after 50 min (check Bazarr history later)") + f" ({w.get('release_info', [''])[0] if w.get('release_info') else 'translate/transcribe'})"
     except Exception as e: result = err_result(e)
     conn = db()
@@ -3668,6 +3674,8 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/whisper": code, obj = ui_whisper(conn, body, actor)
             elif p == "/api/subsync": code, obj = ui_subsync(conn, body, actor)
             elif p == "/api/retry_job": code, obj = retry_job(conn, int(body.get("id") or 0), actor)
+            elif p == "/api/watch_priority":   # run the watch-priority pass now (tests, curl); the daemon does it every 5 minutes on its own
+                s_, w_ = watch_priority_pass(conn); code, obj = 200, {"ok": True, "searches": s_, "ai_subtitles": w_, "note": f"{s_} Bazarr search(es) and {w_} AI-subtitle job(s) queued for what people are watching"}
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
             elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
             elif p == "/api/update": code, obj = ui_update(conn, actor)

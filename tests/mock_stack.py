@@ -13,6 +13,25 @@ def shape(name, default=None):
     except Exception: return default
 DROP = {"sonarr/episode": {"runtime", "overview", "lastSearchTime", "finaleType"}, "sonarr/series": {"runtime", "statistics", "seasons", "overview", "images", "alternateTitles"}, "radarr/movie": {"runtime", "overview", "images", "alternateTitles", "statistics", "movieFile", "sizeOnDisk"},
         "sonarr/episodefile": {"mediaInfo", "languages", "quality", "size"}, "radarr/moviefile": {"mediaInfo", "languages", "quality", "size"}}   # measurements the hand-made world must own
+def sample(name, where=None):
+    """One recorded object from a shape file: the first row of data / MediaContainer.Metadata / MediaContainer.Directory, or the body itself."""
+    b = shape(name)
+    if b is None: return None
+    if where: 
+        for k in where: b = (b or {}).get(k) if isinstance(b, dict) else (b[k] if isinstance(b, list) and len(b) > k else None)
+        return b
+    for path in (("data", 0), ("MediaContainer", "Metadata", 0), ("MediaContainer", "Directory", 0), (0,)):
+        x = b
+        try:
+            for k in path: x = x[k]
+            if isinstance(x, dict): return x
+        except Exception: continue
+    return b if isinstance(b, dict) else None
+def over(name, obj, where=None):
+    """obj laid over the recorded sample `name` (deep-copied): real fields present, our values win."""
+    t = sample(name, where)
+    if not isinstance(t, dict): return obj
+    out = json.loads(json.dumps(t)); out.update(obj); return out
 def templated(name, obj):
     """The hand-made object laid over a real-shaped sample: every field the real service sends is present, our test values win."""
     t = shape(name); t = t[0] if isinstance(t, list) and t else t
@@ -39,7 +58,8 @@ def default_world(tv_root="/data/tv", movie_root="/data/movies"):
     mfiles = [dict(id=21, movieId=1, path=os.path.join(mdir, "Beta Movie (2021) [WEBDL-1080p]-grp.mkv"), size=0, dateAdded=iso(40), quality={"quality": {"name": "Unknown", "resolution": 0}}, mediaInfo={}, languages=[])]
     series = [templated("sonarr/series", x) for x in series]; eps = [templated("sonarr/episode", x) for x in eps]; files = [templated("sonarr/episodefile", x) for x in files]
     movies = [templated("radarr/movie", x) for x in movies]; mfiles = [templated("radarr/moviefile", x) for x in mfiles]
-    return dict(tv_root=tv_root, movie_root=movie_root, series=series, episodes=eps, files=files, movies=movies, mfiles=mfiles, tags=[], wanted_eps=[103], wanted_movies=[], cmd_id=[100])
+    return dict(tv_root=tv_root, movie_root=movie_root, series=series, episodes=eps, files=files, movies=movies, mfiles=mfiles, tags=[], wanted_eps=[103], wanted_movies=[], cmd_id=[100],
+                bazarr_history=[], plex_ondeck=[("sonarr", 102)], plex_sessions=[], plex_missing=[])   # Plex: S01E02 is next up on someone's Home; nobody is watching; plex_missing = file ids Plex has not indexed
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -72,10 +92,11 @@ class Handler(BaseHTTPRequestHandler):
             if r < ch.get("p500", 0.08): return self._send(500, {"error": "chaos"})
             if r < ch.get("p500", 0.08) + ch.get("pslow", 0.04): time.sleep(ch.get("slow_s", 2))
         if method != "GET": self.server.calls.append(dict(app=app, method=method, path="/" + "/".join(parts[1:]), query=q, body=body))
-        public = (len(parts) <= 1) or parts[1:] in (["ping"], []) or (app == "bazarr" and len(parts) == 1)
+        public = (len(parts) <= 1) or parts[1:] in (["ping"], []) or (app == "bazarr" and len(parts) == 1) or app == "plex"
         if not public and self.headers.get("X-Api-Key") != KEY and self.headers.get("X-API-KEY") != KEY: return self._send(401, {"error": "bad key"})
         if app in ("sonarr", "radarr", "whisparr"): return self._arr(app, method, parts[1:], q, body)
         if app == "bazarr": return self._bazarr(method, parts[1:], q, body)
+        if app == "plex": return self._plex(method, parts[1:], q)
         return self._send(404, {})
     SPEECH = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5, 31.0, 33.4, 35.2, 37.7, 38.9, 41.3, 43.0, 45.6, 47.2, 49.9, 51.4, 53.8, 55.1, 57.6, 59.0]
     def _asr(self, parts, q):
@@ -84,6 +105,57 @@ class Handler(BaseHTTPRequestHandler):
         secs = max(0.0, (n - 300) / 32000.0)   # 16 kHz mono 16-bit wav -> seconds in the window
         self.server.calls.append(dict(app="whisper", method="POST", path="/asr", query=q, body={"seconds": round(secs, 1)}))
         return self._send(200, {"text": "la", "segments": [{"start": t, "end": t + 1.0, "text": "la la"} for t in self.SPEECH if t < secs - 0.5]})
+    def _bz_episode(self, e, sid):
+        W = self.server.world; f = next((x for x in W["files"] if x["id"] == e["episodeFileId"]), None); path = f["path"] if f else None
+        side = path and os.path.exists(os.path.splitext(path)[0] + ".en.srt")
+        subs = [over("bazarr/episodes", dict(name="English", code2="en", code3="eng", path=os.path.splitext(path)[0] + ".en.srt", forced=False, hi=False, embedded_track_id=None), ("data", 0, "subtitles", 0))] if side else []
+        missing = [] if side or e["id"] not in W["wanted_eps"] else [{"name": "English", "code2": "en", "code3": "eng", "forced": False, "hi": False}]
+        return over("bazarr/episodes", dict(sonarrEpisodeId=e["id"], sonarrSeriesId=sid, season=e["seasonNumber"], episode=e["episodeNumber"], title=e["title"], path=path, monitored=True, subtitles=subs, missing_subtitles=missing, audio_language=[{"name": "English", "code2": "en", "code3": "eng"}], sceneName=None))
+    def _plex(self, method, parts, q):
+        """A fake Plex: sections, library contents built from the world's files, On Deck, sessions, metadata, refresh. Needs X-Plex-Token=test."""
+        W = self.server.world
+        if (q.get("X-Plex-Token") or [""])[0] != KEY: return self._send(401, {})
+        path = "/" + "/".join(parts); title_of = lambda e: next((s["title"] for s in W["series"] if s["id"] == e["seriesId"]), "Show")
+        def ep_item(e):
+            f = next((x for x in W["files"] if x["id"] == e["episodeFileId"]), None)
+            return over("plex/onDeck", dict(ratingKey=str(100000 + e["id"]), key=f"/library/metadata/{100000 + e['id']}", type="episode", title=e["title"], index=e["episodeNumber"], parentIndex=e["seasonNumber"], parentRatingKey=str(90000 + e["seriesId"]), grandparentRatingKey=str(80000 + e["seriesId"]), grandparentTitle=title_of(e), librarySectionID=1,
+                                           Media=[{"id": e["id"], "duration": 1500000, "videoCodec": "h264", "audioCodec": "aac", "container": "mkv", "Part": [{"id": e["id"], "key": f"/library/parts/{e['id']}/file.mkv", "file": f["path"] if f else "", "size": 1, "container": "mkv"}]}] if f else []))
+        def mv_item(m):
+            f = next((x for x in W["mfiles"] if x["movieId"] == m["id"]), None)
+            return over("plex/metadata_movie", dict(ratingKey=str(70000 + m["id"]), key=f"/library/metadata/{70000 + m['id']}", type="movie", title=m["title"], year=m.get("year"), librarySectionID=2,
+                                                     Media=[{"id": 7000 + m["id"], "duration": 5400000, "videoCodec": "h264", "audioCodec": "aac", "container": "mkv", "Part": [{"id": 7000 + m["id"], "key": f"/library/parts/{7000 + m['id']}/file.mkv", "file": f["path"] if f else "", "size": 1, "container": "mkv"}]}] if f else []))
+        eps = [e for e in W["episodes"] if e["hasFile"] and e["episodeFileId"] not in W["plex_missing"]]; movs = [m for m in W["movies"] if m.get("hasFile") and m.get("movieFile", {}).get("id") not in W["plex_missing"]]
+        if path == "/identity": return self._send(200, over("plex/identity", {"MediaContainer": {"size": 0, "machineIdentifier": "mock-plex", "version": "1.40.0"}}) if sample("plex/identity") else {"MediaContainer": {"size": 0, "machineIdentifier": "mock-plex", "version": "1.40.0"}})
+        if path == "/library/sections":
+            dirs = [over("plex/sections", dict(key="1", type="show", title="TV", agent="tv.plex.agents.series", Location=[{"id": 1, "path": W["tv_root"]}])), over("plex/sections", dict(key="2", type="movie", title="Movies", agent="tv.plex.agents.movie", Location=[{"id": 2, "path": W["movie_root"]}]))]
+            return self._send(200, {"MediaContainer": {"size": 2, "Directory": dirs}})
+        if path in ("/library/sections/1/all", "/library/sections/2/all"):
+            items = [ep_item(e) for e in eps] if path.startswith("/library/sections/1") else [mv_item(m) for m in movs]
+            if path.startswith("/library/sections/1") and (q.get("type") or ["4"])[0] != "4": items = [over("plex/section_show_all", dict(ratingKey=str(80000 + s_["id"]), key=f"/library/metadata/{80000 + s_['id']}", type="show", title=s_["title"], librarySectionID=1)) for s_ in W["series"]]
+            start = int((q.get("X-Plex-Container-Start") or ["0"])[0]); size = int((q.get("X-Plex-Container-Size") or ["3000"])[0])
+            return self._send(200, {"MediaContainer": {"size": len(items[start:start + size]), "totalSize": len(items), "offset": start, "Metadata": items[start:start + size]}})
+        if path.startswith("/library/sections/") and path.endswith("/refresh"): self.server.calls.append(dict(app="plex", method="GET", path=path, query=q, body=None)); return self._send(200, {})
+        if path == "/library/onDeck":
+            items = [ep_item(e) for a, fid in W["plex_ondeck"] for e in W["episodes"] if a == "sonarr" and e["id"] == fid]
+            return self._send(200, {"MediaContainer": {"size": len(items), "Metadata": items}})
+        if path == "/status/sessions":
+            items = []
+            for sess in W["plex_sessions"]:   # dict(app, id, user, offset)
+                e = next((x for x in W["episodes"] if sess.get("app") == "sonarr" and x["id"] == sess.get("id")), None)
+                if e: it = ep_item(e); it.update(viewOffset=sess.get("offset", 60000), User={"id": 1, "thumb": "", "title": sess.get("user", "someone")}, Player={"address": "127.0.0.1", "device": "TV", "platform": "Plex Web", "product": "Plex Web", "state": "playing", "title": "Living room"}, Session={"id": "s1", "bandwidth": 1000, "location": "lan"}); items.append(it)
+            return self._send(200, {"MediaContainer": {"size": len(items), "Metadata": items}})
+        if path.startswith("/library/metadata/"):
+            rk = parts[2] if len(parts) > 2 else ""; kids = len(parts) > 3 and parts[3] == "children"
+            try: n = int(rk)
+            except ValueError: return self._send(404, {})
+            if n >= 100000: e = next((x for x in W["episodes"] if x["id"] == n - 100000), None); return self._send(200 if e else 404, {"MediaContainer": {"size": 1, "Metadata": [dict(ep_item(e), lastViewedAt=None)]}} if e else {})
+            if n >= 80000 and n < 90000:
+                sid = n - 80000; eps_ = [ep_item(e) for e in eps if e["seriesId"] == sid]
+                if kids: return self._send(200, {"MediaContainer": {"size": len(eps_), "Metadata": eps_}})
+                return self._send(200, {"MediaContainer": {"size": 1, "Metadata": [over("plex/metadata_show", dict(ratingKey=rk, type="show", title=next((s_["title"] for s_ in W["series"] if s_["id"] == sid), "Show"), leafCount=len(eps_), viewedLeafCount=0, lastViewedAt=None))]}})
+            if n >= 70000: m = next((x for x in W["movies"] if x["id"] == n - 70000), None); return self._send(200 if m else 404, {"MediaContainer": {"size": 1, "Metadata": [dict(mv_item(m), lastViewedAt=None)]}} if m else {})
+            return self._send(404, {})
+        return self._send(404, {})
     def _arr(self, app, method, parts, q, body):
         W = self.server.world
         if parts == ["ping"]: return self._send(200, {"status": "OK"})
@@ -130,14 +202,26 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200); self.send_header("Content-Type", "text/html"); self.send_header("Content-Length", str(len(body_))); self.end_headers(); self.wfile.write(body_); return
         if p == "episodes/wanted": return self._send(200, {"data": [{"sonarrEpisodeId": i} for i in W["wanted_eps"]]})
         if p == "movies/wanted": return self._send(200, {"data": [{"radarrId": i} for i in W["wanted_movies"]]})
-        if p == "episodes" and method == "GET":
-            sid = int((q.get("seriesid[]") or ["0"])[0]); return self._send(200, {"data": [dict(sonarrEpisodeId=e["id"], sonarrSeriesId=sid, season=e["seasonNumber"], episode=e["episodeNumber"], path=next((f["path"] for f in W["files"] if f["id"] == e["episodeFileId"]), None)) for e in W["episodes"] if e["seriesId"] == sid and e["hasFile"]]})
+        if p == "episodes" and method == "GET" and q.get("seriesid[]"):
+            sid = int((q.get("seriesid[]") or ["0"])[0]); return self._send(200, {"data": [self._bz_episode(e, sid) for e in W["episodes"] if e["seriesId"] == sid and e["hasFile"]]})
         if p == "episodes/subtitles" and method == "PATCH": return self._send(204)
         if p == "movies/subtitles" and method == "PATCH": return self._send(204)
-        if p in ("episodes/history", "movies/history"): return self._send(200, {"data": []})
+        if p in ("episodes/history", "movies/history"):
+            eid = int((q.get("episodeid") or q.get("radarrid") or ["0"])[0]); rows = [h for h in W["bazarr_history"] if h.get("sonarrEpisodeId") == eid or h.get("radarrId") == eid]
+            return self._send(200, {"data": rows, "total": len(rows)})
         if p == "subtitles" and method == "PATCH": return self._send(204)   # sync / translate / mods
-        if p == "episodes" and q.get("episodeid[]"): return self._send(200, {"data": [{"sonarrEpisodeId": int(q["episodeid[]"][0]), "subtitles": []}]})
+        if p == "episodes" and q.get("episodeid[]"):
+            eid = int(q["episodeid[]"][0]); e = next((x for x in W["episodes"] if x["id"] == eid), None); return self._send(200, {"data": [self._bz_episode(e, e["seriesId"])] if e else []})
         if p == "movies" and q.get("radarrid[]"): return self._send(200, {"data": [{"radarrId": int(q["radarrid[]"][0]), "subtitles": []}]})
+        if p == "providers/episodes" and method == "GET":   # one whisperai candidate per episode, shaped like the real list
+            eid = int((q.get("episodeid") or ["0"])[0]); return self._send(200, {"data": [over("bazarr/providers_episodes", dict(provider="whisperai", language="en", subtitle="whisperai-" + str(eid), release_info=["Whisper transcription"], score=100, orig_score=360, matches=["whisperai"], dont_matches=[]))]})
+        if p == "providers/episodes" and method == "POST":   # the download: Bazarr answers at once and writes a history row when the transcription lands (here: immediately)
+            eid = int((body.get("episodeid") or ["0"])[0]) if isinstance(body.get("episodeid"), list) else int(body.get("episodeid") or 0)
+            e = next((x for x in W["episodes"] if x["id"] == eid), None); f = next((x for x in W["files"] if e and x["id"] == e["episodeFileId"]), None)
+            if f: open(os.path.splitext(f["path"])[0] + ".en.srt", "w").write("1\n00:00:01,000 --> 00:00:02,000\n(whisper)\n")
+            W["bazarr_history"].append(dict(id=len(W["bazarr_history"]) + 1, action=1, timestamp="just now", parsed_timestamp=datetime.datetime.now().strftime("%m/%d/%y %H:%M:%S"), provider="whisperai", language={"name": "English", "code2": "en", "code3": "eng", "forced": False, "hi": False},
+                                            sonarrEpisodeId=eid, sonarrSeriesId=e["seriesId"] if e else 0, seriesTitle="Alpha Show", episodeTitle=e["title"] if e else "", episode_number=f"{e['seasonNumber']}x{e['episodeNumber']}" if e else "", score="100%", subtitles_path=(os.path.splitext(f["path"])[0] + ".en.srt") if f else "", description="downloaded from whisperai", matches=[], dont_matches=[], upgradable=False, blacklisted=False))
+            return self._send(200, {})
         if p.startswith("providers/"): return self._send(200, {"data": []} if method == "GET" else {})
         if p == "system/settings": return self._send(204 if method == "POST" else 200, None if method == "POST" else {})
         if p == "system/status": return self._send(200, {"data": {"bazarr_version": "1.4.0"}})

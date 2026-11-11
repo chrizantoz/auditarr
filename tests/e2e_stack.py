@@ -24,9 +24,11 @@ make(W["files"][0]["path"], alang="eng")                      # S01E01 clean
 make(W["files"][1]["path"], alang="fre")                      # S01E02 French on an English show -> WRONG_LANGUAGE high
 make(W["files"][2]["path"], alang="jpn")                      # S01E03 Japanese, no subs, Bazarr wanted -> NO_SUBS medium
 make(W["mfiles"][0]["path"], audio=False)                     # movie with no audio -> NO_AUDIO critical
+os.utime(W["mfiles"][0]["path"], (time.time() - 2 * 86400, time.time() - 2 * 86400))   # old enough for the not-in-Plex rule (PLEX_MIN_AGE_HOURS)
 season = os.path.dirname(W["files"][0]["path"]); dup = os.path.join(season, "Alpha.Show.S01E01.other-group.mkv"); shutil.copy(W["files"][0]["path"], dup)   # DUPLICATE_VIDEO
 orphan = os.path.join(TV, "Random.Home.Video.mkv"); shutil.copy(W["files"][0]["path"], orphan)                                                           # ORPHAN_FILE
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
+W["plex_missing"] = [W["mfiles"][0]["id"]]   # Plex has not indexed the movie -> PLEX_MISSING
 mock = mock_stack.start(W); MP = mock.server_address[1]; MURL = f"http://127.0.0.1:{MP}"
 
 # ---- upgrade test (Q13): start on the newest sample database from a previous release; it must migrate and keep its history
@@ -37,7 +39,7 @@ if samples: shutil.copy(samples[-1], os.path.join(CFG, "state.db")); print("seed
 PORT = free_port()
 env = dict(os.environ, CONFIG_DIR=CFG, REPORT_DIR=os.path.join(CFG, "reports"), ARR_CONFIG_DIR=os.path.join(CFG, "no-arr-dir"), HTTP_PORT=str(PORT), HOST_IP="127.0.0.1", TZ="UTC",
            RUN_AT="23:59", RUN_ON_START="1", SONARR_URL=f"{MURL}/sonarr", SONARR_APIKEY="test", RADARR_URL=f"{MURL}/radarr", RADARR_APIKEY="test", WHISPARR_APIKEY="",
-           BAZARR_URL=f"{MURL}/bazarr", BAZARR_APIKEY="test", PLEX_CHECK="off", PLEX_REFRESH="off", PLEX_TOKEN="", PAPERCLIP="off", NTFY_URL="", TRASH_DIR=TRASH,
+           BAZARR_URL=f"{MURL}/bazarr", BAZARR_APIKEY="test", PLEX_URL=f"{MURL}/plex", PLEX_TOKEN="test", PLEX_CHECK="on", PLEX_REFRESH="on", PLEX_PATH_MAP=f"{CFG}={CFG}", PAPERCLIP="off", NTFY_URL="", TRASH_DIR=TRASH,
            DEDUPE="off", REMEDIATE="off", SUBTAG="off", AUTO_FIXHEADER="off", AUTO_VERIFY="off", AUTO_WHISPER="off", AUTO_ACCEPTLANG="off", TRACK_PREFS="off", ARR_RESCAN="on",
            MISSING_MIN_DAYS="3", SUBGEN_URLS=f"{MURL}/whisper", DOCKER_API="", PROBE_WORKERS="2", TAUTULLI_INI=os.path.join(CFG, "none.ini"), DISCOVER_EXTRA=f"{MURL}/sonarr,{MURL}/radarr,{MURL}/bazarr")
 log = open(os.path.join(CFG, "daemon.log"), "w")
@@ -93,6 +95,14 @@ check("missing aired episode -> MISSING_EPISODE", any("S01E04" in f["title"] for
 check("second file for S01E01 -> DUPLICATE_VIDEO", any(os.path.basename(dup) in (f["path"] or "") for f in byt.get("DUPLICATE_VIDEO", [])), byt.get("DUPLICATE_VIDEO"))
 check("stray video in the root -> ORPHAN_FILE", any(os.path.basename(orphan) in (f["path"] or "") for f in byt.get("ORPHAN_FILE", [])), byt.get("ORPHAN_FILE"))
 check("every finding has a plain sentence and a name", all(f.get("plain") and f.get("name") for f in F))
+check("Plex: the movie Plex never indexed is reported as not in Plex", any("Beta Movie" in f["title"] for f in byt.get("PLEX_MISSING", [])), [f["title"] for f in byt.get("PLEX_MISSING", [])])
+check("Plex: the episode after the one on someone's Home is flagged next up", any(f.get("upcoming") and "S01E03" in f["title"] for f in F), [f["title"] for f in F if f.get("upcoming")])
+W["plex_sessions"] = [dict(app="sonarr", id=101, user="nyx")]   # someone starts watching S01E01 right now
+s_wp, j_wp = api("/api/watch_priority", {}); check("watch priority: a Bazarr search is pushed for the no-subtitle episode of the show being watched", s_wp == 200 and j_wp.get("searches", 0) >= 1, (s_wp, j_wp))
+time.sleep(2); s_h, hist_ = api("/api/history"); s_st, st_wp = api("/api/state")
+check("watch priority: the row is marked watching now", any(f.get("watching") and "S01E03" in f["title"] for f in st_wp.get("findings", [])), [f["title"] for f in st_wp.get("findings", []) if f.get("watching")])
+check("watch priority: the push is recorded as an action", any(a.get("kind") == "watch-priority" for a in st_wp.get("actions", [])), [a.get("kind") for a in st_wp.get("actions", [])][:8])
+W["plex_sessions"] = []
 check("clean episode has no findings", not any("S01E01" in f["title"] and f["app"] == "sonarr" for f in F), [f["check"] for f in F if "S01E01" in f["title"] and f["app"] == "sonarr"])
 
 # ---- actions move real files, Undo brings them back
@@ -140,12 +150,15 @@ if ns:
     s, st = api("/api/state"); wf = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None); t_click = time.time()
     done_fast = any(a.get("kind") == "whisper" and "S01E03" in a.get("title", "") and a.get("ts", "") >= time.strftime("%Y-%m-%d %H:%M", time.localtime(t_click - 60)) for a in st.get("actions", []))
     check("the row is flagged 'working' right away and leaves Needs you", (wf and wf["detail"].startswith("[working:") and not any(n.get("id") == ns["id"] for n in (st.get("today") or {}).get("needs", []))) or done_fast, (wf or {}).get("detail"))
-    t4 = time.time(); wf2 = wf
-    while time.time() - t4 < 90 and wf2 and wf2["detail"].startswith("[working:"):
-        time.sleep(5); s, st = api("/api/state"); wf2 = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None)
-    check("when the job gives up (fake Bazarr offers no Whisper) the flag is removed and the row is back", wf2 and not wf2["detail"].startswith("[working:"), (wf2 or {}).get("detail"))
     mock.calls.clear(); s, j = api("/api/act", {"id": ns["id"], "action": "subsearch"}); time.sleep(3)
     check("Find subtitles reaches Bazarr (PATCH subtitles)", s == 200 and any(c["app"] == "bazarr" and c["method"] == "PATCH" for c in mock.calls), [(c["app"], c["method"], c["path"]) for c in mock.calls][:5])
+    t4 = time.time(); wf2 = wf
+    while time.time() - t4 < 120 and wf2 is not None:   # the fake Bazarr offers a whisperai candidate and writes a real-shaped history row (prose timestamp + parsed_timestamp): the job must see it land
+        time.sleep(5); s, st = api("/api/state"); wf2 = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None)
+    side3 = os.path.splitext(W["files"][2]["path"])[0] + ".en.srt"
+    check("AI subtitles land: the job reads Bazarr's real-shaped history, the subtitle file appears and the row clears itself", wf2 is None and os.path.exists(side3), (wf2 or {}).get("detail") or ("no sidecar" if not os.path.exists(side3) else ""))
+    s, st = api("/api/state"); was = [a for a in st.get("actions", []) if a.get("kind") == "whisper" and "S01E03" in a.get("title", "") and a.get("ts", "") >= time.strftime("%Y-%m-%dT%H", time.localtime(t4 - 3600))]
+    check("…and one job says the subtitle landed while a second one for the same title says it was already made", any("landed" in json.dumps(a) for a in was) and any("already made" in json.dumps(a) for a in was), [a.get("result") for a in was])
 mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
 check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
 s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)
@@ -240,7 +253,12 @@ fr_bot = os.path.join(ROOT, "uibot", "first_run_bot.js")
 if up2 and os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     p2 = subprocess.run(["node", fr_bot, BASE2, MURL], capture_output=True, text=True, timeout=600); print(p2.stdout[-2500:])
     if "Executable doesn't exist" in (p2.stderr + p2.stdout): print("SKIP first-run walkthrough (Chromium not downloaded here; CI runs it)")
-    else: check("first-run walkthrough in a real browser passes against a blank install", p2.returncode == 0, "; ".join(l for l in p2.stdout.splitlines() if l.startswith("FAIL"))[:200] or p2.stderr[-300:])
+    else:
+        check("first-run walkthrough in a real browser passes against a blank install", p2.returncode == 0, "; ".join(l for l in p2.stdout.splitlines() if l.startswith("FAIL"))[:200] or p2.stderr[-300:])
+        if p2.returncode != 0:
+            log2.flush(); print("---- blank install daemon log (tail) ----"); print("".join(open(os.path.join(CFG2, "daemon.log")).read().splitlines(True)[-25:]))
+            try: print("---- blank install state ----", json.dumps({k: json.loads(urllib.request.urlopen(BASE2 + "/api/state", timeout=30).read()).get(k) for k in ("run", "progress", "health", "setup")})[:1500])
+            except Exception as e: print("state unavailable:", repr(e))
 else: print("SKIP first-run walkthrough (playwright missing)")
 daemon2.terminate()
 try: daemon2.wait(10)

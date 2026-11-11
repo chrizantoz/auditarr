@@ -34,6 +34,12 @@ for app, name, path in (("sonarr", "sonarr/series", "/sonarr/api/v3/series"), ("
                         ("radarr", "radarr/movie", "/radarr/api/v3/movie"), ("radarr", "radarr/moviefile", "/radarr/api/v3/moviefile?movieId=1")):
     real = keys_of(mock_stack.shape(name)); fake = keys_of(get(path)); missing = real - fake - mock_stack.DROP.get(name, set())
     check(f"fake {name} has every field the real one has", real and not missing, sorted(missing)[:8])
+def getp(path):
+    with urllib.request.urlopen(base + path + ("&" if "?" in path else "?") + "X-Plex-Token=" + mock_stack.KEY, timeout=10) as r: return json.loads(r.read())
+bz = get("/bazarr/api/episodes?seriesid[]=1")["data"]; real = keys_of(mock_stack.sample("bazarr/episodes")); check("fake Bazarr episode rows have every real field", real and not (real - keys_of(bz)), sorted(real - keys_of(bz))[:8])
+pd = getp("/plex/library/sections")["MediaContainer"]["Directory"]; real = keys_of(mock_stack.sample("plex/sections")); check("fake Plex sections have every real field", real and not (real - keys_of(pd)), sorted(real - keys_of(pd))[:8])
+pe = getp("/plex/library/sections/1/all?type=4")["MediaContainer"]["Metadata"]; real = keys_of(mock_stack.sample("plex/onDeck")); check("fake Plex episodes have every real field", real and not (real - keys_of(pe)), sorted(real - keys_of(pe))[:8])
+po = getp("/plex/library/onDeck")["MediaContainer"]["Metadata"]; check("fake Plex On Deck carries Media/Part/file like the real one", po and po[0]["Media"][0]["Part"][0]["file"], po and list(po[0])[:5])
 ef = get("/sonarr/api/v3/episodefile?seriesId=1")[0]; check("our test values still win over the sample (path, size, quality)", ef["size"] == 0 and ef["quality"]["quality"]["name"] == "Unknown" and "Alpha Show" in ef["path"], (ef["size"], ef["path"][-40:]))
 check("real-only fields ride along with real-looking values", isinstance(ef.get("releaseType"), str) and isinstance(ef.get("customFormats"), list), (ef.get("releaseType"), ef.get("customFormats")))
 srv.shutdown(); bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Fixed: on a fresh install the page never redrew by itself after the first audit (the yellow setup banner was mistaken for an open confirm box, so new results stayed pending until a reload). Found by the new first-run walkthrough.
 - Which language is spoken (F33): files whose audio has no language label get a short Whisper listen and the label it hears. English means no subtitles are needed and the row clears; other languages get subtitles as usual. Nightly, and a Detect the language button on Unknown language rows.
 - AI subtitles via Bazarr: the job now waits for a new Bazarr history entry instead of comparing clocks, so Bazarr and Auditarr may run in different time zones (found by the fake Bazarr answering in real shapes).
 - Testing (Q24, second half): the fake stack gained a Plex (sections, library, On Deck, sessions, refresh) and real-shaped Bazarr answers; the stack test now covers not-in-Plex, next-up, watch priority and a landed AI subtitle end to end.

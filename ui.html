@@ -109,7 +109,7 @@ async function load(){S=await (await fetch('api/state?'+Date.now())).json();rend
 // actually changed AND you are idle (nothing focused, no confirm box open, no mouse/keyboard for 8 s). Otherwise a small "refresh" button appears.
 let PENDING=null,lastAct=Date.now();['mousemove','keydown','scroll','touchstart','click','wheel'].forEach(ev=>addEventListener(ev,()=>{lastAct=Date.now()},{passive:true}));
 const fingerprint=s=>JSON.stringify([(s.findings||[]).map(f=>[f.id,f.severity,f.detail,f.upcoming]),s.today,s.trash,(s.regrabs||[]).length,(s.actions||[]).length,s.setup]);
-const idle=()=>{const a=document.activeElement;return !document.querySelector('.confirm')&&!(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))&&Date.now()-lastAct>8000};
+const idle=()=>{const a=document.activeElement;return !document.querySelector('span.confirm')&&   /* only a real yes/no box blocks a redraw; the setup banner shares the look, not the role */!(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName))&&Date.now()-lastAct>8000};
 async function refresh(){if(document.visibilityState!=='visible')return;const fresh=await (await fetch('api/state?'+Date.now())).json();const liveTab=!$('#tab-live').classList.contains('hidden');
  const changed=fingerprint(fresh)!==fingerprint(S);S=fresh;renderHeader();renderLive();
  if(liveTab&&!changed)return;

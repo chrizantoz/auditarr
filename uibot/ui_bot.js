@@ -144,6 +144,36 @@ async function edgeChecks(S) {
   $("button[data-help=start]").click(); await sleep(30); check("help button opens the help panel", !$("#helpbox").classList.contains("hidden") && /How this page works/.test($("#helpbox").textContent));
   $("#help-close").click(); await sleep(30); check("help panel closes", $("#helpbox").classList.contains("hidden"));
   const rg = $("#findings button[data-act=regrab]"); if (rg) { rg.click(); await sleep(30); $(".confirm button.primary").click(); await sleep(150); check("file moves offer Undo in the toast", /Undo/.test($("#toast").textContent) && !!$("#toast button"), $("#toast").textContent.slice(0, 80)); }
+  // Q32: press every button once. The Save-connections bug lived in a button no test ever pressed. Confirm boxes are accepted; nothing may throw.
+  const HOOKS = ["data-act", "data-bulk", "data-archive", "data-restore", "data-jump", "data-hook", "data-test", "data-use", "data-retry", "data-searchshow", "data-igncheck", "data-ignshow", "data-ign", "data-purge"];
+  const IDS = ["about-check", "apply-refresh", "dev-save", "discover", "reset-settings", "run-selftest", "s-go", "w-go", "theme-toggle", "runnow", "runnow2", "save-setup", "save-settings", "adv-toggle"];
+  const NAVIGATES = new Set(["logout", "update-now"]);   // these leave or reload the page, which jsdom cannot do; covered by tests/authz.py and the deploy drill
+  const errorsBefore = errors.length; const pressedHooks = new Set(), pressedIdSet = new Set(); let pressedTotal = 0;
+  for (const tab of ["findings", "trash", "actions", "space", "history", "settings", "setup", "about"]) {
+    const tb = $(`nav button[data-tab=${tab}]`); if (!tb) continue; tb.click(); await sleep(120);
+    const seen = new Set();   // one press per kind of button (id, or hook + its value): hundreds of identical row buttons share one handler
+    const sig = b => b.id || HOOKS.filter(h => b.hasAttribute(h)).map(h => (h === "data-act" || h === "data-bulk") ? `${h}=${b.getAttribute(h)}` : h).join("|") || b.textContent.trim().slice(0, 24);   // per action kind, not per row
+    for (let round = 0; round < 2; round++) {   // re-renders after a press can reveal new kinds of button
+      for (const b of $$(`#tab-${tab} button`)) {
+        if (b.disabled || b.dataset.tab || b.dataset.help || b.closest(".confirm") || NAVIGATES.has(b.id)) continue;
+        const k = sig(b); if (seen.has(k)) continue; seen.add(k); pressedTotal++;
+        for (const h of HOOKS) if (b.hasAttribute(h)) pressedHooks.add(h);
+        if (b.id && IDS.includes(b.id)) pressedIdSet.add(b.id);
+        const t1 = Date.now(); try { b.click(); } catch (e) { errors.push(`click ${k}: ${e}`); }
+        await sleep(15); if (process.env.SWEEP_LOG) console.log(`sweep ${tab} ${k} ${Date.now() - t1} ms`);
+        const yes = $(".confirm button.primary"); if (yes) { try { yes.click(); } catch (e) { errors.push(`confirm ${k}: ${e}`); } await sleep(30); }
+      }
+    }
+  }
+  for (const b of $$("button").filter(b => !b.closest("[id^=tab-]") && !b.dataset.tab && !b.dataset.help && !b.disabled && !b.closest(".confirm") && !NAVIGATES.has(b.id))) {   // header and nav extras: refresh, update chip, theme, view toggle
+    const k = b.id || b.textContent.trim().slice(0, 24); pressedTotal++; if (b.id && IDS.includes(b.id)) pressedIdSet.add(b.id);
+    try { b.click(); } catch (e) { errors.push(`click ${k}: ${e}`); }
+    await sleep(15); const yes = $(".confirm button.primary"); if (yes) { try { yes.click(); } catch (e) { errors.push(`confirm ${k}: ${e}`); } await sleep(30); }
+  }
+  $("nav button[data-tab=findings]").click(); await sleep(50);
+  check("every button on every tab can be pressed without a JavaScript error", errors.length === errorsBefore, errors.slice(errorsBefore, errorsBefore + 3).join(" | ") || `${pressedTotal} presses`);
+  const namedPresent = IDS.filter(id => $("#" + id) && !$("#" + id).disabled && !NAVIGATES.has(id)); const missedIds = namedPresent.filter(id => !pressedIdSet.has(id));
+  check("the press-everything sweep reached the action hooks the fixture offers and every enabled named button on the page", pressedHooks.has("data-act") && pressedHooks.has("data-bulk") && missedIds.length === 0, `${[...pressedHooks].join(",")} · ${pressedIdSet.size}/${namedPresent.length} named buttons; missed: ${missedIds.join(",") || "none"}`);
   check("no JavaScript errors during the session", errors.length === 0, errors.slice(0, 3).join(" | "));
   let bad = 0; for (const [ok, name, info] of results) { console.log((ok ? "PASS " : "FAIL ") + name + (info ? `  [${info}]` : "")); if (!ok) bad++; }
   console.log(`\n${bad} failure(s) of ${results.length}`); process.exit(bad ? 1 : 0);

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Testing (Q32): every button on the page is now pressed by a bot in CI, and a lint fails the build when a new button is added without a press.
 - Fixed: the Save connections button on the Setup page did nothing (an error was thrown before the request was sent, with no message). Reported by the first outside user on the Unraid forum. The page now also shows a message whenever something goes wrong instead of failing silently, and the fresh-install bot presses Save connections in CI.
 - The nightly page check records which build of the bot tested which build of the page, and About warns when they differ (Q27).
 - Failed jobs ask for a click (Q31): a background job that stopped with an error now appears under Needs you with a Retry button and the reason it stopped.

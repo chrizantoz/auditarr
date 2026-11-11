@@ -33,7 +33,7 @@ async function edgeChecks(S) {
   if (EDGE === "fresh") {
     check("fresh: banner says nothing is connected", /not connected to anything yet/.test(txt("#setup-banner")), txt("#setup-banner").slice(0, 80));
     check("fresh: the Setup tab opened by itself", !$("#tab-setup").classList.contains("hidden"));
-    await sleep(200); check("fresh: setup shows the three steps and a card per app", /Connect your apps/.test(txt("#setup")) && $$("#setup .card").length >= 4 && $$("#setup button[data-test]").length >= 4, $$("#setup .card").length + " cards");
+    await sleep(200); check("fresh: setup shows the three steps and a card per app", /Connect your apps/.test(txt("#setup")) && $$("#setup .card").length >= 4 && $$("#setup button[data-test]").length >= 4, $$("#setup .card").length + " cards");   // fixed: one card per supported app (Sonarr, Radarr, Whisparr, Bazarr, Plex)
     check("fresh: first-audit button is disabled until an arr is connected", !!$("#runnow2") && $("#runnow2").disabled);
     $("#setup button[data-test]").click(); await sleep(100); check("fresh: Test posts to /api/test_connection", posts.some(p => p.url.includes("api/test_connection")));
   }
@@ -64,20 +64,23 @@ async function edgeChecks(S) {
 (async () => {
   await sleep(400);
   const S = JSON.parse(data.state), F = S.findings;
-  if (EDGE) return edgeChecks(S);
+  if (EDGE && EDGE !== "tidy") return edgeChecks(S);   // tidy = a clean library: it must pass the full suite, not a reduced one
   check("header shows last run + files", /last run/.test($("#s-run").textContent) && /files/.test($("#s-run").textContent), $("#s-run").textContent.slice(0, 90));
   check("header shows per-app counts", /sonarr \d+/.test($("#s-run").textContent) && /whisparr \d+/.test($("#s-run").textContent));
   check("health chip rendered", /healthy|running|stale|failed/.test($("#s-health").textContent), $("#s-health").textContent);
-  check("severity chips", $$("#s-sev .chip").length === 4);
+  check("severity chips", $$("#s-sev .chip").length === 4);   // fixed: four severities exist, always
   check("Today panel rendered", /need you|nothing needs you/.test($("#today-sum").textContent) && /Needs you/.test($("#today-body").textContent), $("#today-sum").textContent.slice(0, 90));
   const libs = [...new Set(F.map(f => f.library))].sort();
   check("library dropdown lists every library", $$("#f-lib option").length === libs.length + 1, $$("#f-lib option").map(o => o.textContent).join(" | "));
   const kinds = [...new Set(F.map(f => f.check))]; check("check dropdown lists every kind of problem", $$("#f-check option").length === kinds.length + 1, $$("#f-check option").length + " options for " + kinds.length + " kinds");
-  const groups0 = $$("#findings details.grp-d").length; check("findings grouped by show", groups0 > 10, groups0 + " groups");
-  check("rows have Plex + arr links", $$("#findings a[title='open in Plex']").length > 0 && $$("#findings a[title^='open in']").length > 0, $$("#findings a[title='open in Plex']").length + " plex links");
+  const shows = new Set(F.map(f => (f.title || "").replace(/ S\d+E\d+.*$/, "").replace(/ \(\d{4}\)$/, "")));
+  const groups0 = $$("#findings details.grp-d").length; check("findings grouped by show", groups0 > 0 && groups0 <= shows.size && (shows.size < 2 || groups0 > 1), `${groups0} groups for ${shows.size} titles`);
+  const plexN = F.filter(f => f.plex && f.severity !== "low").length, arrN = F.filter(f => f.arr && f.severity !== "low").length, plexLinks = $$("#findings a[title='open in Plex']").length, anyLinks = $$("#findings a[title^='open in']").length;
+  check("rows have Plex + arr links when the data has them", (plexN === 0 || plexLinks > 0) && (arrN === 0 || anyLinks > 0), `${plexLinks} plex links for ${plexN} findings with one`);
   // severity filter: 'low' is unchecked by default -> enabling it adds rows
   const rows0 = $$("#findings tr[id^=r-]").length; $$(".sev").find(c => c.value === "low").click(); $$(".sev").find(c => c.value === "low").dispatchEvent(new w.Event("change")); await sleep(50);
-  const rows1 = $$("#findings tr[id^=r-]").length; check("enabling low severity shows more rows", rows1 > rows0, `${rows0} -> ${rows1}`);
+  const rows1 = $$("#findings tr[id^=r-]").length, lowN = F.filter(f => f.severity === "low").length;
+  check("enabling low severity shows the low rows", rows1 >= rows0 && (lowN === 0 || rows1 > rows0 || rows0 >= F.length), `${rows0} -> ${rows1} (${lowN} low findings)`);
   // library filter
   const sel = $("#f-lib"); sel.value = libs[0]; sel.dispatchEvent(new w.Event("change")); await sleep(50);
   check("library filter narrows the count line", new RegExp(libs[0]).test($("#f-count").textContent) && $$("#findings tr[id^=r-]").length <= rows1, $("#f-count").textContent.slice(0, 80));
@@ -96,7 +99,9 @@ async function edgeChecks(S) {
   if (has("DUB_ONLY")) check("dub-only rows get re-grab", F.filter(f => f.check === "DUB_ONLY").some(f => $(`#r-${f.id} button[data-act=regrab]`)));
   if (has("NO_SUBS")) check("no-subs rows get find subs", F.filter(f => f.check === "NO_SUBS" && f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=subsearch]`)));
   if (has("HI10P")) check("HI10P movies get re-grab, anime does not", F.filter(f => f.check === "HI10P").every(f => !!$(`#r-${f.id} button[data-act=regrab]`) === (f.library !== "Anime")));
-  check("group headers offer bulk buttons", btn("button[data-bulk]") > 0, btn("button[data-bulk]") + " bulk buttons");
+  const BULKABLE = new Set(["NO_SUBS", "UND_AUDIO_NO_SUBS", "RUNTIME_SHORT", "SAMPLE_FILE", "RES_MISLABELED", "CORRUPT_HEADER", "NO_AUDIO", "NO_VIDEO", "RUNTIME_LONG", "DUB_ONLY", "AV1"]);   // mirrors the page's bulk rules
+  const perTitle = F.filter(f => BULKABLE.has(f.check) || f.app === "disk").reduce((m, f) => { const k = (f.title || "").replace(/ S\d+E\d+.*$/, ""); m[k] = (m[k] || 0) + 1; return m; }, {}); const biggest = Math.max(0, ...Object.values(perTitle));
+  check("group headers offer bulk buttons when a title has several fixable rows", biggest < 2 || btn("button[data-bulk]") > 0, `${btn("button[data-bulk]")} bulk buttons, biggest title has ${biggest} fixable rows`);
   check("fix-tag box pre-filled with a language", $$("input[id^=lang-]").every(i => /^[a-z]{3}$/.test(i.value)), $$("input[id^=lang-]").length + " boxes");
   // ignore -> inline confirm -> no
   const ign = $("button[data-ign]"); ign.click(); await sleep(30);
@@ -108,7 +113,7 @@ async function edgeChecks(S) {
   const closed = $$("#findings details.grp-d").find(d => !d.open); if (closed) { closed.open = true; const k = closed.dataset.k; await w.load(); await sleep(100); check("open group survives a background refresh", !!$$("#findings details.grp-d").find(d => d.dataset.k === k && d.open), k); }
   // tabs
   for (const t of ["trash", "actions", "history", "settings", "live"]) { $(`nav button[data-tab=${t}]`).click(); await sleep(150); check(`tab ${t} visible`, !$(`#tab-${t}`).classList.contains("hidden")); }
-  check("trash tab lists items or empty note", $("#trash").textContent.length > 10);
+  check("trash tab lists items or empty note", $("#trash").textContent.length > 10);   // fixed: either a table or the sentence "nothing in the trash" is rendered
   check("actions tab shows the re-grab tracker", /pending|imported|same_defect|restored|no re-grabs/.test($("#regrabs").textContent));
   check("history tab draws the chart + runs table", !!$("#history svg") && $$("#history table tr").length > 2, $$("#history table tr").length + " rows");
   const SET = JSON.parse(data.settings);
@@ -122,7 +127,7 @@ async function edgeChecks(S) {
   $("#w-show").value = "Kakegurui"; $("#w-season").value = "1"; $("#w-go").click(); await sleep(30); $(".confirm button.primary").click(); await sleep(100);
   check("whisper tool posts show+season", posts.some(p => p.url.includes("api/whisper") && /Kakegurui/.test(p.body)));
   // ---- usability (Layer 1): plain words first, codes only as tooltips, verbs on buttons, help and undo
-  const rowsAll = $$("#findings tr[id^=r-]"); check("every row leads with a plain-language sentence", rowsAll.length > 0 && rowsAll.every(r => r.querySelector(".plain") && r.querySelector(".plain").textContent.trim().length > 15), rowsAll.length + " rows");
+  const rowsAll = $$("#findings tr[id^=r-]"); check("every row leads with a plain-language sentence", rowsAll.length > 0 && rowsAll.every(r => r.querySelector(".plain") && r.querySelector(".plain").textContent.trim().length > 15), rowsAll.length + " rows");   // fixed: a sentence is longer than 15 characters; not a row count
   const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/; check("group headers show no raw check codes", $$("#findings .grp-head").every(sm => !rawCode.test(sm.textContent)), ($$("#findings .grp-head").find(sm => rawCode.test(sm.textContent)) || {}).textContent);
   check("row problem column shows names, codes only in tooltips", rowsAll.slice(0, 200).every(r => !rawCode.test(r.children[1].textContent) && rawCode.test(r.children[1].title)), (rowsAll.find(r => rawCode.test(r.children[1].textContent)) || { children: [0, { textContent: "" }] }).children[1].textContent);
   const jargon = /^(re-grab|regrab|fix tag|fixtag|subsearch|plexrefresh|fixsync|fixheader|subtag|acceptlang|verify content|quarantine)$/i;

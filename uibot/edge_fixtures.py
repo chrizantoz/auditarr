@@ -22,6 +22,14 @@ write("empty", e)
 fr = copy.deepcopy(e); fr["state"]["setup"] = {"arrs": [], "bazarr": False, "plex": False, "first_run_done": False, "degraded": []}; fr["state"]["run"] = {}
 write("fresh", fr)
 
+# 1c. tidy: a well-kept library - two kinds of problem, a handful of rows, nothing urgent (this is what success looks like; checks must not assume mess)
+t = copy.deepcopy(base); s = t["state"]; keep = [f for f in base["state"]["findings"] if f["check"] == "NO_SUBS"][:3] + [f for f in base["state"]["findings"] if f["check"] == "MISSING_EPISODE"][:3]
+for f in keep: f["severity"] = "low" if f["check"] == "NO_SUBS" else "medium"
+s["findings"] = keep; s["counts"] = {k: sum(1 for f in keep if f["check"] == k) for k in ("NO_SUBS", "MISSING_EPISODE")}
+s["by_severity"] = {"critical": 0, "high": 0, "medium": sum(1 for f in keep if f["severity"] == "medium"), "low": sum(1 for f in keep if f["severity"] == "low")}
+s["by_library"] = {}; s["today"] = dict(s.get("today") or {}, needs=[], errors=[])
+write("tidy", t)
+
 # 2. huge: one show with 2000 findings of one kind (row cap, grouping, performance)
 h = copy.deepcopy(base); s = h["state"]; tpl = next(f for f in base["state"]["findings"] if f["app"] == "sonarr")
 rows = []

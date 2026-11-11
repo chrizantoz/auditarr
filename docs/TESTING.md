@@ -35,6 +35,7 @@ Only after all of that does CI publish the image.
 ## 3. Every night, in production
 
 - `/api/selftest` after each run: API and detector checks with reversible actions.
+- `uibot/lint_checks.py`: a bot check that compares a count with a fixed number fails CI unless the line says `// fixed:` and why; the `tidy` fixture (a clean library) runs the full check suite so nothing assumes mess.
 - `tests/settings_types.py`: every setting saved as text (as the UI does) must not break a planner, selector or summary; numeric settings may only be read through int()/float().
 - `tests/shapes/` + `tests/shapes_check.py`: sanitised real answers (recorded with `scripts/record_shapes.py` inside a running container: `docker exec -i media-audit python3 - /config/shapes < scripts/record_shapes.py`, then copied into the repo). The fake arr objects are laid over these samples, so CI sees real field sets; the test fails if a recording carries an address, host, name or key, or if the fake loses a real field.
 - `tests/subsync.py`: subtitle timing maths (cue parsing, offset estimate, verdict, file shift, which subtitle gets checked); the stack test runs a fake Whisper and a 3 s-late subtitle file through detection and Re-time.

@@ -40,7 +40,7 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
       };
     });
     check(`${label}: no horizontal page scroll`, m.scrollW <= m.innerW + 1, `scrollWidth ${m.scrollW} vs ${m.innerW}`);
-    check(`${label}: every visible nav button fits the screen`, m.navInside && m.navCount >= 5, `${m.navCount} buttons`);
+    check(`${label}: every visible nav button fits the screen`, m.navInside && m.navCount >= 5, `${m.navCount} buttons`);   // fixed: the nav always has at least Findings, Trash, Actions, Space and History
     check(`${label}: every row leads with a plain sentence`, m.rows > 0 && m.plain === m.rows, `${m.plain}/${m.rows}`);
     check(`${label}: no raw check codes in group headers`, m.rawInSummaries === 0, m.rawInSummaries + " headers with codes");
     check(`${label}: starts in simple view with History hidden`, m.simple && m.historyHidden);

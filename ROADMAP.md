@@ -66,7 +66,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🟢 **L2** A guided first run: the Setup tab follows the first audit phase by phase in plain words with a progress bar and a time expectation; the Findings page shows a banner until the first run is done.
 - 🟢 **L3** Install docs for a first-timer: `docs/INSTALL.md` (Unraid + compose, where the keys are, the media-path rule), `docs/docker-compose.yml`, a generic `docs/unraid-template.xml`. Submitting to Community Apps is the owner's step (needs a public repo and an icon).
 
-- 🙋 **L4** Submit to Community Apps: template repository ready at [chrizantoz/unraid-templates](https://github.com/chrizantoz/unraid-templates) (2026-11-11); owner step left: ca.unraid.net/submit/new → add the repo → Validate → Scan → submit.
+- 🟢 **L4** (2026-11-11) Community Apps: [chrizantoz/unraid-templates](https://github.com/chrizantoz/unraid-templates) submitted and **auto-approved** the same day. Auditarr installs from the Apps tab on Unraid.
 - 🙋 **L5** Listings: awesome-selfhosted (Media Management), r/selfhosted and r/unRAID posts with the banner and the demo link, Unraid forum support thread.
 
 ## 🚀 Releases

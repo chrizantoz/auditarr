@@ -14,7 +14,7 @@ Auditarr opens your video files, so it must see them **at the same path your arr
 4. **Setup tab**: paste the address and API key of Sonarr, Radarr, Bazarr, Plex. Press **Test** on each; green means it works. **Save connections**.
 5. Step 3 on that page: **Start the first audit**. It opens every file once, about 25 minutes per 10,000 files. The page shows progress. From then on it runs every night at RUN_AT.
 
-Until Auditarr shows up in Community Applications: Docker tab → **Template Repositories** → add `https://github.com/chrizantoz/unraid-templates` → Save, then **Add Container** and pick Auditarr. The template fills in the ports, the config folder and the common settings.
+Auditarr is in **Community Applications**: Apps tab → search *Auditarr* → Install. The template fills in the ports, the config folder and the common settings. (If it has not shown up on your server yet, the feed refreshes within a few hours; the template repository `https://github.com/chrizantoz/unraid-templates` can be added by hand under Docker → Template Repositories meanwhile.)
 
 ## Docker compose (any Linux / NAS)
 

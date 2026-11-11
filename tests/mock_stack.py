@@ -232,8 +232,8 @@ class Handler(BaseHTTPRequestHandler):
 def chaos(seed=11, p500=0.08, pslow=0.04, slow_s=2, vanish_app="radarr", vanish_from=2, vanish_len=12):
     """Settings for server.chaos: a share of requests fail with 500, a share answer slowly, and one app drops the connection for a window of requests."""
     return dict(rnd=random.Random(seed), n={}, p500=p500, pslow=pslow, slow_s=slow_s, vanish_app=vanish_app, vanish_from=vanish_from, vanish_len=vanish_len)
-def start(world=None, port=0):
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler); srv.world = world or default_world(); srv.calls = []; srv.chaos = None
+def start(world=None, port=0, host="127.0.0.1"):
+    srv = ThreadingHTTPServer((host, port), Handler); srv.world = world or default_world(); srv.calls = []; srv.chaos = None
     threading.Thread(target=srv.serve_forever, daemon=True).start(); return srv
 
 if __name__ == "__main__":

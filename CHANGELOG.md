@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Playground (U10): `sandbox/` runs the real app next to a fake Sonarr, Radarr, Bazarr, Plex and Whisper on synthetic files with real defects, every button working, reset on the hour. `SANDBOX=1` locks connections, Find my apps, webhook setup, the update hook and passwords, tests only the fake hosts, and limits each visitor to 120 changes a minute; the page shows a playground banner.
 - The night's audio choice is now a setting (U27): original language with subtitles in your language (default), or dubbed in your language when the file has it. Subtitles follow your preferred subtitle language instead of always English.
 - Fixed: on a fresh install the page never redrew by itself after the first audit (the yellow setup banner was mistaken for an open confirm box, so new results stayed pending until a reload). Found by the new first-run walkthrough.
 - Which language is spoken (F33): files whose audio has no language label get a short Whisper listen and the label it hears. English means no subtitles are needed and the row clears; other languages get subtitles as usual. Nightly, and a Detect the language button on Unknown language rows.

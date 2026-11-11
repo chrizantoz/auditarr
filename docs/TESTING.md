@@ -38,6 +38,7 @@ Only after all of that does CI publish the image.
 - `uibot/first_run_bot.js` (run by `tests/e2e_stack.py` against a second, blank daemon): a real browser does a first install end to end - Setup cards, Test, Save connections, reload, Find my apps, first audit.
 - `uibot/lint_buttons.py` + the bot's final sweep: every button id and click hook on the page must be referenced by a bot, and the jsdom bot presses one button of each kind on every tab (confirms accepted, no JavaScript error allowed). Born from the Save-connections bug.
 - `uibot/lint_checks.py`: a bot check that compares a count with a fixed number fails CI unless the line says `// fixed:` and why; the `tidy` fixture (a clean library) runs the full check suite so nothing assumes mess.
+- `tests/sandbox_mode.py`: the playground locks (connections, hooks, update, passwords refused; Test only for the fake hosts; per-visitor write budget; the page is told it is a playground).
 - `tests/lang_rule.py`: the default-track rule under both audio choices, other languages than English, and the per-title tag.
 - `tests/settings_types.py`: every setting saved as text (as the UI does) must not break a planner, selector or summary; numeric settings may only be read through int()/float().
 - The fake stack includes a Plex (`/plex/...`, token `test`): sections, a library built from the world's files, On Deck (`world["plex_ondeck"]`), sessions (`world["plex_sessions"]`), metadata and refresh; and Bazarr answers (episodes, history, providers) in the recorded shapes.

@@ -3331,6 +3331,7 @@ def ui_state(conn):
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
+    latest["sandbox"] = SANDBOX
     ab_ = about_info(fetch=False, conn=conn); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
     try:
         apps_ = arr_apps(); latest["setup"] = dict(arrs=sorted(apps_), bazarr=bool(bazarr_conf()[1]), plex=bool(plex_token()), first_run_done=bool(conn.execute("SELECT 1 FROM run WHERE finished IS NOT NULL LIMIT 1").fetchone()), degraded=degraded())
@@ -3466,6 +3467,11 @@ def ui_settings_post(conn, body, actor):
     record_action(conn, "on", "settings", "ui", "kv", f"{len(diff)} setting(s)", f"changed by {actor}", json.dumps(diff)[:300]); refresh_reports(conn)
     return 200, {"ok": True, "saved": {k: mask(k, v) for k, v in new.items()}, "applies": "next run (and immediately for trash retention / Plex / notifications)"}
 START_TS = time.time()
+SANDBOX = E("SANDBOX", "0") == "1"   # U10 playground: fake services, fake files, anyone may click; connections, hooks, passwords and updates stay locked
+SANDBOX_NOTE = {"error": "this is the playground: its connections are fixed and it resets on the hour - install Auditarr to point it at your own apps"}
+_RATE = {}   # sandbox: per-address write budget
+def sandbox_rate_ok(ip, limit=120):
+    now = time.time(); hits = [t for t in _RATE.get(ip, []) if now - t < 60]; hits.append(now); _RATE[ip] = hits; return len(hits) <= limit
 APP_VERSION = E("APP_VERSION", "dev"); APP_REVISION = E("APP_REVISION", ""); APP_REPO = "chrizantoz/auditarr"
 LATEST = {"ts": 0.0, "tag": "", "url": "", "name": "", "error": "", "releases": []}
 def latest_release(fetch=True, refresh=False):
@@ -3671,7 +3677,7 @@ class Handler(SimpleHTTPRequestHandler):
             c_ = db()
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
-        if p == "/api/discover": return self._json(200, discover_services())
+        if p == "/api/discover": return self._json(403, SANDBOX_NOTE) if SANDBOX else self._json(200, discover_services())
         if p == "/api/errors":
             m_ = re.search(r"[?&]hours=(\d+)", self.path); return self._json(200, dict(errors=errors_recent(hours=int(m_.group(1)) if m_ else 24)))
         if p == "/api/about":
@@ -3727,6 +3733,7 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header("Set-Cookie", "auditarr_s=; Path=/; Max-Age=0"); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(b'{"ok": true}'); return
         actor = (auth_user if auth_user not in (None, "local") else None) or self._actor()
         if not actor: return self._json(403, {"error": "writes allowed only from the LAN/tailnet or through the Authelia-protected hostname"})
+        if SANDBOX and not sandbox_rate_ok(self.headers.get("X-Forwarded-For", self.client_address[0]).split(",")[0].strip()): return self._json(429, {"error": "slow down - the playground allows 120 changes a minute per visitor"})
         try: body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
         except Exception: return self._json(400, {"error": "bad json"})
         if p == "/run" or p == "/api/run": return self._run()
@@ -3747,15 +3754,18 @@ class Handler(SimpleHTTPRequestHandler):
                     code, obj = 200, {"ok": True, "done": ok, "already_gone": locals().get("gone", 0), "failed": errs[:20], "failed_count": len(errs)}
             elif p == "/api/restore": code, obj = ui_restore(conn, body, actor)
             elif p == "/api/purge": code, obj = ui_purge(conn, body, actor)
-            elif p == "/api/settings": code, obj = ui_settings_post(conn, body, actor)
+            elif p == "/api/settings":
+                locked = [k for k in list((body.get("set") or {})) + ([] if (body.get("reset") or []) == "all" else list(body.get("reset") or [])) if k in SETTABLE and SETTABLE[k][0] in ("url", "secret")]
+                code, obj = (403, SANDBOX_NOTE) if SANDBOX and (locked or body.get("reset") == "all") else ui_settings_post(conn, body, actor)
             elif p == "/api/whisper": code, obj = ui_whisper(conn, body, actor)
             elif p == "/api/subsync": code, obj = ui_subsync(conn, body, actor)
             elif p == "/api/retry_job": code, obj = retry_job(conn, int(body.get("id") or 0), actor)
+            elif p == "/api/setpassword" and SANDBOX: code, obj = 403, SANDBOX_NOTE
             elif p == "/api/watch_priority":   # run the watch-priority pass now (tests, curl); the daemon does it every 5 minutes on its own
                 s_, w_ = watch_priority_pass(conn); code, obj = 200, {"ok": True, "searches": s_, "ai_subtitles": w_, "note": f"{s_} Bazarr search(es) and {w_} AI-subtitle job(s) queued for what people are watching"}
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
-            elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
-            elif p == "/api/update": code, obj = ui_update(conn, actor)
+            elif p == "/api/hook_setup": code, obj = (403, SANDBOX_NOTE) if SANDBOX else ensure_hook(conn, str(body.get("app") or ""))
+            elif p == "/api/update": code, obj = (403, SANDBOX_NOTE) if SANDBOX else ui_update(conn, actor)
             elif p == "/api/setpassword":
                 conf = auth_conf(conn)
                 if conf and not (auth_user and auth_user != "local") and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
@@ -3767,9 +3777,13 @@ class Handler(SimpleHTTPRequestHandler):
                         code, obj = 200, {"ok": True, "note": "From now on the page asks for a sign-in. You are signed in on this browser after the next page load." if role_set == "admin" else ("Viewer account ready: that login sees everything and can change nothing." if body.get("password") else "Viewer account removed.")}
                     except ValueError as e: code, obj = 400, {"error": str(e)}
             elif p == "/api/test_connection":
+                from urllib.parse import urlparse as _up
+                known = {_up(u).netloc for u in [conn_value(f"{k}_URL") or "" for k in ("SONARR", "RADARR", "WHISPARR", "BAZARR")] + [PLEX_URL or ""] if u}
                 k_ = str(body.get("kind") or ""); key_ = body.get("key") or ""
-                if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ("sonarr", "radarr", "whisparr") else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
-                code, obj = 200, test_connection(k_, body.get("url") or "", key_)
+                if SANDBOX and _up(str(body.get("url") or "")).netloc not in known: code, obj = 403, SANDBOX_NOTE   # the playground tests only its own fake hosts
+                else:
+                    if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ("sonarr", "radarr", "whisparr") else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
+                    code, obj = 200, test_connection(k_, body.get("url") or "", key_)
             elif p == "/api/archive": code, obj = ui_archive(conn, body, actor)
             elif p == "/api/whisper_progress":
                 GPU_PROGRESS[str(body.get("container") or "remote")[:40]] = {"lines": [str(l)[:400] for l in (body.get("lines") or [])][-10:], "ts": time.time()}; _WL["ts"] = 0; code, obj = 200, {"ok": True}

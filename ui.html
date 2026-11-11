@@ -49,7 +49,7 @@ body.viewer .b:not([data-tab]):not([data-jump]),body.viewer #runnow,body.viewer 
 <div id="helpbox" class="hidden" role="dialog" aria-label="help"></div>
 <main>
 <section id="tab-findings">
- <div id="setup-banner" class="hidden"></div>
+ <div id="setup-banner" class="hidden"></div><div id="sandbox-banner" class="hidden" style="margin:6px 14px;padding:8px 12px;border:1px dashed var(--acc);border-radius:8px"><b>🧪 Playground.</b> Fake shows, fake movies, fake files with real defects. Click anything: trash and undo, better copies, AI subtitles, re-timing. Nothing is real, and it all resets on the hour. Connections and passwords are locked here; <a href="https://github.com/chrizantoz/auditarr/blob/main/docs/INSTALL.md" target="_blank" rel="noopener">install Auditarr</a> to point it at your own apps.</div>
  <details id="today" open style="margin:0 0 12px"><summary><b>☕ Today</b> <span class="n" id="today-sum"></span></summary><div style="padding:0 14px"><button class="help" aria-label="help" data-help="today" style="float:right">?</button></div><div id="today-body" style="padding:6px 14px 12px"></div></details>
  <div class="bar">
   <label>Group by <select id="f-group"><option value="show">show</option><option value="check">kind of problem</option><option value="library">library</option></select></label>
@@ -115,7 +115,7 @@ async function refresh(){if(document.visibilityState!=='visible')return;const fr
  if(liveTab&&!changed)return;
  if(!changed&&!PENDING)return;
  if(idle()){render()}else{PENDING=true;$('#apply-refresh').classList.remove('hidden')}}
-function renderHeader(){
+function renderHeader(){const sb=$('#sandbox-banner');if(sb)sb.classList.toggle('hidden',!(S&&S.sandbox));
  const r=S.run||{},sev=S.by_severity||{};
  $('#s-run').innerHTML=`last run <b>${esc((r.finished||'').replace('T',' ').slice(0,16)||'never')}</b> · files <b>${r.files??0}</b>${r.files_by_app?` <span class="hint">(${Object.entries(r.files_by_app).map(([a,n])=>a+' '+n).join(' · ')})</span>`:''} · new <b>${r.new??0}</b> · resolved <b>${r.resolved??0}</b>`;
  $('#s-sev').innerHTML=['critical','high','medium','low'].map(k=>`<span class="chip ${k}" title="${k}">${esc(sevName(k))} ${sev[k]||0}</span>`).join(' ');

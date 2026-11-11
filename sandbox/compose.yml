@@ -1,0 +1,48 @@
+# Auditarr playground (U10): the real app + a fake arr stack on synthetic files. Nothing here is real; every button works; reset = `docker compose down -v && up -d`.
+# Run from the repository root:  docker compose -f sandbox/compose.yml up -d --build   then open http://localhost:3095
+services:
+  stack:
+    build: { context: .., dockerfile: sandbox/Dockerfile.stack }
+    volumes: [ "media:/data" ]
+    restart: unless-stopped
+  auditarr:
+    image: ghcr.io/chrizantoz/auditarr:latest
+    depends_on: [ stack ]
+    ports: [ "${SANDBOX_PORT:-3095}:3091" ]
+    environment:
+      SANDBOX: "1"
+      TZ: ${TZ:-UTC}
+      SONARR_URL: http://stack:8765/sonarr
+      SONARR_APIKEY: test
+      RADARR_URL: http://stack:8765/radarr
+      RADARR_APIKEY: test
+      BAZARR_URL: http://stack:8765/bazarr
+      BAZARR_APIKEY: test
+      PLEX_URL: http://stack:8765/plex
+      PLEX_TOKEN: test
+      PLEX_PATH_MAP: /data=/data
+      SUBGEN_URLS: http://stack:8765/whisper
+      HOST_IP: ""
+      RUN_ON_START: "1"
+      RUN_AT: "23:59"
+      ARR_RESCAN: "on"
+      DEDUPE: "on"
+      REMEDIATE: "on"
+      REMEDIATE_CONFIRM: I_UNDERSTAND_FILES_WILL_BE_DELETED
+      TRACK_PREFS: "on"
+      PLEX_CHECK: "on"
+      PLEX_REFRESH: "on"
+      AUTO_WHISPER: "on"
+      AUTO_WHISPER_DAYS: "0"
+      WATCH_PRIORITY: "on"
+      PAPERCLIP: "off"
+      NTFY_URL: ""
+      UPDATE_CHECK: "0"
+      TRASH_DIR: /data/.trash
+      MISSING_MIN_DAYS: "3"
+      PROBE_WORKERS: "2"
+    volumes: [ "media:/data", "config:/config" ]
+    restart: unless-stopped
+volumes:
+  media: {}
+  config: {}

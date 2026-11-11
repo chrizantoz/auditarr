@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends ffmpeg >/dev/null && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY tests/mock_stack.py tests/synthlib.py tests/
+COPY tests/shapes tests/shapes
+COPY sandbox/stack.py sandbox/stack.py
+EXPOSE 8765
+CMD ["python", "sandbox/stack.py"]

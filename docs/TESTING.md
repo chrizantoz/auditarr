@@ -35,6 +35,7 @@ Only after all of that does CI publish the image.
 ## 3. Every night, in production
 
 - `/api/selftest` after each run: API and detector checks with reversible actions.
+- `tests/watch_priority.py`: what someone is watching in Plex gets its subtitles first (Bazarr now, AI later, both at the head of the queue).
 - The jsdom bot against the live page (the `auditarr-uibot` image; it fetches the page from the running app unless one is mounted at `/app/ui.html`), result shown in the header chip and the History tab.
 - Backup proof: the nightly SQLite backup is reopened and integrity-checked.
 - Every Sunday a **fault drill**: the production image is staged with Bazarr, Plex or Whisparr pointed at a dead port (rotating); the run must finish, report the outage as degraded, and write nothing.

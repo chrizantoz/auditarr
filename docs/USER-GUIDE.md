@@ -143,3 +143,9 @@ Every section has a **?** button that explains it in a few sentences and links h
 **The phone push: can it take me straight to the problem?** Tap it. It opens the page on the Findings tab (or the Trash tab when files were moved). If you reach the page through a public address, set `PUBLIC_URL` to it so the link works away from home.
 
 **Is anything deleted?** No. Moved files sit in the trash for 3 days (duplicates), 14 days (re-grabs) or 30 days (archive) and purge after that. The Trash tab shows the countdown.
+
+## FAQ
+
+**Which files get subtitles first?** Whatever someone is watching right now in Plex, and whatever is next up on their Home. Every 5 minutes the app checks, and for those shows (the next six episodes and the start of the following season) and movies it asks Bazarr to search straight away. If Bazarr still has nothing 20 minutes later, AI subtitles are made. Both jump ahead of every other job. Rows show ▶ watching now or 📺 next up. Settings: WATCH_PRIORITY (on, dryrun, off) and WATCH_PRIORITY_MINUTES.
+
+**Why is a button showing a spinner, and what is the moving bar at the top?** The page is waiting on the app. The spinner sits in the button you pressed until the app answers; the thin bar under the top edge runs while any request is in flight. A pulsing chip means work is going on in the background: a running audit, a row with a job queued, or a title someone is watching.

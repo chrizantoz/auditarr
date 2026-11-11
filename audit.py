@@ -202,6 +202,8 @@ SETTABLE = {   # env name: (kind, default, help)
  "AUTO_WHISPER": ("mode", "on", "nightly: queue AI subtitles for files Bazarr has found nothing for in AUTO_WHISPER_DAYS days (NO_SUBS / UND_AUDIO_NO_SUBS; max AUTO_WHISPER_MAX per night)"),
  "AUTO_WHISPER_MAX": ("int", "10", "max AI-subtitle jobs queued per night"), "AUTO_WHISPER_DAYS": ("int", "3", "days a no-subtitles finding must stay open before AI subtitles are queued"),
  "AUTO_WHISPER_IMPORT_MINUTES": ("int", "0", "after a new download (import hook): if Bazarr still has no subtitles this many minutes later, make AI subtitles right away (0 = only the nightly AUTO_WHISPER_DAYS rule)"),
+ "WATCH_PRIORITY": ("mode", "on", "every 5 minutes: whatever someone is watching in Plex right now, or has next up on their Home, gets its missing subtitles first - a Bazarr search straight away, then AI subtitles if Bazarr still has nothing WATCH_PRIORITY_MINUTES later, both ahead of every other job"),
+ "WATCH_PRIORITY_MINUTES": ("int", "20", "how long Bazarr gets to find subtitles for something being watched before AI subtitles are made"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
@@ -514,8 +516,12 @@ def compute_upcoming(conn, items, ahead=6):
         if not m: continue
         s_, e_ = int(m.group(1)), int(m.group(2)); ds, de = pos[str(show_rk)]
         if (s_ == ds and de <= e_ <= de + ahead) or (s_ == ds + 1 and e_ <= 3): rows.append((it["app"], it["fid"], it["label"], time.time()))
-    conn.execute("DELETE FROM upcoming"); conn.executemany("INSERT OR REPLACE INTO upcoming VALUES(?,?,?,?)", rows); conn.commit()
+    conn.execute("DELETE FROM upcoming WHERE why IS NULL OR why='next up'"); conn.executemany("INSERT OR REPLACE INTO upcoming(app,fid,label,ts,why) VALUES(?,?,?,?,'next up')", rows); conn.commit()
     log(f"up next: {len(pos)} shows on deck in Plex, {len(rows)} files flagged as upcoming"); return len(rows)
+def upcoming_map(conn):
+    """(app, fid) -> 'watching' (playing in Plex right now) or 'next up' (On Deck)."""
+    try: return {(a, f): (w or "next up") for a, f, w in conn.execute("SELECT app, fid, why FROM upcoming")}
+    except Exception: return {}
 def upcoming_set(conn):
     try: return {(a, f) for a, f in conn.execute("SELECT app, fid FROM upcoming")}
     except Exception: return set()
@@ -711,6 +717,8 @@ def db():
     if "handed_off" not in fcols: c.execute("ALTER TABLE finding ADD COLUMN handed_off INTEGER DEFAULT 0")
     rcols = [r[1] for r in c.execute("PRAGMA table_info(run)")]
     if "extra" not in rcols: c.execute("ALTER TABLE run ADD COLUMN extra TEXT")
+    ucols = [r[1] for r in c.execute("PRAGMA table_info(upcoming)")]
+    if ucols and "why" not in ucols: c.execute("ALTER TABLE upcoming ADD COLUMN why TEXT DEFAULT 'next up'")
     c.execute("CREATE TABLE IF NOT EXISTS links(app TEXT, fid INTEGER, plex TEXT, arr TEXT, PRIMARY KEY(app, fid))")
     c.execute("CREATE TABLE IF NOT EXISTS subtag_seen(path TEXT PRIMARY KEY, mtime REAL, result TEXT, ts REAL)")
     c.execute("CREATE TABLE IF NOT EXISTS jobs(id INTEGER PRIMARY KEY, ts REAL, job TEXT, status TEXT, done_at REAL)")
@@ -1550,9 +1558,9 @@ def write_reports(conn, run_info):
                         "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, check_code, label").fetchall()
     acts = conn.execute("SELECT ts,mode,kind,app,label,detail,result FROM action ORDER BY ts DESC LIMIT 100").fetchall()
     now = time.time(); by_code = {}; data = []
-    links = {(a, f): (p, ar) for a, f, p, ar in conn.execute("SELECT app,fid,plex,arr FROM links")}; up = upcoming_set(conn)
+    links = {(a, f): (p, ar) for a, f, p, ar in conn.execute("SELECT app,fid,plex,arr FROM links")}; up = upcoming_map(conn)
     for r in rows:
-        d = dict(id=r[0], app=r[1], check=r[2], name=check_name(r[2]), severity=r[3], sev_name=SEV_NAMES.get(r[3], r[3]), plain=plain_sentence(r[2], r[3], r[4], r[6], r[1]), title=r[4], path=r[5], detail=r[6], first_seen=datetime.datetime.fromtimestamp(r[7]).isoformat(timespec="minutes"), age_days=round((now - r[7]) / 86400, 1), library=lib_of(r[5], r[1]), upcoming=(r[1], r[9]) in up, plex=links.get((r[1], r[9]), (None, None))[0], arr=links.get((r[1], r[9]), (None, None))[1])
+        d = dict(id=r[0], app=r[1], check=r[2], name=check_name(r[2]), severity=r[3], sev_name=SEV_NAMES.get(r[3], r[3]), plain=plain_sentence(r[2], r[3], r[4], r[6], r[1]), title=r[4], path=r[5], detail=r[6], first_seen=datetime.datetime.fromtimestamp(r[7]).isoformat(timespec="minutes"), age_days=round((now - r[7]) / 86400, 1), library=lib_of(r[5], r[1]), upcoming=(r[1], r[9]) in up, watching=up.get((r[1], r[9])) == "watching", plex=links.get((r[1], r[9]), (None, None))[0], arr=links.get((r[1], r[9]), (None, None))[1])
         data.append(d); by_code.setdefault(r[2], []).append(d)
     act_list = [dict(ts=datetime.datetime.fromtimestamp(a[0]).isoformat(timespec="minutes"), mode=a[1], kind=a[2], app=a[3], title=a[4], detail=a[5], result=a[6]) for a in acts]
     json.dump(dict(generated=datetime.datetime.now().isoformat(timespec="seconds"), run=run_info, counts={k: len(v) for k, v in by_code.items()},
@@ -2095,6 +2103,83 @@ def whisper_followup(app, afid, path, label, minutes, since=0):
         log(f"import follow-up: AI subtitles queued for {label} (Bazarr found nothing in {minutes} min)")
     except Exception as e: log("import follow-up failed:", repr(e))
     finally: conn.close()
+# ---------- F31: subtitles first for what people are watching ----------
+def plex_watch_items(meta, why):
+    """Plex metadata rows (sessions or On Deck) -> what matters for matching: title, show key, season/episode, file paths, who."""
+    out = []
+    for m in meta or []:
+        paths = {os.path.normpath(from_plex(p["file"])) for md in (m.get("Media") or []) for p in (md.get("Part") or []) if p.get("file")}
+        who = (m.get("User") or {}).get("title", "")
+        if m.get("type") == "episode": out.append(dict(why=why, kind="episode", title=m.get("grandparentTitle") or "", show_rk=str(m.get("grandparentRatingKey") or ""), s=int(m.get("parentIndex") or 0), e=int(m.get("index") or 0), paths=paths, who=who))
+        elif m.get("type") == "movie": out.append(dict(why=why, kind="movie", title=m.get("title") or "", show_rk="", s=0, e=0, paths=paths, who=who))
+    return out
+def watch_targets():
+    """What is playing in Plex right now (sessions) and what is next up on people's Home (On Deck)."""
+    out = []
+    for path, why in (("/status/sessions", "watching"), ("/library/onDeck", "next up")):
+        try: out += plex_watch_items((plex_get(path, timeout=20).get("MediaContainer") or {}).get("Metadata") or [], why)
+        except Exception as e: log(f"watch priority: {path}: {e!r}")
+    return out
+def _norm_title(t): return re.sub(r"[^a-z0-9]+", "", re.sub(r"\(\d{4}\)", "", (t or "").lower()))
+def watch_matches(targets, rows, ahead=6):
+    """rows = open no-subtitle findings (id, app, fid, label, path, detail) -> {(app, fid): (why, label, path, finding id)}.
+    A hit is the file itself, the next `ahead` episodes of a show someone is in, or the first 3 of its following season. 'watching' beats 'next up'."""
+    out = {}
+    for t in targets:
+        for fid_, app_, afid_, label_, path_, detail_ in rows:
+            key = (app_, afid_); hit = os.path.normpath(path_ or "") in t["paths"]
+            if not hit and t["kind"] == "episode":
+                m = re.search(r"^(.*?)\s+S(\d+)E(\d+)", label_ or "")
+                if m and _norm_title(m.group(1)) == _norm_title(t["title"]):
+                    s_, e_ = int(m.group(2)), int(m.group(3)); hit = (s_ == t["s"] and t["e"] <= e_ <= t["e"] + ahead) or (s_ == t["s"] + 1 and e_ <= 3)
+            if hit and (key not in out or (t["why"] == "watching" and out[key][0] != "watching")): out[key] = (t["why"], label_, path_, fid_)
+    return out
+def watch_priority_pass(conn, targets=None, now=None, max_searches=10, max_whispers=5):
+    """Every few minutes. For no-subtitle files someone is watching or about to watch: a Bazarr search now, then AI subtitles if Bazarr still has
+    nothing WATCH_PRIORITY_MINUTES later - both queued ahead of every other job. Returns (searches queued, AI jobs queued)."""
+    load_settings(conn); mode = gate(setting("WATCH_PRIORITY"), "WATCH_PRIORITY")
+    if mode == "off" or READ_ONLY or E("JOBS", "on") == "off": return (0, 0)
+    now = now or time.time(); mins = int(setting("WATCH_PRIORITY_MINUTES") or 0)
+    if targets is None:
+        if not plex_token(): return (0, 0)
+        targets = watch_targets()
+    rows = conn.execute("SELECT id, app, fid, label, path, detail FROM finding WHERE resolved_at IS NULL AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS') AND app IN ('sonarr','radarr') AND detail NOT LIKE '%not in Bazarr wanted list%'").fetchall()
+    hits = watch_matches(targets, rows) if targets and rows else {}
+    try: st = json.loads((conn.execute("SELECT v FROM kv WHERE k='watch_priority'").fetchone() or ["{}"])[0])
+    except Exception: st = {}
+    st = {k: v for k, v in st.items() if now - float(v.get("ts", 0)) < 86400}   # a title is remembered for a day, then it may be pushed again
+    conn.execute("DELETE FROM upcoming WHERE why='watching'")
+    for (app_, afid_), (why, label_, path_, fid_) in hits.items(): conn.execute("INSERT OR REPLACE INTO upcoming(app,fid,label,ts,why) VALUES(?,?,?,?,?)", (app_, afid_, label_, now, why))
+    conn.commit()
+    searches = whispers = 0; apps = arr_apps() if hits else {}; bz_key = bazarr_conf()[1] if hits else None
+    order = sorted(hits.items(), key=lambda kv_: 0 if kv_[1][0] == "watching" else 1)
+    for (app_, afid_), (why, label_, path_, fid_) in order:
+        k = f"{app_}:{afid_}"; e = st.setdefault(k, dict(ts=now, why=why, searched=0, whisper=0, label=label_))
+        if app_ not in apps or not bz_key: continue
+        try: info = arr_file_info(apps, app_, afid_, path_)
+        except Exception: continue
+        if not e["searched"]:
+            if searches >= max_searches: continue
+            if mode == "dryrun": record_action(conn, "dryrun", "watch-priority", app_, afid_, label_, f"{why} in Plex: would ask Bazarr now", "dryrun"); e["searched"] = now; searches += 1; continue
+            enqueue(dict(type="subsearch", prio=1, fid=fid_, app=app_, kind=info["kind"], parent_id=info["parent_id"], ep_ids=info["ep_ids"], path=info["path"], label=label_, actor=f"watch priority ({why})"))
+            record_action(conn, "on", "watch-priority", app_, afid_, label_, f"{why} in Plex: Bazarr search now, AI subtitles in {mins} min if it finds nothing", "search queued ahead of the line")
+            e["searched"] = now; searches += 1
+        elif not e["whisper"] and now - float(e["searched"]) >= mins * 60:
+            if whispers >= max_whispers or gate(setting("AUTO_WHISPER"), "AUTO_WHISPER") != "on": continue
+            if conn.execute("SELECT 1 FROM action WHERE kind='whisper' AND label=? AND ts > ?", (label_, float(e["searched"]) - 60)).fetchone(): e["whisper"] = now; continue
+            bz_eps, bz_movs = bazarr_wanted()
+            if not ((info["kind"] == "series" and any(x in bz_eps for x in info["ep_ids"])) or (info["kind"] == "movie" and info["parent_id"] in bz_movs)): e["whisper"] = now; continue
+            if mode == "dryrun": record_action(conn, "dryrun", "watch-priority", app_, afid_, label_, f"{why} in Plex: would make AI subtitles", "dryrun"); e["whisper"] = now; whispers += 1; continue
+            job = dict(type="whisper", prio=1, kind=info["kind"], app=app_, label=label_, path=info["path"], actor=f"watch priority ({why})")
+            if info["kind"] == "series":
+                if not info["ep_ids"]: continue
+                job.update(seriesid=info["parent_id"], episodeid=info["ep_ids"][0])
+            else: job.update(radarrid=info["parent_id"])
+            enqueue(job); record_action(conn, "on", "watch-priority", app_, afid_, label_, f"{why} in Plex: Bazarr found nothing in {mins} min", "AI subtitles queued ahead of the line"); e["whisper"] = now; whispers += 1
+    conn.execute("INSERT OR REPLACE INTO kv(k, v) VALUES('watch_priority', ?)", (json.dumps(st),)); conn.commit()
+    if hits: refresh_reports(conn)
+    if searches or whispers: log(f"watch priority: {len(hits)} title(s) being watched or next up without subtitles - {searches} Bazarr search(es), {whispers} AI-subtitle job(s) queued first")
+    return (searches, whispers)
 def audit_one(app, parent_id, path, reason):
     """The import hook: list that one title, probe its new file, run the checks, store findings, push if something is seriously wrong."""
     time.sleep(8)   # let the arr finish renaming / Plex start scanning
@@ -2412,8 +2497,10 @@ def ui_act(conn, body, actor):
     return 400, {"error": f"unknown action {action}"}
 # ---------- Bazarr subtitle search (sequential background queue so a bulk click does not hammer Bazarr) ----------
 import queue
-SUB_Q = queue.Queue(); VERIFY_Q = queue.Queue(); WHISPER_Q = queue.Queue()
+SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue()
 def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
+import itertools; _SEQ = itertools.count()
+def _put(job): _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job))   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
 def _subsearch(job):
     base, key = bazarr_conf(); lang2 = TWO_LETTER.get(sorted(PREF_SUBS)[0], sorted(PREF_SUBS)[0][:2]); results = []
     from urllib.parse import urlencode
@@ -2519,14 +2606,14 @@ def enqueue(job):
     conn = db()
     try: cur = conn.execute("INSERT INTO jobs(ts, job, status) VALUES(?,?,'queued')", (time.time(), json.dumps(job))); conn.commit(); job["_id"] = cur.lastrowid
     finally: conn.close()
-    _lane(job).put(job)
+    _put(job)
 def requeue_jobs():
     if E("JOBS", "on") == "off": log("JOBS=off: queued subtitle/verify jobs are left for production (staging never talks to Bazarr/Whisper)"); return
     conn = db()
     try: rows = conn.execute("SELECT id, job FROM jobs WHERE status IN ('queued','running') ORDER BY id").fetchall()
     finally: conn.close()
     for jid, raw in rows:
-        try: j = json.loads(raw); j["_id"] = jid; _lane(j).put(j)
+        try: j = json.loads(raw); j["_id"] = jid; _put(j)
         except Exception: pass
     if rows: log(f"re-queued {len(rows)} subtitle job(s) from before the restart")
 # ---------- verify content: does the dialogue match the episode? ----------
@@ -2744,7 +2831,7 @@ def _verify_job(job):
 def sub_worker(q=None):
     q = q or SUB_Q
     while True:
-        job = q.get(); jid = job.get("_id")
+        item = q.get(); job = item[2] if isinstance(item, tuple) else item; jid = job.get("_id")
         conn = db()
         try: conn.execute("UPDATE jobs SET status='running', started_at=? WHERE id=?", (time.time(), jid)); conn.commit()
         finally: conn.close()
@@ -2852,7 +2939,7 @@ def today_summary(conn, since=None):
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
         key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
-               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
+               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
         if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
@@ -3288,6 +3375,16 @@ def daemon():
             except Exception: pass
             time.sleep(86400)
     threading.Thread(target=_update_checker, daemon=True).start()
+    def _watch_loop():   # F31: subtitles first for what people are watching
+        time.sleep(90)
+        while True:
+            try:
+                c_ = db()
+                try: watch_priority_pass(c_)
+                finally: c_.close()
+            except Exception as e: log("watch priority:", repr(e))
+            time.sleep(300)
+    threading.Thread(target=_watch_loop, daemon=True).start()
     hh, mm = [int(x) for x in RUN_AT.split(":")]
     while True:
         now = datetime.datetime.now(); nxt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)

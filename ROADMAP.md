@@ -120,6 +120,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **F28** Health badge: a public, token-free `/badge.svg` with the library score for a README, Homepage or a forum signature.
 - 🔴 **F29** Snooze instead of ignore: "remind me in 30 days" on a finding; it disappears and comes back once, with a note that it was snoozed.
 - 🔴 **F30** Weekly report card: one push or email on Sunday with the score trend, the week's fixes and the three things most worth doing, in the same plain words as the morning push.
+- 🟢 **F31** (2026-11-11) Subtitles first for what people are watching: every 5 minutes the app looks at what is playing in Plex and what is next up on each Home; no-subtitle episodes of those shows (the next six and the start of the next season) and movies get a Bazarr search straight away and, if Bazarr still has nothing `WATCH_PRIORITY_MINUTES` later (20), AI subtitles - both ahead of every other job. Rows show ▶ watching now / 📺 next up. `tests/watch_priority.py`.
 
 ## 🙂 Later: even friendlier (added 2026-11-11, ranked)
 
@@ -138,6 +139,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **U23** Schedule from the page: pick the nightly time and the days in Settings instead of an environment variable; show the next run time on Today.
 - 🔴 **U24** Progress you can read: the first audit shows "checked 1,200 of 14,000 · about 18 minutes left" on Today, not only on the Live tab.
 - 🔴 **U25** Done-for-you defaults by library: when a library is named Anime or Kids, the matching language and subtitle switches are suggested on the Setup page with one click to accept.
+- 🟢 **U26** (2026-11-11) Something is happening: a thin moving bar under the top edge while any request is in flight, a spinner inside the button you pressed, pulsing chips for a running audit, a working row and a title being watched, and a turning arrow next to running background jobs. Honours reduced-motion.
 
 ## 🔧 Later: smaller improvements
 

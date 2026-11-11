@@ -1,106 +1,106 @@
 # 🗺️ Roadmap
 
-Where Auditarr is heading. A checked box (`[x]`) means it's done and in the app today ✅; an empty box (`[ ]`) is planned 📝. The top empty box in each list is what's next. (The short codes like `T1`/`U1` are just internal labels.)
+Where Auditarr is heading. Each line starts with its status: 🟢 **done** and in the app today · 🟡 **in progress** right now · 🔴 **not started** · 🙋 **waiting on the owner** (a step only the project owner can do, like a submission). The first 🔴 in each list is what's next. (The short codes like `T1`/`U1` are just internal labels.)
 
 The current focus: make the app **trustworthy to run** (a real test harness) and **easy to read** for someone who isn't a developer.
 
 ## 🚧 Now: solid testing + a friendlier interface
 
 🧪 **Testing — proving it does the right thing**
-- [x] **T1** A read-only mode (`READ_ONLY=1`): every change it would send to an arr, Bazarr or Plex is blocked and counted instead, so test runs can't touch anything real.
-- [x] **T2** Update-testing compares findings check-by-check, not just by the total count.
-- [x] **T3** Code linting in CI.
-- [x] **T4** Fake media with known defects (built with ffmpeg) that the detectors must catch in CI.
-- [x] **T5** "Tonight's plan": a panel and API showing exactly what the night's automatic actions would do; the self-test confirms the planners run.
-- [x] **T6** Backup proof: a nightly integrity check of the newest backup, shown in History.
-- [x] **T7** Failure drill: a test run with Bazarr / Plex / an arr switched off must still finish and report "degraded" rather than crash.
-- [x] **T8** A real-browser test (Playwright) at phone and desktop width that fails if raw codes or setting names leak into the normal view, with screenshots kept as CI artifacts.
+- 🟢 **T1** A read-only mode (`READ_ONLY=1`): every change it would send to an arr, Bazarr or Plex is blocked and counted instead, so test runs can't touch anything real.
+- 🟢 **T2** Update-testing compares findings check-by-check, not just by the total count.
+- 🟢 **T3** Code linting in CI.
+- 🟢 **T4** Fake media with known defects (built with ffmpeg) that the detectors must catch in CI.
+- 🟢 **T5** "Tonight's plan": a panel and API showing exactly what the night's automatic actions would do; the self-test confirms the planners run.
+- 🟢 **T6** Backup proof: a nightly integrity check of the newest backup, shown in History.
+- 🟢 **T7** Failure drill: a test run with Bazarr / Plex / an arr switched off must still finish and report "degraded" rather than crash.
+- 🟢 **T8** A real-browser test (Playwright) at phone and desktop width that fails if raw codes or setting names leak into the normal view, with screenshots kept as CI artifacts.
 
 🙂 **Usability — making it readable**
-- [x] **U1** Plain names for every check and severity; codes moved to tooltips.
-- [x] **U2** A human sentence first on every finding, technical detail folded away.
-- [x] **U3** Verb buttons ("Download a better copy", "Make subtitles"…), old names kept as tooltips; an Undo toast after any file move.
-- [x] **U4** A simple view by default (just "Needs you" + "Done overnight"); low-priority groups, Live and History tucked behind an Advanced switch.
-- [x] **U5** In-page help: a "?" on each section opens the matching part of the user guide.
-- [x] **U6** Settings shown as grouped switches and sliders with plain sentences; setting names only in Advanced.
-- [x] **U7** A visual identity (first pass, 2026-11-11: teal accent, magnifier-check logo and favicon, light theme via system preference or the ◐ toggle, themed chips/buttons/confirms; icon.png for the Unraid template). Polish continues with the screenshot baselines. Original brief: a visual identity: give Auditarr its own look, the way Sonarr/Radarr/Bazarr/Seerr each have one — an accent colour, a logo/icon, light and dark themes, and consistent chips and buttons; the plain-language rules and the test bots' selectors stay intact.
+- 🟢 **U1** Plain names for every check and severity; codes moved to tooltips.
+- 🟢 **U2** A human sentence first on every finding, technical detail folded away.
+- 🟢 **U3** Verb buttons ("Download a better copy", "Make subtitles"…), old names kept as tooltips; an Undo toast after any file move.
+- 🟢 **U4** A simple view by default (just "Needs you" + "Done overnight"); low-priority groups, Live and History tucked behind an Advanced switch.
+- 🟢 **U5** In-page help: a "?" on each section opens the matching part of the user guide.
+- 🟢 **U6** Settings shown as grouped switches and sliders with plain sentences; setting names only in Advanced.
+- 🟢 **U7** A visual identity (first pass, 2026-11-11: teal accent, magnifier-check logo and favicon, light theme via system preference or the ◐ toggle, themed chips/buttons/confirms; icon.png for the Unraid template). Polish continues with the screenshot baselines. Original brief: a visual identity: give Auditarr its own look, the way Sonarr/Radarr/Bazarr/Seerr each have one — an accent colour, a logo/icon, light and dark themes, and consistent chips and buttons; the plain-language rules and the test bots' selectors stay intact.
 
 🚀 **Going public (added 2026-11-11)**
-- [x] **U8a** Social preview + README banner in the Homarr style (`docs/social-preview.png`, `docs/banner.png`, generated by `docs/make_banner.py` from the app's own screenshots).
-- [x] **U8b** Repository public (2026-11-11): GPL-3.0, description and topics set, container package public and linked, social preview uploaded, Pages demo live.
-- [x] **U9** (built 2026-11-11; Pages deploy switches on automatically when the repo is public) Static demo on GitHub Pages: the real page with the sanitized fixtures as its API, a "demo data, actions simulated" banner, republished by CI on every release; linked from the README as "Try it in your browser".
-- [ ] **U10** Live sandbox (later, once public): the app + the fake arr stack on a small host behind a tunnel, reset hourly, real buttons on synthetic files.
-- [x] **U8c** (2026-11-11) README screenshots section (Findings, Today, Setup) refreshed from CI's screenshots on each release.
+- 🟢 **U8a** Social preview + README banner in the Homarr style (`docs/social-preview.png`, `docs/banner.png`, generated by `docs/make_banner.py` from the app's own screenshots).
+- 🟢 **U8b** Repository public (2026-11-11): GPL-3.0, description and topics set, container package public and linked, social preview uploaded, Pages demo live.
+- 🟢 **U9** (built 2026-11-11; Pages deploy switches on automatically when the repo is public) Static demo on GitHub Pages: the real page with the sanitized fixtures as its API, a "demo data, actions simulated" banner, republished by CI on every release; linked from the README as "Try it in your browser".
+- 🔴 **U10** Live sandbox (later, once public): the app + the fake arr stack on a small host behind a tunnel, reset hourly, real buttons on synthetic files.
+- 🟢 **U8c** (2026-11-11) README screenshots section (Findings, Today, Setup) refreshed from CI's screenshots on each release.
 
 ## 🤖 Now: the self-testing bots (same rule — checked means done)
 
-- [x] **Q1** A fake arr stack in CI: mock Sonarr/Radarr/Bazarr + fake media + the real app, with the browser bot clicking real buttons that hit the real API (trash → Undo → restored, re-download → arr receives the command, AI subtitles → job queued).
-- [x] **Q2** Plain-language guardrails: every check's sentence and every button label must be free of codes and arr jargon, 30 words or fewer, and end in a full stop — enforced in CI.
-- [x] **Q3** Living test data: a nightly sanitised snapshot from a real library, plus hand-made edge cases (empty library, zero findings, a 2000-finding show, every service down, API errors).
-- [x] **Q4** A contract test tying the UI and API together: every button the UI offers is accepted by the backend, and every finding the API returns renders as a row.
-- [x] **Q5** Accessibility scan (contrast, labels, focus order) in the browser run; fails on serious issues.
-- [x] **Q6** Visual-regression check: baseline screenshots (in `uibot/baseline/`, taken from CI) that fail on a >1 % pixel change at phone and desktop width; refresh them on purpose after a visual change.
-- [x] **Q7** "Monkey" run: 60 seconds of random clicking with no JavaScript errors, and every save preceded by a confirm box.
-- [x] **Q8** Rotating failure drill: a different service down each week (all / Bazarr / Plex / Whisparr by week number). The slow-service variant is split out as Q9.
-- [x] **Q9** (2026-11-11) Slow-service drill: `auditarr-deploy.sh drill 4` puts Sonarr behind a 200 s latency proxy (a throwaway python container); the staged run must finish within 25 min, report Sonarr degraded and write nothing. Part of the weekly rotation.
+- 🟢 **Q1** A fake arr stack in CI: mock Sonarr/Radarr/Bazarr + fake media + the real app, with the browser bot clicking real buttons that hit the real API (trash → Undo → restored, re-download → arr receives the command, AI subtitles → job queued).
+- 🟢 **Q2** Plain-language guardrails: every check's sentence and every button label must be free of codes and arr jargon, 30 words or fewer, and end in a full stop — enforced in CI.
+- 🟢 **Q3** Living test data: a nightly sanitised snapshot from a real library, plus hand-made edge cases (empty library, zero findings, a 2000-finding show, every service down, API errors).
+- 🟢 **Q4** A contract test tying the UI and API together: every button the UI offers is accepted by the backend, and every finding the API returns renders as a row.
+- 🟢 **Q5** Accessibility scan (contrast, labels, focus order) in the browser run; fails on serious issues.
+- 🟢 **Q6** Visual-regression check: baseline screenshots (in `uibot/baseline/`, taken from CI) that fail on a >1 % pixel change at phone and desktop width; refresh them on purpose after a visual change.
+- 🟢 **Q7** "Monkey" run: 60 seconds of random clicking with no JavaScript errors, and every save preceded by a confirm box.
+- 🟢 **Q8** Rotating failure drill: a different service down each week (all / Bazarr / Plex / Whisparr by week number). The slow-service variant is split out as Q9.
+- 🟢 **Q9** (2026-11-11) Slow-service drill: `auditarr-deploy.sh drill 4` puts Sonarr behind a 200 s latency proxy (a throwaway python container); the staged run must finish within 25 min, report Sonarr degraded and write nothing. Part of the weekly rotation.
 
 🤖 **Bots, next layer (added 2026-11-11, ranked)**
-- [x] **Q10** (2026-11-11) Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
-- [x] **Q11** (2026-11-11) Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
-- [x] **Q12** (2026-11-11) Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
-- [x] **Q13** (2026-11-11) Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
-- [x] **Q14** (2026-11-11) Restore drill: `auditarr-deploy.sh restore` integrity-checks the newest nightly state backup, boots a throwaway read-only container on it and checks the page, open findings and run history come back; fails if the backup is older than 48 h. Weekly cron on the host.
-- [x] **Q15** (2026-11-11) Chaos in the fake stack: `tests/e2e_chaos.py` + `mock_stack.chaos()` (500s, slow answers, Radarr vanishing); degraded finish, findings kept, no writes, clean recovery.
-- [x] **Q16** (2026-11-11) Performance budget: `tests/perf_budget.py` seeds 10k files / 5k findings and fails CI when the report, page state, Today, plan or memory exceed their budgets (today: all under 0.1 s, 55 MB).
-- [x] **Q17** (2026-11-11) Persona scripts in the live browser bot: "why is this episode missing" (search → row → sentence → Search now), "make AI subtitles for the whole show" (Tools box → confirm → queued), "stop showing this one" (Ignore → row gone), plus the existing "undo the last move".
-- [x] **Q18** (2026-11-11) Golden digest: `tests/golden_digest.py` pins the push text and checks delivery (title, priority, Click link) against a mock ntfy.
-- [x] **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.
-- [x] **Q20** (2026-11-11) Security scans in CI: dependency audit + container image scan, failing on critical issues.
-- [x] **Q21** (2026-11-11) Flakiness ledger: reads get one retry; a retry that works, or a service that drops and comes back, lands in a 30-day table on the History tab. Proven by the chaos test.
-- [x] **Q22** (2026-11-11) Published as [arr-mock](https://github.com/chrizantoz/arr-mock): the fake stack, chaos mode and `synthlib`, with a README and self-check. `tests/mock_stack.py` stays the source; sync by hand when it changes.
-- [x] **Q23** `docs/TESTING.md`: how the harness works (read-only staging + write ledger, per-check promotion gate, synthetic media, plain-language lint, fault drill) so other projects can copy the method.
+- 🟢 **Q10** (2026-11-11) Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
+- 🟢 **Q11** (2026-11-11) Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
+- 🟢 **Q12** (2026-11-11) Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
+- 🟢 **Q13** (2026-11-11) Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
+- 🟢 **Q14** (2026-11-11) Restore drill: `auditarr-deploy.sh restore` integrity-checks the newest nightly state backup, boots a throwaway read-only container on it and checks the page, open findings and run history come back; fails if the backup is older than 48 h. Weekly cron on the host.
+- 🟢 **Q15** (2026-11-11) Chaos in the fake stack: `tests/e2e_chaos.py` + `mock_stack.chaos()` (500s, slow answers, Radarr vanishing); degraded finish, findings kept, no writes, clean recovery.
+- 🟢 **Q16** (2026-11-11) Performance budget: `tests/perf_budget.py` seeds 10k files / 5k findings and fails CI when the report, page state, Today, plan or memory exceed their budgets (today: all under 0.1 s, 55 MB).
+- 🟢 **Q17** (2026-11-11) Persona scripts in the live browser bot: "why is this episode missing" (search → row → sentence → Search now), "make AI subtitles for the whole show" (Tools box → confirm → queued), "stop showing this one" (Ignore → row gone), plus the existing "undo the last move".
+- 🟢 **Q18** (2026-11-11) Golden digest: `tests/golden_digest.py` pins the push text and checks delivery (title, priority, Click link) against a mock ntfy.
+- 🟢 **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.
+- 🟢 **Q20** (2026-11-11) Security scans in CI: dependency audit + container image scan, failing on critical issues.
+- 🟢 **Q21** (2026-11-11) Flakiness ledger: reads get one retry; a retry that works, or a service that drops and comes back, lands in a 30-day table on the History tab. Proven by the chaos test.
+- 🟢 **Q22** (2026-11-11) Published as [arr-mock](https://github.com/chrizantoz/arr-mock): the fake stack, chaos mode and `synthlib`, with a README and self-check. `tests/mock_stack.py` stays the source; sync by hand when it changes.
+- 🟢 **Q23** `docs/TESTING.md`: how the harness works (read-only staging + write ledger, per-check promotion gate, synthetic media, plain-language lint, fault drill) so other projects can copy the method.
 
 ## 📦 Next: let someone else install it
 
-- [x] **L1** Setup wizard — the **Setup** tab asks for your Sonarr / Radarr / Bazarr / Plex addresses and keys, tests each one, keeps them in Auditarr's own database (masked afterwards) and checks that the media folders are visible; config-file mounts remain the hands-off alternative.
-- [x] **L2** A guided first run: the Setup tab follows the first audit phase by phase in plain words with a progress bar and a time expectation; the Findings page shows a banner until the first run is done.
-- [x] **L3** Install docs for a first-timer: `docs/INSTALL.md` (Unraid + compose, where the keys are, the media-path rule), `docs/docker-compose.yml`, a generic `docs/unraid-template.xml`. Submitting to Community Apps is the owner's step (needs a public repo and an icon).
+- 🟢 **L1** Setup wizard — the **Setup** tab asks for your Sonarr / Radarr / Bazarr / Plex addresses and keys, tests each one, keeps them in Auditarr's own database (masked afterwards) and checks that the media folders are visible; config-file mounts remain the hands-off alternative.
+- 🟢 **L2** A guided first run: the Setup tab follows the first audit phase by phase in plain words with a progress bar and a time expectation; the Findings page shows a banner until the first run is done.
+- 🟢 **L3** Install docs for a first-timer: `docs/INSTALL.md` (Unraid + compose, where the keys are, the media-path rule), `docs/docker-compose.yml`, a generic `docs/unraid-template.xml`. Submitting to Community Apps is the owner's step (needs a public repo and an icon).
 
-- [ ] **L4** Submit the Unraid template to Community Apps (needs a template repository and the icon URL; the template itself is ready in `docs/unraid-template.xml`).
-- [ ] **L5** Listings: awesome-selfhosted (Media Management), r/selfhosted and r/unRAID posts with the banner and the demo link, Unraid forum support thread.
+- 🙋 **L4** Submit the Unraid template to Community Apps (needs a template repository and the icon URL; the template itself is ready in `docs/unraid-template.xml`).
+- 🙋 **L5** Listings: awesome-selfhosted (Media Management), r/selfhosted and r/unRAID posts with the banner and the demo link, Unraid forum support thread.
 
 ## 🚀 Releases
 
-- [x] **R1** (2026-11-11) First public release `v0.9.0` with release notes; images tagged `latest`, `0.9`, `0.9.0` and the commit; CI badges in the README.
-- [ ] **R2** Release checklist as a script: bump, generate notes from CHANGELOG, tag, refresh the visual baselines and the demo, verify the tagged image boots.
+- 🟢 **R1** (2026-11-11) First public release `v0.9.0` with release notes; images tagged `latest`, `0.9`, `0.9.0` and the commit; CI badges in the README.
+- 🟡 **R2** Release checklist as a script: bump, generate notes from CHANGELOG, tag, refresh the visual baselines and the demo, verify the tagged image boots.
 
 ## ✨ Later: features (added 2026-11-11, ranked)
 
-- [x] **F1** (2026-11-11) Import hook: Sonarr/Radarr webhook audits a file within a minute of import and pushes "re-downloading" before anyone presses play; the night run becomes the safety net.
-- [x] **F13** (2026-11-11) Built-in sign-in: user + hashed password set on the Setup page or via env, session cookie, login page, Sign out; `/health` and the token-protected webhook stay open; `TRUST_PROXY_AUTH=1` for Authelia-style proxies.
-- [x] **F2** (2026-11-11) Watch-ahead priority: Plex On Deck + Tautulli history decide which files get checked first and hardest (content check, subtitles, defaults).
-- [x] **F3** (2026-11-11) Library score and trend per library, from open findings weighted by severity, graphed over weeks.
-- [x] **F4** (2026-11-11) Device profiles: declare your players (PS5, Shield, TV, Plex Web); compatibility notes become real "will not direct-play on X" verdicts, and noise for players you do not own disappears.
-- [ ] **F5** Image subtitles to text: OCR PGS/VobSub tracks to SRT once so files direct-play with proper subtitles.
-- [ ] **F6** Per-person preferences: language defaults per Plex user, applied to each account's track selection.
-- [ ] **F7** Upgrade candidates: files below the profile cutoff, oldest encodes, same movie at two resolutions, with the disk space each decision frees or costs.
-- [ ] **F8** Loudness check: flag files whose dialogue is far quieter than the library norm; optional lossless gain fix.
-- [x] **F9** Viewer role: a second, read-only login (Setup → Protect the page → read-only account). Buttons hidden, every change refused by the server. _(2026-11-11)_
-- [ ] **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
-- [ ] **F11** More than one instance per arr kind (two Sonarrs).
-- [ ] **F12** Translations: one JSON per language for names, sentences, buttons and help.
-- [x] **F14** (2026-11-11) Same-day AI subtitles: after a new download with no subtitles, if Bazarr still has nothing `AUTO_WHISPER_IMPORT_MINUTES` later, Whisper runs right away (Bazarr's API does not expose per-item search attempts, so the import hook plus a head start is the signal). Nightly `AUTO_WHISPER_DAYS` stays as the catch-all. Owner request.
+- 🟢 **F1** (2026-11-11) Import hook: Sonarr/Radarr webhook audits a file within a minute of import and pushes "re-downloading" before anyone presses play; the night run becomes the safety net.
+- 🟢 **F13** (2026-11-11) Built-in sign-in: user + hashed password set on the Setup page or via env, session cookie, login page, Sign out; `/health` and the token-protected webhook stay open; `TRUST_PROXY_AUTH=1` for Authelia-style proxies.
+- 🟢 **F2** (2026-11-11) Watch-ahead priority: Plex On Deck + Tautulli history decide which files get checked first and hardest (content check, subtitles, defaults).
+- 🟢 **F3** (2026-11-11) Library score and trend per library, from open findings weighted by severity, graphed over weeks.
+- 🟢 **F4** (2026-11-11) Device profiles: declare your players (PS5, Shield, TV, Plex Web); compatibility notes become real "will not direct-play on X" verdicts, and noise for players you do not own disappears.
+- 🔴 **F5** Image subtitles to text: OCR PGS/VobSub tracks to SRT once so files direct-play with proper subtitles.
+- 🔴 **F6** Per-person preferences: language defaults per Plex user, applied to each account's track selection.
+- 🔴 **F7** Upgrade candidates: files below the profile cutoff, oldest encodes, same movie at two resolutions, with the disk space each decision frees or costs.
+- 🔴 **F8** Loudness check: flag files whose dialogue is far quieter than the library norm; optional lossless gain fix.
+- 🟢 **F9** Viewer role: a second, read-only login (Setup → Protect the page → read-only account). Buttons hidden, every change refused by the server. _(2026-11-11)_
+- 🔴 **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
+- 🔴 **F11** More than one instance per arr kind (two Sonarrs).
+- 🔴 **F12** Translations: one JSON per language for names, sentences, buttons and help.
+- 🟢 **F14** (2026-11-11) Same-day AI subtitles: after a new download with no subtitles, if Bazarr still has nothing `AUTO_WHISPER_IMPORT_MINUTES` later, Whisper runs right away (Bazarr's API does not expose per-item search attempts, so the import hook plus a head start is the signal). Nightly `AUTO_WHISPER_DAYS` stays as the catch-all. Owner request.
 
 ## 🔧 Later: smaller improvements
 
-- [x] **S1** Content verification for movies (Radarr): dialogue against the movie's synopsis plus two dozen decoys from the same library. _(2026-11-11)_
-- [x] **S2** A findings-over-time chart in History (active findings per run plus the per-library health trend).
-- [x] **S3** Phone pushes open the page on the right tab (`#findings`, `#trash`); set `PUBLIC_URL` when the page has a public address. _(2026-11-11)_
-- [ ] **S4** Per-show learning: problem types you always ignore quietly drop to low on their own.
-- [x] **S6** Re-check orphans against the arr at the end of a run, so files imported mid-run aren't flagged as orphans (added 2026-11-11).
-- [x] **S7** (2026-11-11) MP4 lossless rewrite safety: after the swap, re-probe the final file and compare its checksum with the verified temporary file; refuse the bulk button for MP4 until the root cause of one corrupted result is understood (details in the private incident notes).
-- [x] **S8** (2026-11-11) Run visibility: progress heartbeat during the quiet Plex-selection phase, "last activity" and a "possibly stuck" chip on the Live tab; settings never echo or log secrets.
-- [ ] **S5** A Sonarr custom format that penalises AV1 if certain re-downloads keep coming back as AV1.
+- 🟢 **S1** Content verification for movies (Radarr): dialogue against the movie's synopsis plus two dozen decoys from the same library. _(2026-11-11)_
+- 🟢 **S2** A findings-over-time chart in History (active findings per run plus the per-library health trend).
+- 🟢 **S3** Phone pushes open the page on the right tab (`#findings`, `#trash`); set `PUBLIC_URL` when the page has a public address. _(2026-11-11)_
+- 🔴 **S4** Per-show learning: problem types you always ignore quietly drop to low on their own.
+- 🟢 **S6** Re-check orphans against the arr at the end of a run, so files imported mid-run aren't flagged as orphans (added 2026-11-11).
+- 🟢 **S7** (2026-11-11) MP4 lossless rewrite safety: after the swap, re-probe the final file and compare its checksum with the verified temporary file; refuse the bulk button for MP4 until the root cause of one corrupted result is understood (details in the private incident notes).
+- 🟢 **S8** (2026-11-11) Run visibility: progress heartbeat during the quiet Plex-selection phase, "last activity" and a "possibly stuck" chip on the Live tab; settings never echo or log secrets.
+- 🔴 **S5** A Sonarr custom format that penalises AV1 if certain re-downloads keep coming back as AV1.
 
 ## ✅ Recently done (2026-11-10/11)
 

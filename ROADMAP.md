@@ -165,6 +165,17 @@ Each of these would have caught something that reached production this week.
 - 🟢 **S8** (2026-11-11) Run visibility: progress heartbeat during the quiet Plex-selection phase, "last activity" and a "possibly stuck" chip on the Live tab; settings never echo or log secrets.
 - 🔴 **S5** A Sonarr custom format that penalises AV1 if certain re-downloads keep coming back as AV1.
 
+## 🧭 Next app: Storage Truth (added 2026-11-11)
+
+A companion app, not a feature of Auditarr: for every media file it says whether it is the real copy, a hardlink, a leftover torrent or an orphan, with the evidence (inode, link count, checksum, which app did what and when) and a one-click fix that can be undone for 14 days. Fills the gap Radarr #3918 / Sonarr #6260 / #1984 and the Unraid hardlink threads have asked about for years; Cleanuparr, qbit_manage, Maintainerr and Decluttarr all stop at the download queue. Proposal and research: the owner's doc "Storage Truth: next app proposal"; screen mockups on the "Storage Truth Mockups" canvas. Reuses Auditarr's single-file backend, fake stack, UI bots, soak gate and playground. Second candidate, after it: Save Vault (server-side game-save versioning for the LAN fleet).
+
+- 🔴 **N1** Release 0.1 "Scan and tell" (target Dec 2026): disk walker (inode, link count, size, physical disk), qBittorrent + Sonarr/Radarr + Plex readers, one verdict per file, Files/Space pages, read-only. Gate to N2: two weeks of verdicts that match the owner's real library.
+- 🔴 **N2** Release 0.2 "Fix safely" (Jan–Feb 2027): relink, remove old torrent, holding bin, 14-day undo, dry run on by default, fix-during-run guard, cause-level "fix all with this cause". Gate to N3: 30 nightly runs with zero wrong fixes.
+- 🔴 **N3** Release 0.3 "Easy to install" (Mar 2027): Deluge, rTorrent and Transmission clients, Unraid cache/array awareness, setup wizard with the shared-mount test, Unraid Apps template, public demo in sandbox mode.
+- 🔴 **N4** Save Vault: only after N3, and only if the per-machine agent install is acceptable.
+
+Order of work: Auditarr's agreed list first (Q40, U21 with U24, F16, F21, F6, Q36, Q38), then N1.
+
 ## ✅ Recently done (2026-11-10/11)
 
 Plex sync, missing-item evidence, the subtitles pipeline + Whisper (GPU router), DUB_ONLY detection, original-language track defaults (anime native + English subs), the Space tab, the Today/digest view, Settings/History, staged updates, the full nightly automation (fix header, verify, auto-whisper, accept-language, re-download learning), REMEDIATE on, the user guide, and the update-flow explainer.

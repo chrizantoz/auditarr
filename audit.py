@@ -2847,7 +2847,7 @@ def ui_state(conn):
 def today_summary(conn, since=None):
     """What happened since the last nightly run and what needs a human. Used by the Today panel and the daily digest."""
     now = time.time(); since = since or (now - 26 * 3600)
-    acts = conn.execute("SELECT kind, mode, result, label FROM action WHERE ts>=?", (since,)).fetchall()
+    raw = conn.execute("SELECT kind, mode, result, label, ts FROM action WHERE ts>=?", (since,)).fetchall(); acts = [a[:4] for a in raw]
     did = {}
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
@@ -2858,7 +2858,8 @@ def today_summary(conn, since=None):
         if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
     outcomes = {}
     for (st_,) in conn.execute("SELECT status FROM regrab WHERE checked_at>=?", (since,)): outcomes[st_] = outcomes.get(st_, 0) + 1
-    errors = [f"{k}: {l[:40]} - {str(r)[:80]}" for k, m, r, l in acts if str(r).startswith("ERROR")][:5]
+    err_rows = [a for a in raw if str(a[2]).startswith("ERROR")][-5:]
+    errors = [f"{k}: {l[:40]} - {str(r)[:80]}" for k, m, r, l, ts_ in err_rows]; error_at = [datetime.datetime.fromtimestamp(ts_).strftime("%a %H:%M") for *_, ts_ in err_rows]
     needs = []; up = upcoming_set(conn); seen_ids = set()
     if up:   # F2: what someone is about to watch comes first, down to medium
         for sev, code, label, detail, fid, app_, afid_ in conn.execute("SELECT severity, check_code, label, detail, id, app, fid FROM finding WHERE resolved_at IS NULL AND severity IN ('medium','high','critical') AND detail NOT LIKE '[working:%' ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END LIMIT 400"):
@@ -2885,7 +2886,7 @@ def today_summary(conn, since=None):
         sp = {k: v for k, v in conn.execute("SELECT status, sum(bytes) FROM watch WHERE status IN ('watched_cold','never_watched') GROUP BY status")}
         if sp: needs.append(dict(kind="space", sev="low", check="SPACE", title=f"{(sp.get('watched_cold') or 0)/1e9:.0f} GB watched & cold, {(sp.get('never_watched') or 0)/1e9:.0f} GB never watched", why="candidates to archive - Space tab"))
     except Exception: pass
-    return dict(since=datetime.datetime.fromtimestamp(since).isoformat(timespec="minutes"), did=did, regrab_outcomes=outcomes, errors=errors, needs=needs, scores=library_scores(conn), upcoming=len(up),
+    return dict(since=datetime.datetime.fromtimestamp(since).isoformat(timespec="minutes"), did=did, regrab_outcomes=outcomes, errors=errors, error_at=error_at, needs=needs, scores=library_scores(conn), upcoming=len(up),
                 new=run_.get("new", 0), resolved=run_.get("resolved", 0), active=run_.get("active", 0), trash=run_.get("trash", {}))
 def digest_text(t):
     lines = [f"Needs you: {len(t['needs'])}" if t["needs"] else "Needs you: nothing"]
@@ -2905,9 +2906,10 @@ def ui_history(conn):
         runs.append(dict(started=datetime.datetime.fromtimestamp(r[0]).isoformat(timespec="minutes"), duration_s=round((r[1] or r[0]) - r[0]), files=r[2], probed=r[3], active=r[4], new=r[5], resolved=r[6], **{k: ex.get(k) for k in ("by_severity", "dedupes", "regrabs", "purged", "trash_gb", "plex_refreshed")}))
     days = {}
     for ts, kind, mode, result in conn.execute("SELECT ts,kind,mode,result FROM action WHERE ts>?", (time.time() - 90 * 86400,)):
-        d = datetime.date.fromtimestamp(ts).isoformat(); e = days.setdefault(d, dict(dedupe=0, regrab=0, quarantine=0, restore=0, ignore=0, fixtag=0, subsearch=0, purge=0, purge_gb=0.0))
+        d = datetime.date.fromtimestamp(ts).isoformat(); e = days.setdefault(d, dict(dedupe=0, regrab=0, quarantine=0, restore=0, ignore=0, fixtag=0, subsearch=0, whisper=0, verify=0, fixdefaults=0, fixheader=0, plexrefresh=0, purge=0, purge_gb=0.0))
         if mode != "on": continue
-        if kind in e: e[kind] += 1
+        kind = "plexrefresh" if kind == "plex-refresh" else kind
+        if kind in e and not str(result or "").startswith("ERROR"): e[kind] += 1
         if kind == "purge":
             m = re.search(r"freed ([\d.]+) GB", result or ""); e["purge_gb"] += float(m.group(1)) if m else 0
     try: sh = json.loads((conn.execute("SELECT v FROM kv WHERE k='scores_history'").fetchone() or ["[]"])[0])

@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:26-alpine
 LABEL org.opencontainers.image.source="https://github.com/chrizantoz/auditarr" org.opencontainers.image.description="Auditarr UI test bot" org.opencontainers.image.licenses="GPL-3.0"
 WORKDIR /bot
 COPY package.json ./

@@ -411,6 +411,43 @@ def plex_sections(force=False):
     return _PLEX["sections"]
 def plex_sections_for(path):
     pp = os.path.normpath(to_plex(path)); return [s for s in plex_sections() if any(pp == l or pp.startswith(l + os.sep) for l in s["locations"])]
+def compute_upcoming(conn, items, ahead=6):
+    """F2: files people are about to watch. Plex On Deck gives the next episode per show; the following `ahead` episodes of that show (and the deck item itself) are 'upcoming'."""
+    try: deck = plex_get("/library/onDeck").get("MediaContainer", {}).get("Metadata", []) or []
+    except Exception as e: log("on deck:", repr(e)); return 0
+    pos = {}; movies = set()
+    for m in deck:
+        if m.get("type") == "episode" and m.get("grandparentRatingKey"): pos[str(m["grandparentRatingKey"])] = (int(m.get("parentIndex") or 0), int(m.get("index") or 0))
+        elif m.get("type") == "movie": movies.add(str(m.get("ratingKey")))
+    rows = []
+    for it in items:
+        k = PLEX_KEYS.get(os.path.normpath(it.get("path") or "")) if it.get("path") else None
+        if not k: continue
+        rk, _, show_rk, _ = k
+        if it["kind"] == "movie" and str(rk) in movies: rows.append((it["app"], it["fid"], it["label"], time.time())); continue
+        if str(show_rk) not in pos: continue
+        m = re.search(r"S(\d+)E(\d+)", it["label"] or "")
+        if not m: continue
+        s_, e_ = int(m.group(1)), int(m.group(2)); ds, de = pos[str(show_rk)]
+        if (s_ == ds and de <= e_ <= de + ahead) or (s_ == ds + 1 and e_ <= 3): rows.append((it["app"], it["fid"], it["label"], time.time()))
+    conn.execute("DELETE FROM upcoming"); conn.executemany("INSERT OR REPLACE INTO upcoming VALUES(?,?,?,?)", rows); conn.commit()
+    log(f"up next: {len(pos)} shows on deck in Plex, {len(rows)} files flagged as upcoming"); return len(rows)
+def upcoming_set(conn):
+    try: return {(a, f) for a, f in conn.execute("SELECT app, fid FROM upcoming")}
+    except Exception: return set()
+SCORE_W = {"critical": 10.0, "high": 4.0, "medium": 1.0, "low": 0.1}
+def library_scores(conn):
+    """F3: one number per library: 100 minus the weighted open findings per 100 files. 100 = nothing open; a critical costs 10 points per 100 files."""
+    try: files = json.loads((conn.execute("SELECT v FROM kv WHERE k='files_by_lib'").fetchone() or ["{}"])[0])
+    except Exception: files = {}
+    out = {}
+    for app, path, sev in conn.execute("SELECT app, path, severity FROM finding WHERE resolved_at IS NULL"):
+        lib = lib_of(path, app); e = out.setdefault(lib, {"open": {k: 0 for k in SCORE_W}, "weighted": 0.0}); e["open"][sev] = e["open"].get(sev, 0) + 1; e["weighted"] += SCORE_W.get(sev, 0)
+    res = {}
+    for lib, n in files.items():
+        e = out.get(lib, {"open": {k: 0 for k in SCORE_W}, "weighted": 0.0}); n = n or 1
+        res[lib] = dict(files=n, open=e["open"], score=round(max(0.0, 100 - e["weighted"] * 100 / n), 1))
+    return res
 def plex_refresh(path):
     """Partial scan of the folder holding `path` in every Plex section that covers it. Returns a one-line description."""
     if setting("PLEX_REFRESH") != "on": return "plex refresh off"
@@ -580,6 +617,7 @@ def db():
     CREATE TABLE IF NOT EXISTS action(ts REAL, mode TEXT, kind TEXT, app TEXT, target TEXT, label TEXT, detail TEXT, result TEXT);
     CREATE TABLE IF NOT EXISTS rescan_log(app TEXT, parent_id INTEGER, ts REAL, PRIMARY KEY(app, parent_id));
     CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
+    CREATE TABLE IF NOT EXISTS upcoming(app TEXT, fid INTEGER, label TEXT, ts REAL, PRIMARY KEY(app, fid));
     """)
     cols = [r[1] for r in c.execute("PRAGMA table_info(probe)")]
     if "ver" not in cols: c.execute("ALTER TABLE probe ADD COLUMN ver INTEGER DEFAULT 1")
@@ -1427,13 +1465,13 @@ def write_reports(conn, run_info):
                         "CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, check_code, label").fetchall()
     acts = conn.execute("SELECT ts,mode,kind,app,label,detail,result FROM action ORDER BY ts DESC LIMIT 100").fetchall()
     now = time.time(); by_code = {}; data = []
-    links = {(a, f): (p, ar) for a, f, p, ar in conn.execute("SELECT app,fid,plex,arr FROM links")}
+    links = {(a, f): (p, ar) for a, f, p, ar in conn.execute("SELECT app,fid,plex,arr FROM links")}; up = upcoming_set(conn)
     for r in rows:
-        d = dict(id=r[0], app=r[1], check=r[2], name=check_name(r[2]), severity=r[3], sev_name=SEV_NAMES.get(r[3], r[3]), plain=plain_sentence(r[2], r[3], r[4], r[6], r[1]), title=r[4], path=r[5], detail=r[6], first_seen=datetime.datetime.fromtimestamp(r[7]).isoformat(timespec="minutes"), age_days=round((now - r[7]) / 86400, 1), library=lib_of(r[5], r[1]), plex=links.get((r[1], r[9]), (None, None))[0], arr=links.get((r[1], r[9]), (None, None))[1])
+        d = dict(id=r[0], app=r[1], check=r[2], name=check_name(r[2]), severity=r[3], sev_name=SEV_NAMES.get(r[3], r[3]), plain=plain_sentence(r[2], r[3], r[4], r[6], r[1]), title=r[4], path=r[5], detail=r[6], first_seen=datetime.datetime.fromtimestamp(r[7]).isoformat(timespec="minutes"), age_days=round((now - r[7]) / 86400, 1), library=lib_of(r[5], r[1]), upcoming=(r[1], r[9]) in up, plex=links.get((r[1], r[9]), (None, None))[0], arr=links.get((r[1], r[9]), (None, None))[1])
         data.append(d); by_code.setdefault(r[2], []).append(d)
     act_list = [dict(ts=datetime.datetime.fromtimestamp(a[0]).isoformat(timespec="minutes"), mode=a[1], kind=a[2], app=a[3], title=a[4], detail=a[5], result=a[6]) for a in acts]
     json.dump(dict(generated=datetime.datetime.now().isoformat(timespec="seconds"), run=run_info, counts={k: len(v) for k, v in by_code.items()},
-                   by_severity={s: sum(1 for d in data if d["severity"] == s) for s in SEV_RANK}, by_library={l: sum(1 for d in data if d["library"] == l) for l in sorted({d["library"] for d in data})}, findings=data, actions=act_list),
+                   scores=library_scores(conn), by_severity={s: sum(1 for d in data if d["severity"] == s) for s in SEV_RANK}, by_library={l: sum(1 for d in data if d["library"] == l) for l in sorted({d["library"] for d in data})}, findings=data, actions=act_list),
               open(os.path.join(REPORT_DIR, "latest.json"), "w"), indent=1)
     md = [f"# media-audit report - {datetime.datetime.now():%Y-%m-%d %H:%M}", "",
           f"Files checked: {run_info['files']} | ffprobed this run: {run_info['probed']} | active findings: {len(data)} | new: {run_info['new']} | resolved: {run_info['resolved']} | rescans: {run_info.get('rescans',0)} | dedupes: {run_info.get('dedupes',0)} | regrabs: {run_info.get('regrabs',0)} | trash: {run_info.get('trash',{}).get('files',0)} files / {run_info.get('trash',{}).get('gb',0)} GB (kept {run_info.get('trash',{}).get('keep_days','?')} days in {run_info.get('trash',{}).get('dir','')})", "",
@@ -1549,7 +1587,7 @@ def run_once():
                 upsert(it["app"], it["fid"], "PLEX_MISSING", "medium", it["label"], p, "the arr has this file but Plex has not indexed it - folder refresh is triggered automatically; if it persists, check the Plex scanner log / file name / permissions")
                 plex_missing_dirs.append(os.path.dirname(p))
             log(f"plex: {len(inv)} files indexed, {len(plex_missing_dirs)} arr files not in Plex")
-            store_links(conn, apps, items, inv); dep_status("plex", True)
+            store_links(conn, apps, items, inv); dep_status("plex", True); compute_upcoming(conn, items)
         except Exception as e: log("plex inventory failed - PLEX_MISSING skipped this run:", repr(e)); skip_codes.add("PLEX_MISSING"); dep_status("plex", False, repr(e))
     else: store_links(conn, apps, items, {})
     conn.executemany("INSERT OR REPLACE INTO realdur VALUES(?,?,?,?)", [(p_, v[0], v[1], time.time()) for p_, v in REALDUR_CACHE.items()]); conn.commit()
@@ -1572,7 +1610,9 @@ def run_once():
             except Exception as e: log("auto fixheader:", repr(e))
     auto_verified = 0
     if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" and apps:
-        for fid_, app_, afid_, label_, path_ in conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr') ORDER BY first_seen DESC LIMIT ?", (int(setting("AUTO_VERIFY_MAX")),)).fetchall():
+        up_ = upcoming_set(conn); cand_ = conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr') ORDER BY first_seen DESC LIMIT 300").fetchall()
+        cand_.sort(key=lambda r_: 0 if (r_[1], r_[2]) in up_ else 1)   # F2: what is about to be watched gets checked first
+        for fid_, app_, afid_, label_, path_ in cand_[:int(setting("AUTO_VERIFY_MAX"))]:
             if fid_ in {json.loads(r[0]).get("finding") for r in conn.execute("SELECT job FROM jobs WHERE status IN ('queued','running')")}: continue
             it_ = next((x for x in items if x["app"] == app_ and x["fid"] == afid_), None)
             if not it_ or not it_["ep_ids"] or not it_.get("path") or it_.get("missing"): continue
@@ -1601,6 +1641,13 @@ def run_once():
                 gates=dict(ARR_RESCAN=cfg("ARR_RESCAN", ARR_RESCAN), DEDUPE=cfg("DEDUPE", DEDUPE), REMEDIATE=cfg("REMEDIATE", REMEDIATE), PAPERCLIP=cfg("PAPERCLIP", PAPERCLIP),
                            PLEX_CHECK=setting("PLEX_CHECK"), PLEX_REFRESH=setting("PLEX_REFRESH"), overrides=dict(OVR), saved=dict(SETTINGS)))
     conn.execute("INSERT OR REPLACE INTO kv VALUES('last_run_info',?)", (json.dumps(info),)); conn.commit()
+    fbl = {}
+    for it in items: fbl[lib_of(it.get("path") or "", it["app"])] = fbl.get(lib_of(it.get("path") or "", it["app"]), 0) + 1
+    conn.execute("INSERT OR REPLACE INTO kv VALUES('files_by_lib',?)", (json.dumps(fbl),)); sc = library_scores(conn)
+    try: hist = json.loads((conn.execute("SELECT v FROM kv WHERE k='scores_history'").fetchone() or ["[]"])[0])
+    except Exception: hist = []
+    hist = (hist + [dict(ts=datetime.datetime.fromtimestamp(finished).isoformat(timespec="minutes"), scores={k: v["score"] for k, v in sc.items()})])[-180:]
+    conn.execute("INSERT OR REPLACE INTO kv VALUES('scores_history',?)", (json.dumps(hist),)); conn.commit(); log("library scores: " + ", ".join(f"{k} {v['score']}" for k, v in sorted(sc.items())))
     write_reports(conn, info); bk = backup_state(conn)
     if bk:   # prove the backup is usable: open it read-only, integrity-check it, count what is inside
         try:
@@ -1743,7 +1790,9 @@ def do_auto_whisper(conn, apps, plan=None):
     if mode == "off" or not apps or not bazarr_conf()[1]: return 0
     mx = int(setting("AUTO_WHISPER_MAX")); days = float(setting("AUTO_WHISPER_DAYS")); now = time.time(); n = 0
     recent = {l for (l,) in conn.execute("SELECT label FROM action WHERE kind='whisper' AND ts > ?", (now - 7 * 86400,))}   # one try a week per title (errors included)
-    for fid_, app_, afid_, label_, path_, detail_ in conn.execute("SELECT id, app, fid, label, path, detail FROM finding WHERE resolved_at IS NULL AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS') AND app IN ('sonarr','radarr') AND first_seen < ? ORDER BY first_seen", (now - days * 86400,)).fetchall():
+    up_ = upcoming_set(conn); rows_ = conn.execute("SELECT id, app, fid, label, path, detail FROM finding WHERE resolved_at IS NULL AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS') AND app IN ('sonarr','radarr') AND first_seen < ? ORDER BY first_seen", (now - days * 86400,)).fetchall()
+    rows_.sort(key=lambda r_: 0 if (r_[1], r_[2]) in up_ else 1)   # F2: subtitles for what is about to be watched come first
+    for fid_, app_, afid_, label_, path_, detail_ in rows_:
         if n >= mx: break
         if label_ in recent or app_ not in apps or "not in Bazarr wanted list" in (detail_ or ""): continue   # not wanted = language-profile problem, Whisper cannot land it
         try: info = arr_file_info(apps, app_, afid_, path_)
@@ -2547,9 +2596,12 @@ def today_summary(conn, since=None):
     outcomes = {}
     for (st_,) in conn.execute("SELECT status FROM regrab WHERE checked_at>=?", (since,)): outcomes[st_] = outcomes.get(st_, 0) + 1
     errors = [f"{k}: {l[:40]} - {str(r)[:80]}" for k, m, r, l in acts if str(r).startswith("ERROR")][:5]
-    needs = []
+    needs = []; up = upcoming_set(conn); seen_ids = set()
+    if up:   # F2: what someone is about to watch comes first, down to medium
+        for sev, code, label, detail, fid, app_, afid_ in conn.execute("SELECT severity, check_code, label, detail, id, app, fid FROM finding WHERE resolved_at IS NULL AND severity IN ('medium','high','critical') ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END LIMIT 400"):
+            if (app_, afid_) in up and len([n for n in needs if n.get("upcoming")]) < 8: needs.append(dict(kind="finding", sev=sev, check=code, name=check_name(code), title=label, why="Up next in Plex. " + plain_sentence(code, sev, label, detail), id=fid, upcoming=True)); seen_ids.add(fid)
     for sev, code, label, detail, fid in conn.execute("SELECT severity, check_code, label, detail, id FROM finding WHERE resolved_at IS NULL AND severity IN ('high','critical') ORDER BY first_seen DESC LIMIT 20"):
-        needs.append(dict(kind="finding", sev=sev, check=code, name=check_name(code), title=label, why=plain_sentence(code, sev, label, detail), id=fid))
+        if fid not in seen_ids: needs.append(dict(kind="finding", sev=sev, check=code, name=check_name(code), title=label, why=plain_sentence(code, sev, label, detail), id=fid))
     for label, code, note in conn.execute("SELECT label, code, note FROM regrab WHERE status='pending' AND ts < ?", (now - (float(cfg("REGRAB_WAIT_DAYS", REGRAB_WAIT_DAYS)) - 1) * 86400,)):
         needs.append(dict(kind="regrab", sev="medium", check=code, title=label, why="re-grab has not produced a file; the original comes back automatically within a day"))
     uf = {}
@@ -2570,7 +2622,7 @@ def today_summary(conn, since=None):
         sp = {k: v for k, v in conn.execute("SELECT status, sum(bytes) FROM watch WHERE status IN ('watched_cold','never_watched') GROUP BY status")}
         if sp: needs.append(dict(kind="space", sev="low", check="SPACE", title=f"{(sp.get('watched_cold') or 0)/1e9:.0f} GB watched & cold, {(sp.get('never_watched') or 0)/1e9:.0f} GB never watched", why="candidates to archive - Space tab"))
     except Exception: pass
-    return dict(since=datetime.datetime.fromtimestamp(since).isoformat(timespec="minutes"), did=did, regrab_outcomes=outcomes, errors=errors, needs=needs,
+    return dict(since=datetime.datetime.fromtimestamp(since).isoformat(timespec="minutes"), did=did, regrab_outcomes=outcomes, errors=errors, needs=needs, scores=library_scores(conn), upcoming=len(up),
                 new=run_.get("new", 0), resolved=run_.get("resolved", 0), active=run_.get("active", 0), trash=run_.get("trash", {}))
 def digest_text(t):
     lines = [f"Needs you: {len(t['needs'])}" if t["needs"] else "Needs you: nothing"]
@@ -2579,6 +2631,7 @@ def digest_text(t):
     lines.append("Night did: " + (", ".join(f"{v} {k}" for k, v in sorted(t["did"].items(), key=lambda kv: -kv[1])) or "nothing to do"))
     if t["regrab_outcomes"]: lines.append("Re-grab results: " + ", ".join(f"{v} {k}" for k, v in t["regrab_outcomes"].items()))
     if t["errors"]: lines.append("Errors: " + "; ".join(t["errors"][:3]))
+    if t.get("scores"): lines.append("Library health: " + " · ".join(f"{k} {v['score']:g}" for k, v in sorted(t["scores"].items())))
     lines.append(f"Findings: {t['active']} active ({t['new']} new, {t['resolved']} resolved) · trash {t['trash'].get('files', 0)} files / {t['trash'].get('gb', 0)} GB")
     return "\n".join(lines)
 def ui_history(conn):
@@ -2594,7 +2647,9 @@ def ui_history(conn):
         if kind in e: e[kind] += 1
         if kind == "purge":
             m = re.search(r"freed ([\d.]+) GB", result or ""); e["purge_gb"] += float(m.group(1)) if m else 0
-    return {"runs": runs[::-1], "days": dict(sorted(days.items())), "tests": tests_status()}
+    try: sh = json.loads((conn.execute("SELECT v FROM kv WHERE k='scores_history'").fetchone() or ["[]"])[0])
+    except Exception: sh = []
+    return {"runs": runs[::-1], "days": dict(sorted(days.items())), "tests": tests_status(), "scores_history": sh}
 def ui_settings_get():
     items = []
     for name, (kind, default, help_) in SETTABLE.items():

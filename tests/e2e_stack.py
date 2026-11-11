@@ -111,6 +111,8 @@ if ns:
 mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
 check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
 s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)
+s, st = api("/api/state"); sc = st.get("scores") or {}
+check("library scores computed per library after a run", any(k in sc for k in ("TV", "Movies", "Other")) and all(0 <= v["score"] <= 100 for v in sc.values()), sc)
 mock.calls.clear(); s, j = api("/api/hook_setup", {"app": "sonarr"})
 hooks_posted = [c for c in mock.calls if c["path"] == "/api/v3/notification" and c["method"] == "POST"]
 check("import hook: Auditarr registers its webhook in Sonarr", s == 200 and hooks_posted and "/webhook/sonarr" in json.dumps(hooks_posted[0]["body"]), (s, j))

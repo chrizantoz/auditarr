@@ -87,6 +87,8 @@ s, j = req("/api/test_connection", {"kind": "sonarr", "url": "http://127.0.0.1:9
 s, j = req("/api/settings"); check("secrets are masked in the settings list", all(not i["value"] or i["value"].startswith("••••") for i in j.get("items", []) if i["kind"] == "secret"))
 s, j = req("/api/hooks"); check("import-hook status endpoint", s == 200 and "hooks" in j, str(j)[:80])
 s, j = req("/webhook/sonarr?token=wrong", {"eventType": "Test"}); check("webhook without a valid token is refused", s == 403)
+s, j = req("/api/state"); check("library scores present in state", s == 200 and isinstance(j.get("scores"), dict), str(j.get("scores"))[:80])
+s, j = req("/api/history"); check("history carries the score series", s == 200 and "scores_history" in j)
 h = req("/health")[1]; check("health ok", isinstance(h, dict) and h.get("status") in ("ok", "running"), str(h)[:80])
 req("/api/ignore", {})   # refresh reports after the undo
 # ---- write results ----

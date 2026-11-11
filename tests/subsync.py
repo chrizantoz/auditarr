@@ -54,4 +54,12 @@ src_ = audit.find_subtitle_source(vid, pr); check("falls back to the embedded te
 check("nothing usable -> None", audit.find_subtitle_source(vid, {"streams": pr["streams"][:1]}) is None)
 s_late = audit.plain_sentence("SUBS_OUT_OF_SYNC", "medium", "Show S01E01", "external 'x.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/x.en.srt", "sonarr")
 check("plain sentence names the delay in seconds", "about 2 seconds late" in s_late and "Re-time" in s_late, s_late)
+j_ = '{"text":"a b","segments":[{"start":1.0,"end":2.0,"text":"a"},{"start":3.5,"end":4.0,"text":"b"},{"start":5.0,"end":6.0,"text":"  "}]}'
+check("endpoint answer: json with segments", audit.asr_segments_from(j_) == [(1.0, 2.0), (3.5, 4.0)])
+check("endpoint answer: srt text (subgen style)", audit.asr_segments_from("1\n00:00:01,000 --> 00:00:02,000\nhi\n\n2\n00:00:03,500 --> 00:00:04,000\nyo\n") == [(1.0, 2.0), (3.5, 4.0)])
+check("endpoint answer: vtt text", audit.asr_segments_from("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nhi\n") == [(1.0, 2.0)])
+check("endpoint answer: json lines", audit.asr_segments_from('{"start":1,"end":2,"text":"a"}\n{"start":3,"end":4,"text":"b"}') == [(1.0, 2.0), (3.0, 4.0)])
+check("endpoint answer: empty means no speech", audit.asr_segments_from("") == [])
+try: audit.asr_segments_from("la la la"); check("endpoint answer: plain words are rejected loudly", False)
+except ValueError: check("endpoint answer: plain words are rejected loudly", True)
 bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

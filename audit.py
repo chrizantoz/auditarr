@@ -2895,6 +2895,22 @@ def decide_sync(windows):
     if spread > 0.7: return "drift", med, f"drift: {good[0][1]:+.1f}s at {good[0][0]:.0%} -> {good[-1][1]:+.1f}s at {good[-1][0]:.0%} ({len(good)}/{len(windows)} samples)"
     if abs(med) < SUBSYNC_MIN_S: return "in sync", med, f"within {abs(med):.1f}s ({len(good)}/{len(windows)} samples agree)"
     return ("late" if med > 0 else "early"), med, f"{abs(med):.1f}s {'late' if med > 0 else 'early'} ({len(good)}/{len(windows)} samples agree)"
+def asr_segments_from(raw):
+    """Speech segments (start, end) from whatever the Whisper endpoint answered: whisper-asr-webservice json, subgen's srt/vtt text, or json lines."""
+    txt = (raw or "").strip()
+    if not txt: return []
+    try:
+        j = json.loads(txt)
+        if isinstance(j, dict) and "segments" in j: return [(float(x.get("start") or 0), float(x.get("end") or 0)) for x in (j.get("segments") or []) if (x.get("text") or "").strip()]
+        if isinstance(j, list): return [(float(x.get("start") or 0), float(x.get("end") or 0)) for x in j if isinstance(x, dict) and (x.get("text") or "").strip()]
+    except ValueError: pass
+    if "-->" in txt: return parse_sub_cues(txt)
+    segs = []
+    for line in txt.splitlines():   # json lines: one segment per line
+        try: x = json.loads(line); segs.append((float(x.get("start") or 0), float(x.get("end") or 0)))
+        except Exception: continue
+    if segs: return segs
+    raise ValueError(f"Whisper endpoint answered in an unknown format: {txt[:80]!r}")
 def _asr_segments(path, start, dur, audio_stream=None, lang2=None):
     """Speech segments (start, end) relative to the window, from the Whisper endpoint's json output."""
     wav = os.path.join(CONFIG_DIR, f"sync-{os.getpid()}-{int(start)}.wav")
@@ -2905,8 +2921,8 @@ def _asr_segments(path, start, dur, audio_stream=None, lang2=None):
         for base_url in SUBGEN_URLS:
             try:
                 req = urllib.request.Request(f"{base_url.rstrip('/')}/asr?{q}", data=body, method="POST", headers={"Content-Type": f"multipart/form-data; boundary={bnd}"})
-                with urllib.request.urlopen(req, timeout=900) as r: j = json.loads(r.read().decode("utf-8", "replace"))
-                return [(float(x.get("start") or 0), float(x.get("end") or 0)) for x in (j.get("segments") or []) if (x.get("text") or "").strip()]
+                with urllib.request.urlopen(req, timeout=900) as r: raw = r.read().decode("utf-8", "replace")
+                return asr_segments_from(raw)
             except Exception as e: last = e; log("sync whisper:", base_url, repr(e))
         raise last or RuntimeError("no whisper endpoint")
     finally:
@@ -2960,7 +2976,8 @@ def _subsync_job(job):
     t0 = time.time(); conn = db()
     try:
         try: r = subtitle_sync_check(job["path"])
-        except Exception as e: r = dict(status="unknown", note=err_result(e), source=None)
+        except Exception as e:
+            ok_, pr_ = ffprobe(job["path"]); r = dict(status="unknown", note=err_result(e), source=find_subtitle_source(job["path"], pr_) if ok_ else None)
         code = "SUBS_OUT_OF_SYNC"; fidh = hashlib.sha1(f"{job['app']}|{job['fid']}|{code}".encode()).hexdigest()[:16]; src = r.get("source"); now = time.time()
         src_txt = f"external '{os.path.basename(src[1])}'" if src and src[0] == "sidecar" else f"embedded track {src[1]}" if src else "no subtitles"
         if r["status"] in ("late", "early", "drift"):

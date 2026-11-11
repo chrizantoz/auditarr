@@ -82,27 +82,44 @@ def auth_conf(conn=None):
     finally:
         if conn is None: c.close()
     AUTH["loaded"] = True; AUTH["conf"] = conf; return conf
-def set_password(conn, user, password, persist=True):
+def set_password(conn, user, password, persist=True, role="admin"):
+    """role 'admin' sets the main account; role 'viewer' sets (or with an empty password removes) a read-only account (F9)."""
     import secrets
-    if len(password or "") < 8: raise ValueError("password must be at least 8 characters")
-    salt = secrets.token_hex(16); h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()
-    old = AUTH.get("conf") or {}; conf = {"user": (user or "admin").strip()[:64], "salt": salt, "hash": h, "secret": old.get("secret") or secrets.token_hex(32)}
+    old = AUTH.get("conf") or {}
+    if role == "viewer":
+        if not old: raise ValueError("set the main password first")
+        conf = dict(old)
+        if not password: conf.pop("viewer", None)
+        else:
+            if len(password) < 8: raise ValueError("password must be at least 8 characters")
+            salt = secrets.token_hex(16); conf["viewer"] = {"user": (user or "viewer").strip()[:64], "salt": salt, "hash": hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()}
+    else:
+        if len(password or "") < 8: raise ValueError("password must be at least 8 characters")
+        salt = secrets.token_hex(16); h = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 200_000).hex()
+        conf = {"user": (user or "admin").strip()[:64], "salt": salt, "hash": h, "secret": old.get("secret") or secrets.token_hex(32), **({"viewer": old["viewer"]} if old.get("viewer") else {})}
     if persist: conn.execute("INSERT OR REPLACE INTO kv VALUES('auth',?)", (json.dumps(conf),)); conn.commit()
     AUTH["loaded"] = True; AUTH["conf"] = conf; return conf
 def check_password(conf, user, password):
+    """-> 'admin', 'viewer' or None."""
     import hmac
-    h = hashlib.pbkdf2_hmac("sha256", (password or "").encode(), conf["salt"].encode(), 200_000).hex()
-    return user == conf["user"] and hmac.compare_digest(h, conf["hash"])
-def session_cookie(conf, days=30):
-    import hmac; exp = int(time.time()) + days * 86400; msg = f"{conf['user']}|{exp}"
+    for role, c in (("admin", conf), ("viewer", conf.get("viewer") or None)):
+        if not c: continue
+        h = hashlib.pbkdf2_hmac("sha256", (password or "").encode(), c["salt"].encode(), 200_000).hex()
+        if user == c["user"] and hmac.compare_digest(h, c["hash"]): return role
+    return None
+def session_cookie(conf, days=30, role="admin"):
+    import hmac; exp = int(time.time()) + days * 86400; user = conf["user"] if role == "admin" else (conf.get("viewer") or {}).get("user", "viewer"); msg = f"{user}|{exp}|{role}"
     return f"{msg}|{hmac.new(conf['secret'].encode(), msg.encode(), 'sha256').hexdigest()}"
 def session_user(conf, cookie_header):
+    """-> (user, role) or None."""
     import hmac
     for part in (cookie_header or "").split(";"):
         k, _, v = part.strip().partition("=")
-        if k != "auditarr_s" or v.count("|") != 2: continue
-        user, exp, sig = v.split("|")
-        if hmac.compare_digest(sig, hmac.new(conf["secret"].encode(), f"{user}|{exp}".encode(), "sha256").hexdigest()) and int(exp) > time.time() and user == conf["user"]: return user
+        if k != "auditarr_s" or v.count("|") != 3: continue
+        user, exp, role, sig = v.split("|")
+        if not hmac.compare_digest(sig, hmac.new(conf["secret"].encode(), f"{user}|{exp}|{role}".encode(), "sha256").hexdigest()) or int(exp) <= time.time(): continue
+        if role == "admin" and user == conf["user"]: return user, "admin"
+        if role == "viewer" and user == (conf.get("viewer") or {}).get("user"): return user, "viewer"
     return None
 LOGIN_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Auditarr - sign in</title>
 <style>:root{--bg:#0e1412;--panel:#151d1a;--line:#243029;--fg:#e1e9e4;--mut:#8fa39a;--acc:#3dd6b4;--acc-ink:#062a22}@media (prefers-color-scheme: light){:root{--bg:#f3f6f4;--panel:#fff;--line:#d5e0da;--fg:#16211c;--mut:#4f6159;--acc:#0a6b56;--acc-ink:#fff}}
@@ -1535,9 +1552,10 @@ def write_reports(conn, run_info):
     hist = os.path.join(REPORT_DIR, "history"); os.makedirs(hist, exist_ok=True)
     open(os.path.join(hist, f"{datetime.datetime.now():%Y-%m-%d_%H%M}.md"), "w").write("\n".join(md))
     for old in sorted(os.listdir(hist))[:-60]: os.remove(os.path.join(hist, old))
-def ntfy(title, body, priority="default", tags="clapper"):
+def page_url(tab=""): return (E("PUBLIC_URL") or REPORT_URL.rsplit("/", 1)[0]).rstrip("/") + "/" + (f"#{tab}" if tab else "")
+def ntfy(title, body, priority="default", tags="clapper", click=None):
     if not NTFY_URL: return
-    headers = {"Title": title, "Priority": priority, "Tags": tags}
+    headers = {"Title": title, "Priority": priority, "Tags": tags, "Click": click or page_url("findings")}
     if NTFY_TOKEN_FILE and os.path.exists(NTFY_TOKEN_FILE): headers["Authorization"] = "Bearer " + open(NTFY_TOKEN_FILE).read().strip()
     if ledger_only("ntfy push"): return
     try: urllib.request.urlopen(urllib.request.Request(NTFY_URL, body.encode(), headers), timeout=20).read()
@@ -1649,7 +1667,7 @@ def run_once():
             except Exception as e: log("auto fixheader:", repr(e))
     auto_verified = 0
     if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" and apps:
-        up_ = upcoming_set(conn); cand_ = conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr') ORDER BY first_seen DESC LIMIT 300").fetchall()
+        up_ = upcoming_set(conn); cand_ = conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr','radarr') ORDER BY first_seen DESC LIMIT 300").fetchall()
         cand_.sort(key=lambda r_: 0 if (r_[1], r_[2]) in up_ else 1)   # F2: what is about to be watched gets checked first
         for fid_, app_, afid_, label_, path_ in cand_[:int(setting("AUTO_VERIFY_MAX"))]:
             if fid_ in {json.loads(r[0]).get("finding") for r in conn.execute("SELECT job FROM jobs WHERE status IN ('queued','running')")}: continue
@@ -1852,7 +1870,7 @@ def plan_tonight(conn):
     w = []; do_auto_whisper(conn, apps, plan=w); out["ai_subtitles"] = w
     a = []; do_auto_acceptlang(conn, apps, plan=a); out["accept_language"] = a
     out["fix_headers"] = [dict(label=l, why="repair the wrong time bar") for (l,) in conn.execute("SELECT label FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen LIMIT 10")] if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off" else []
-    out["verify"] = [dict(label=l, why=f"check it is the right episode ({check_name(c)})") for l, c in conn.execute("SELECT label, check_code FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr') ORDER BY first_seen DESC LIMIT ?", (int(setting("AUTO_VERIFY_MAX")),))] if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" else []
+    out["verify"] = [dict(label=l, why=f"check it is the right {'movie' if a_ == 'radarr' else 'episode'} ({check_name(c)})") for l, c, a_ in conn.execute("SELECT label, check_code, app FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr','radarr') ORDER BY first_seen DESC LIMIT ?", (int(setting("AUTO_VERIFY_MAX")),))] if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" else []
     rg = []
     if gate(setting("REMEDIATE"), "REMEDIATE") != "off":
         allowed = set(setting("REMEDIATE_CHECKS").split(",")); min_age = float(setting("REMEDIATE_MIN_AGE_HOURS")); min_runs = int(setting("REMEDIATE_MIN_RUNS"))
@@ -1962,7 +1980,7 @@ def audit_one(app, parent_id, path, reason):
         bad = [x for x in out if x[0] in ("high", "critical")]
         record_action(conn, "on", "import-check", app, parent_id, label, f"checked right after import ({reason})", (f"{len(out)} finding(s): " + ", ".join(sorted({check_name(c) for _, c, _, _ in out}))) if out else "clean")
         refresh_reports(conn)
-        if bad: ntfy("Auditarr: a new download has a problem", "\n".join(f"{l}: {plain_sentence(c, sv, l, d, app)}" for sv, c, l, d in bad[:4]), "high", "warning")
+        if bad: ntfy("Auditarr: a new download has a problem", "\n".join(f"{l}: {plain_sentence(c, sv, l, d, app)}" for sv, c, l, d in bad[:4]), "high", "warning", click=page_url("findings"))
         log(f"import hook: {label} -> {len(out)} finding(s), {len(bad)} serious")
     except Exception as e: log("import hook failed:", repr(e))
     finally: conn.close()
@@ -2095,10 +2113,10 @@ def ui_act(conn, body, actor):
         if f["app"] not in apps: return 400, {"error": "verify works on arr-managed files"}
         try: info = arr_file_info(apps, f["app"], f["fid"], f["path"])
         except LookupError as e: return 409, {"error": str(e)}
-        if info["kind"] != "series" or not info["ep_ids"]: return 400, {"error": "verify supports series episodes (needs TVDB episode descriptions)"}
+        if info["kind"] == "series" and not info["ep_ids"]: return 400, {"error": "verify needs the episode list from the arr"}
         if not info["path"] or not os.path.exists(info["path"]): return 404, {"error": "file not on disk"}
         enqueue(dict(type="verify", finding=fid, app=f["app"], fid=info["fid"], path=info["path"], parent_id=info["parent_id"], ep_ids=info["ep_ids"], label=f["label"], actor=actor))
-        return 200, {"ok": True, "queued": True, "note": "verifying: 3 dialogue samples vs the TVDB episode descriptions (seconds with subtitles, ~1-2 min via Whisper) - result appears on the row and in Actions"}
+        return 200, {"ok": True, "queued": True, "note": "verifying: 3 dialogue samples vs the episode descriptions (movies: the synopsis) - seconds with subtitles, ~1-2 min via Whisper; result appears on the row and in Actions"}
     if action == "subtag":
         if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
         changes, note = tag_subs(path)
@@ -2403,10 +2421,54 @@ def _file_sub_text(path):
     stem = os.path.splitext(path)[0]; sc = next((c for c in (stem + ".en.srt", stem + ".eng.srt", stem + ".srt") if os.path.exists(c)), None)
     if sc: return re.sub(r"<[^>]*>", " ", " ".join(" ".join(b.split("\n")[2:]) for b in open(sc, errors="replace").read().split("\n\n") if "-->" in b))
     return ""
+def verify_movie(app, fid, path, parent_id, apps):
+    """S1: a movie's dialogue against its own synopsis and two dozen decoy synopses from the same library. No neighbours to cross-check, so the verdicts are 'matches', 'mislabeled' or 'inconclusive'."""
+    base, key, _ = apps[app]
+    try: me = api(base, key, f"movie/{parent_id}"); allm = api(base, key, "movie") or []
+    except Exception as e: return "could not read the movie from the arr", repr(e)
+    if not (me.get("overview") or "").strip(): return "no synopsis in the arr to compare against", ""
+    import random; rnd = random.Random(int(parent_id)); others = [m for m in allm if m.get("id") != me.get("id") and (m.get("overview") or "").strip()]; rnd.shuffle(others)
+    cands = [me] + others[:24]; import math
+    docs = {m["id"]: (set(_toks(m.get("title", "") + " " + m.get("overview", ""))), _names(m.get("title", "") + " " + m.get("overview", ""))) for m in cands}
+    N = len(docs); df = {}
+    for toks, names in docs.values():
+        for t in toks | names: df[t] = df.get(t, 0) + 1
+    idf = {t: math.log((N + 1) / (c + 0.5)) for t, c in df.items()}
+    def score(st_, sn, d): hits = (st_ & d[0]) | (sn & d[1]); return sum(idf.get(t, 0) * (2 if t in d[1] else 1) for t in hits) / (len(d[0] | d[1]) ** 0.5 or 1)
+    ok, pr = ffprobe(path)
+    if not ok: return "ffprobe failed", str(pr)
+    dur = float((pr.get("format") or {}).get("duration") or 0); rd = real_duration(path)
+    if rd and abs(rd - dur) > 60: dur = rd
+    subs = [st for st in pr.get("streams", []) if st.get("codec_type") == "subtitle" and st.get("codec_name") in TEXT_SUB_CODECS and canon((st.get("tags") or {}).get("language", "und") or "und") in ("eng", "und", "")]
+    sub_stream = subs[0]["index"] if subs else None; stem = os.path.splitext(path)[0]; sidecar = next((c for c in (stem + ".en.srt", stem + ".eng.srt", stem + ".srt") if os.path.exists(c)), None)
+    a = [st for st in pr.get("streams", []) if st.get("codec_type") == "audio"]
+    a_pick = next((st for st in a if canon((st.get("tags") or {}).get("language", "und") or "und") == "eng" and not re.search(r"descri|commentary", (st.get("tags") or {}).get("title") or "", re.I)), a[0] if a else None)
+    alang = canon((a_pick.get("tags") or {}).get("language", "und") or "und") if a_pick else "und"; audio_stream = a_pick["index"] if a_pick else None
+    lang2 = TWO_LETTER.get(alang) if alang not in ("und", "") else None; translate = alang not in ("eng", "und", "")
+    lines = []; picks = []
+    for frac in (0.15, 0.5, 0.85):
+        start = max(0, dur * frac - 45)
+        try: txt, how = _dialogue_sample(path, start, 90, sub_stream, sidecar, lang2, translate, audio_stream)
+        except Exception as e: lines.append(f"{int(frac*100)}%: sample failed {e!r}"); continue
+        if how == "whisper": how = f"whisper on {alang} audio" + (" translated" if translate else "")
+        st_, sn = set(_toks(txt)), _names(txt)
+        if len(st_) < 15: lines.append(f"{int(frac*100)}%: too little dialogue ({how})"); continue
+        scored = sorted([(score(st_, sn, d), mid) for mid, d in docs.items()], key=lambda x: -x[0]); best, second = scored[0], (scored[1] if len(scored) > 1 else (0, None))
+        bm = next(m for m in cands if m["id"] == best[1]); conf = best[0] / (second[0] or 0.01); picks.append((bm["id"], conf))
+        lines.append(f"{int(frac*100)}% ({how}): best '{bm.get('title','')[:30]}' score {best[0]:.2f}, next {second[0]:.2f}")
+    if not picks: return "inconclusive - no usable dialogue", " | ".join(lines)
+    strong = [p_ for p_ in picks if p_[1] >= 2.0]; own = me["id"]
+    if strong and all(p_[0] == own for p_ in strong): return f"CONTENT MATCHES {me.get('title')} (clear at {len(strong)}/3 points)", " | ".join(lines)
+    wrong = [p_ for p_ in strong if p_[0] != own]
+    if len(wrong) >= 2 and len({p_[0] for p_ in wrong}) == 1:
+        t_ = next(m.get("title") for m in cands if m["id"] == wrong[0][0]); return f"MISLABELED: the dialogue matches '{t_}', not '{me.get('title')}'", " | ".join(lines)
+    lean = max({p_[0] for p_ in picks}, key=lambda i_: sum(1 for p_ in picks if p_[0] == i_))
+    if lean == own: return f"CONSISTENT with {me.get('title')}: every sample leans to this movie, by small margins", " | ".join(lines)
+    return f"inconclusive - dialogue does not clearly match the synopsis (leaning '{next(m.get('title') for m in cands if m['id'] == lean)}')", " | ".join(lines)
 def verify_content(app, fid, path, parent_id, ep_ids, apps):
     """Returns (conclusion, details) - which episode(s) the dialogue in the file matches."""
     base, key, kind = apps[app]
-    if kind != "series": return "verify supports series episodes only", ""
+    if kind != "series": return verify_movie(app, fid, path, parent_id, apps)
     eps = sorted(api(base, key, f"episode?seriesId={parent_id}"), key=lambda e: (e.get("seasonNumber", 0), e.get("episodeNumber", 0)))
     mapped = [e for e in eps if e["id"] in set(ep_ids)]
     if not mapped: return "episode not found in the arr", ""
@@ -2610,7 +2672,7 @@ def ui_state(conn):
             if st_ == "running" and started_: e_["running_for"] = max(e_.get("running_for", 0), int(time.time() - started_))
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
-    latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user")}
+    latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
     try:
         apps_ = arr_apps(); latest["setup"] = dict(arrs=sorted(apps_), bazarr=bool(bazarr_conf()[1]), plex=bool(plex_token()), first_run_done=bool(conn.execute("SELECT 1 FROM run WHERE finished IS NOT NULL LIMIT 1").fetchone()), degraded=degraded())
     except Exception as e: latest["setup"] = {"error": repr(e)}
@@ -2820,15 +2882,15 @@ class Handler(SimpleHTTPRequestHandler):
         if user: return f"{user}@{ip}"
         return None
     def _auth(self):
-        """(allowed, user). Open page when no password is set (LAN model); otherwise a session cookie, the container itself, or (if TRUST_PROXY_AUTH) a proxy header."""
+        """(allowed, user, role). Open page when no password is set (LAN model); otherwise a session cookie, the container itself, or (if TRUST_PROXY_AUTH) a proxy header."""
         conf = auth_conf()
-        if not conf: return True, None
+        if not conf: return True, None, "admin"
         ip = self.client_address[0]
-        if ip in ("127.0.0.1", "::1"): return True, "local"
         u = session_user(conf, self.headers.get("Cookie"))
-        if u: return True, u
-        if TRUST_PROXY_AUTH and (self.headers.get("Remote-User") or self.headers.get("X-Remote-User")): return True, self.headers.get("Remote-User") or self.headers.get("X-Remote-User")
-        return False, None
+        if u: return True, u[0], u[1]
+        if ip in ("127.0.0.1", "::1"): return True, "local", "admin"
+        if TRUST_PROXY_AUTH and (self.headers.get("Remote-User") or self.headers.get("X-Remote-User")): return True, self.headers.get("Remote-User") or self.headers.get("X-Remote-User"), "admin"
+        return False, None, None
     def _login_page(self, bad=False):
         body = LOGIN_HTML.replace("__ERR__", '<p class="err">Wrong user or password.</p>' if bad else "").encode()
         self.send_response(401 if bad else 200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.send_header("Content-Length", str(len(body))); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(body)
@@ -2838,11 +2900,11 @@ class Handler(SimpleHTTPRequestHandler):
         if p == "/health":
             h = health_info(); return self._json(200 if h["status"] in ("ok", "running") else 503, h)
         if p == "/login": return self._login_page("bad" in self.path)
-        ok_, _u = self._auth()
+        ok_, _u, role_ = self._auth()
         if not ok_: return self._json(401, {"error": "sign in first"}) if p.startswith("/api/") or p.endswith((".json", ".md")) else self._login_page()
         if p == "/api/state":
-            conn = db();
-            try: return self._json(200, ui_state(conn))
+            conn = db()
+            try: j_ = ui_state(conn); j_.setdefault("auth", {})["role"] = role_; return self._json(200, j_)
             finally: conn.close()
         if p == "/api/history":
             conn = db()
@@ -2897,12 +2959,14 @@ class Handler(SimpleHTTPRequestHandler):
             from urllib.parse import parse_qs
             form = parse_qs(self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode("utf-8", "replace")); conf = auth_conf()
             user = (form.get("user") or [""])[0].strip(); pw = (form.get("password") or [""])[0]
-            if conf and check_password(conf, user, pw):
+            role_ = check_password(conf, user, pw) if conf else None
+            if role_:
                 secure = "; Secure" if (self.headers.get("X-Forwarded-Proto") or "").lower() == "https" else ""
-                self.send_response(303); self.send_header("Set-Cookie", f"auditarr_s={session_cookie(conf)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000{secure}"); self.send_header("Location", "/"); self.end_headers(); return
+                self.send_response(303); self.send_header("Set-Cookie", f"auditarr_s={session_cookie(conf, role=role_)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000{secure}"); self.send_header("Location", "/"); self.end_headers(); return
             time.sleep(1.5); log(f"login failed for {user!r} from {self.client_address[0]}"); return self._login_page(bad=True)
-        ok_, auth_user = self._auth()
+        ok_, auth_user, role_ = self._auth()
         if not ok_: return self._json(401, {"error": "sign in first"})
+        if role_ == "viewer" and p != "/api/logout": return self._json(403, {"error": "this account can look but not change anything"})
         if p == "/api/logout":
             self.send_response(200); self.send_header("Set-Cookie", "auditarr_s=; Path=/; Max-Age=0"); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(b'{"ok": true}'); return
         actor = (auth_user if auth_user not in (None, "local") else None) or self._actor()
@@ -2933,9 +2997,13 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
             elif p == "/api/setpassword":
                 conf = auth_conf(conn)
-                if conf and not (auth_user and auth_user != "local") and not check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")): code, obj = 403, {"error": "the current password is needed to change it"}
+                if conf and not (auth_user and auth_user != "local") and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
                 else:
-                    try: set_password(conn, str(body.get("user") or "admin"), str(body.get("password") or "")); record_action(conn, "on", "settings", "ui", "auth", "login", f"password set by {actor}", "page now requires sign-in"); code, obj = 200, {"ok": True, "note": "From now on the page asks for a sign-in. You are signed in on this browser after the next page load."}
+                    role_set = "viewer" if body.get("role") == "viewer" else "admin"
+                    try:
+                        set_password(conn, str(body.get("user") or ("viewer" if role_set == "viewer" else "admin")), str(body.get("password") or ""), role=role_set)
+                        record_action(conn, "on", "settings", "ui", "auth", "login", f"{role_set} password set by {actor}", "page requires sign-in" if role_set == "admin" else ("viewer account set" if body.get("password") else "viewer account removed"))
+                        code, obj = 200, {"ok": True, "note": "From now on the page asks for a sign-in. You are signed in on this browser after the next page load." if role_set == "admin" else ("Viewer account ready: that login sees everything and can change nothing." if body.get("password") else "Viewer account removed.")}
                     except ValueError as e: code, obj = 400, {"error": str(e)}
             elif p == "/api/test_connection":
                 k_ = str(body.get("kind") or ""); key_ = body.get("key") or ""

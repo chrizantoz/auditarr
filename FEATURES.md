@@ -44,6 +44,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 
 - Plain names and a one-sentence explanation on every finding; buttons are verbs. Codes, file paths and setting names stay out of the way (in **Advanced** view or tooltips).
 - Undo after any file move, a "?" help button on every section, and Settings shown as plain switches.
+- 👁️ A **read-only login** for the rest of the household: they see everything, the buttons are hidden, and the server refuses any change from that account.
 - **Tonight's plan** shows exactly what the next nightly run will do *before* it does it.
 
 ## 🔘 What the buttons do (one click, all reversible)
@@ -55,7 +56,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 - 🔎 **Find subs** — ask Bazarr to search right now. **AI subtitles** — generate subtitles for a whole show/season/movie through Bazarr's Whisper provider (replaces a mismatched provider subtitle).
 - ⏱️ **Fix header** — a lossless remux that repairs a file lying about its length (fixes over-long subtitle cues, keeps styling, drops only tracks it can't repair).
 - 🎚️ **Fix sync** — a lossless remux that removes a built-in audio delay; it refuses when the delay is an intentional intro offset.
-- 🧐 **Verify content** — samples the dialogue at 15/50/85 % (from embedded/sidecar subs, otherwise Whisper on the original-language audio) and compares it word-for-word with neighbouring episodes (openings/recaps ignored) and TVDB descriptions. Verdicts: CONTENT MATCHES, CONSISTENT, DUPLICATE CONTENT, MULTI-EPISODE, MISLABELED, or inconclusive.
+- 🧐 **Verify content** — samples the dialogue at 15/50/85 % (from embedded/sidecar subs, otherwise Whisper on the original-language audio) and compares it word-for-word with neighbouring episodes (openings/recaps ignored) and TVDB descriptions. Verdicts: CONTENT MATCHES, CONSISTENT, DUPLICATE CONTENT, MULTI-EPISODE, MISLABELED, or inconclusive. Movies are checked against their own synopsis and two dozen decoy synopses from the same library.
 - 🔍 **Search** — kick off the arr's search for a missing episode/movie/scene. **Plex refresh** — rescan one folder.
 - 📦 **Archive** — unmonitor a season/movie you've watched and haven't touched in a while, and move its files to Trash (30-day countdown).
 - 🔍 **Search all missing** — for one show/movie, send the arr a search for every released-but-missing item at once.
@@ -75,7 +76,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 
 ## 📊 What it shows you
 
-- **Today** panel: what needs a human, what the night did, and any errors. The scheduled run sends the same summary as one phone push (ntfy).
+- **Today** panel: what needs a human, what the night did, and any errors. The scheduled run sends the same summary as one phone push (ntfy); tapping the push opens the page on the right tab.
 - **Findings** grouped however you like (by show → check, check → show, or library → show); each group shows its library (Anime / TV / Movies / XXX) and how recently it was watched, with direct links into Plex and the arr on every row.
 - **Trash**, **Actions** (background jobs, re-grab tracker, full action log), **Space**, **History** (findings per run, actions per day, nightly self-test results), **Settings** (every option, saved, with the precedence above), and **Live** (run progress).
 - Optional: a read-only daily hand-off to a Paperclip agent to review the high findings.

@@ -82,7 +82,7 @@ Open `http://host:3091`. The **first run reads every file once** (roughly 25 min
 
 ## 🔒 Who can open the page
 
-Out of the box the page is open to your local network (handy at home). On the **Setup** tab, step 4 turns on a built-in sign-in: a user and password stored hashed in Auditarr's own database, a session cookie, and a plain login page. `/health` and the import webhook (token-protected) stay reachable for monitoring and for Sonarr/Radarr. If you already protect it with a reverse proxy that sets `Remote-User` (Authelia, Authentik), set `TRUST_PROXY_AUTH=1` and that header counts as a sign-in. Forgot the password: start once with `AUTH_USER`, `AUTH_PASSWORD` and `AUTH_RESET=1`.
+Out of the box the page is open to your local network (handy at home). On the **Setup** tab, step 4 turns on a built-in sign-in: a user and password stored hashed in Auditarr's own database, a session cookie, and a plain login page. `/health` and the import webhook (token-protected) stay reachable for monitoring and for Sonarr/Radarr. If you already protect it with a reverse proxy that sets `Remote-User` (Authelia, Authentik), set `TRUST_PROXY_AUTH=1` and that header counts as a sign-in. Forgot the password: start once with `AUTH_USER`, `AUTH_PASSWORD` and `AUTH_RESET=1`. A second, **read-only login** for family is one step further down the same page: it sees everything and can change nothing.
 
 ## 🛡️ Is it safe? (yes — nothing is deleted outright)
 

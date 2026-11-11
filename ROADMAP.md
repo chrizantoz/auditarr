@@ -85,16 +85,16 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **F6** Per-person preferences: language defaults per Plex user, applied to each account's track selection.
 - [ ] **F7** Upgrade candidates: files below the profile cutoff, oldest encodes, same movie at two resolutions, with the disk space each decision frees or costs.
 - [ ] **F8** Loudness check: flag files whose dialogue is far quieter than the library norm; optional lossless gain fix.
-- [ ] **F9** Viewer role: logged-in users outside an operator group see the page without buttons.
+- [x] **F9** Viewer role: a second, read-only login (Setup → Protect the page → read-only account). Buttons hidden, every change refused by the server. _(2026-11-11)_
 - [ ] **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
 - [ ] **F11** More than one instance per arr kind (two Sonarrs).
 - [ ] **F12** Translations: one JSON per language for names, sentences, buttons and help.
 
 ## 🔧 Later: smaller improvements
 
-- [ ] **S1** Content verification for movies (Radarr), not just TV.
+- [x] **S1** Content verification for movies (Radarr): dialogue against the movie's synopsis plus two dozen decoys from the same library. _(2026-11-11)_
 - [x] **S2** A findings-over-time chart in History (active findings per run plus the per-library health trend).
-- [ ] **S3** Phone notifications with a link straight to the Trash tab after any file move.
+- [x] **S3** Phone pushes open the page on the right tab (`#findings`, `#trash`); set `PUBLIC_URL` when the page has a public address. _(2026-11-11)_
 - [ ] **S4** Per-show learning: problem types you always ignore quietly drop to low on their own.
 - [x] **S6** Re-check orphans against the arr at the end of a run, so files imported mid-run aren't flagged as orphans (added 2026-11-11).
 - [x] **S7** (2026-11-11) MP4 lossless rewrite safety: after the swap, re-probe the final file and compare its checksum with the verified temporary file; refuse the bulk button for MP4 until the root cause of one corrupted result is understood (details in the private incident notes).

@@ -69,7 +69,7 @@ Three steps. **1 Connect your apps**: paste each app's address and API key (Sona
 | 🤖 **Make AI subtitles** | Whisper listens to the audio and writes English subtitles. About a minute on the GPU; progress shows in the header | delete the `.en.srt` next to the file |
 | ⏱️ **Fix the time bar** | the file claims the wrong length, so players show a wrong time bar. Rewrites the container losslessly | Undo, or Trash → Put back |
 | 🎚️ **Fix audio delay** | audio starts late: removes the delay losslessly. Hidden when the delay is intentional | Undo, or Trash → Put back |
-| 🧐 **Check the episode** | compares the dialogue with the neighbouring episodes and the TVDB descriptions and says whether this really is the episode it claims to be. The result replaces the sentence on the row | **Check again** runs it again |
+| 🧐 **Check the episode** / **Check the movie** | compares the dialogue with the neighbouring episodes and the TVDB descriptions (for a movie: with its synopsis) and says whether this really is what it claims to be. The result replaces the sentence on the row | **Check again** runs it again |
 | 🔍 **Search now** | for a missing episode or movie: asks the arr to search right now | — |
 | 📺 **Refresh in Plex** | asks Plex to rescan that folder | — |
 | 📦 **Archive** (Space tab) | unmonitor the season and move it to the trash with a 30-day grace period | Trash → Put back within 30 days |
@@ -133,5 +133,9 @@ Every section has a **?** button that explains it in a few sentences and links h
 **How do I know AI subtitles are working?** The header chip shows the current episode and percent. The Actions tab shows the queue under Background jobs and the result ("subtitle landed after 1.8 min") when it finishes.
 
 **A re-grab came back the same.** The tracker says "same defect". Two releases agree, so the finding drops to low and the re-grab button disappears. Ignore it, or block that release group in the arr.
+
+**Can my family open the page without breaking anything?** Yes. Once sign-in is on, Setup → Protect the page has a **read-only account**: give them that user and password. They see everything, every button is hidden, and even a hand-written request to change something is refused by the server.
+
+**The phone push: can it take me straight to the problem?** Tap it. It opens the page on the Findings tab (or the Trash tab when files were moved). If you reach the page through a public address, set `PUBLIC_URL` to it so the link works away from home.
 
 **Is anything deleted?** No. Moved files sit in the trash for 3 days (duplicates), 14 days (re-grabs) or 30 days (archive) and purge after that. The Trash tab shows the countdown.

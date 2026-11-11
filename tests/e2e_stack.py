@@ -169,6 +169,13 @@ st_, hd, body_ = raw("POST", "/login", "user=demo&password=secret123", {"Content
 check("sign-in: right password sets a session cookie and redirects to the page", st_ == 303 and cookie.startswith("auditarr_s="), (st_, hd.get("Set-Cookie")))
 st_, hd, body_ = raw("GET", "/api/state", headers={"Cookie": cookie}); check("sign-in: the cookie opens the API", st_ == 200)
 st_, hd, body_ = raw("GET", "/login"); check("sign-in page is served without a cookie", st_ == 200 and b"Sign in" in body_)
+st_, hd, body_ = raw("POST", "/api/setpassword", json.dumps({"role": "viewer", "user": "guest", "password": "guestguest"}), {"Content-Type": "application/json", "Cookie": cookie}); check("viewer: account can be added by the signed-in admin", st_ == 200, (st_, body_[:120]))
+st_, hd, body_ = raw("POST", "/login", "user=guest&password=guestguest", {"Content-Type": "application/x-www-form-urlencoded"}); vcookie = (hd.get("Set-Cookie") or "").split(";")[0]
+check("viewer: can sign in", st_ == 303 and vcookie.startswith("auditarr_s="), st_)
+st_, hd, body_ = raw("GET", "/api/state", headers={"Cookie": vcookie}); check("viewer: sees the page state with role viewer", st_ == 200 and json.loads(body_).get("auth", {}).get("role") == "viewer", (st_, body_[:80]))
+st_, hd, body_ = raw("POST", "/api/run", "{}", {"Content-Type": "application/json", "Cookie": vcookie}); check("viewer: any change is refused with 403", st_ == 403, (st_, body_[:120]))
+st_, hd, body_ = raw("POST", "/api/setpassword", json.dumps({"role": "admin", "user": "evil", "password": "evilevil1"}), {"Content-Type": "application/json", "Cookie": vcookie}); check("viewer: cannot take over the main password", st_ == 403, st_)
+st_, hd, body_ = raw("POST", "/api/logout", "{}", {"Content-Type": "application/json", "Cookie": vcookie}); check("viewer: can sign out", st_ == 200, st_)
 st_, hd, body_ = raw("GET", "/health"); check("health stays open for monitoring", st_ == 200)
 st_, hd, body_ = raw("POST", "/api/logout", headers={"Cookie": cookie}); check("sign-out clears the cookie", st_ == 200 and "Max-Age=0" in (hd.get("Set-Cookie") or ""))
 

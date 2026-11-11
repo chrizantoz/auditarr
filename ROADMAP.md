@@ -72,7 +72,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 ## 🚀 Releases
 
 - 🟢 **R1** (2026-11-11) First public release `v0.9.0` with release notes; images tagged `latest`, `0.9`, `0.9.0` and the commit; CI badges in the README.
-- 🟡 **R2** Release checklist as a script: bump, generate notes from CHANGELOG, tag, refresh the visual baselines and the demo, verify the tagged image boots.
+- 🟢 **R2** (2026-11-11) `scripts/release.sh vX.Y.Z`: checks, notes from the CHANGELOG, baselines from the green CI run, commit + tag + push, GitHub release, boot check of the tagged image. See `docs/RELEASING.md`. (The demo refreshes itself on every push to main.)
 
 ## ✨ Later: features (added 2026-11-11, ranked)
 

@@ -46,3 +46,7 @@ Use the issue templates. For anything security-related, use the private report o
 ## 📄 Licence
 
 GPL-3.0. By contributing you agree your changes are licensed the same way.
+
+## 🚀 Releasing
+
+`scripts/release.sh vX.Y.Z` runs the whole checklist (checks, notes from the changelog, baselines, tag, GitHub release, boot check). `docs/RELEASING.md` explains each step.

@@ -70,6 +70,31 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
         await page.waitForFunction(() => /put back/.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
         check("live: Undo put the file back", /put back/.test(await page.textContent("#toast")), await page.textContent("#toast"));
       }
+      // Q17 personas: tasks a non-technical person would try, done only through the page, judged by the outcome
+      // 1. "why is this episode missing?"  -> search the title, find the row, read the sentence, see the button
+      await page.fill("#f-q", "S01E04"); await page.waitForTimeout(400);
+      await page.evaluate(() => document.querySelectorAll("#findings details.grp-d").forEach(d => d.open = true));
+      const miss = page.locator("#findings tr[id^=r-]").filter({ has: page.locator("button[data-act=search]") }).first();
+      check("persona: searching a title finds the missing episode with a 'Search now' button", (await miss.count()) > 0);
+      if (await miss.count()) { const why = await miss.innerText(); check("persona: the row says in plain words why it is missing", /not downloaded|released|not found|nothing found/i.test(why), why.slice(0, 160)); }
+      await page.fill("#f-q", ""); await page.waitForTimeout(300);
+      // 2. "make AI subtitles for the whole show"  -> the Tools box, one confirm, a toast that says queued
+      await page.fill("#w-show", "Alpha Show"); await page.click("#w-go"); await page.waitForTimeout(100);
+      check("persona: whole-show AI subtitles asks before acting", await page.isVisible(".confirm"));
+      if (await page.isVisible(".confirm")) {
+        await page.locator(".confirm button.primary").first().click();
+        await page.waitForFunction(() => /queued|no |not /i.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
+        const tt = await page.textContent("#toast"); check("persona: toast confirms the subtitles were queued", /queued/i.test(tt), tt);
+      }
+      // 3. "this one is fine, stop showing it"  -> Ignore on a row, confirm, the row is gone
+      await page.evaluate(() => document.querySelectorAll("#findings details.grp-d").forEach(d => d.open = true));
+      const before = await page.locator("#findings tr[id^=r-]").count(); const ign = page.locator("#findings tr[id^=r-] button[data-ign]").last();
+      check("persona: rows offer Ignore", (await ign.count()) > 0);
+      if (await ign.count()) {
+        const rowId = await ign.evaluate(b => b.closest("tr").id); await ign.click(); await page.waitForTimeout(100); await page.locator(".confirm button.primary").first().click();
+        await page.waitForFunction(id => !document.getElementById(id), rowId, { timeout: 20000 }).catch(() => {});
+        check("persona: an ignored finding disappears from the list", !(await page.locator("#" + rowId).count()) && (await page.locator("#findings tr[id^=r-]").count()) < before, `${before} -> ${await page.locator("#findings tr[id^=r-]").count()}`);
+      }
     }
     // accessibility: axe-core, fail on serious/critical
     const axePath = path.join(__dirname, "node_modules", "axe-core", "axe.min.js");

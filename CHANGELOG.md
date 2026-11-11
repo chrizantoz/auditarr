@@ -8,6 +8,7 @@ All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizan
 - 👁️ **Read-only login** (F9): Setup → Protect the page → read-only account. A viewer sees the whole page without buttons, and the server answers 403 to any change from that session; the role travels in the signed session cookie.
 - 🎬 **Content check for movies** (S1): the dialogue is compared with the movie's synopsis against two dozen decoy synopses from the same Radarr library (matches / mislabeled / inconclusive). Nightly auto-verify and Tonight's plan include movies.
 - 📲 **Pushes open the page** (S3): every ntfy notification carries a link to the Findings tab (Trash when files were moved); the page reads `#findings`, `#trash` and the other tab names from the address. `PUBLIC_URL` sets the address used in links.
+- 🧑‍💻 Persona tasks in the live browser test: a pretend first-time user searches for a missing episode, makes AI subtitles for a whole show and ignores a finding, using only the page.
 - 🔁 Flaky connections are forgiven once and remembered: a read that fails and works on retry no longer fails the run, and the History tab lists which service wobbles and how often (30 days).
 - ⏱️ Performance budget in CI: a 10,000-file / 5,000-finding library must build its report and page state within fixed time and size limits.
 - 🌪️ Chaos test in CI: the fake stack throws 500s, slow answers and a vanishing Radarr at the audit; it must finish degraded, keep that app's findings, write nothing, and recover on the next run.

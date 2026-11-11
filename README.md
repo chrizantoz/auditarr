@@ -95,3 +95,7 @@ docs/           Unraid template, deploy/staging script, homelab notes
 ```
 
 Built for a single homelab; shared as-is. Issues and ideas welcome.
+
+## 📄 License
+
+GPL-3.0. Use it, change it, share it; anything you distribute based on it must stay open under the same terms. See [LICENSE](LICENSE).

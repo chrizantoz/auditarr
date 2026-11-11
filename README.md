@@ -114,6 +114,12 @@ docs/           Unraid template, deploy/staging script, homelab notes
 
 Built for a single homelab; shared as-is. Issues and ideas welcome.
 
+## ☕ Support
+
+Auditarr is free and stays free. If it saved you an evening, a tip helps pay for the GPU time and test hardware behind the next release.
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-tip%20the%20project-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/chrizantoz)
+
 ## 📄 License
 
 GPL-3.0. Use it, change it, share it; anything you distribute based on it must stay open under the same terms. See [LICENSE](LICENSE).

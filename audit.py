@@ -1734,7 +1734,7 @@ def finding_row(conn, fid):
 def resolve_finding(conn, fid, note=None):
     conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); conn.commit()
 def add_ignore_rule(line):
-    key = re.split(r"\s+#", line.strip(), maxsplit=1)[0].strip()
+    line = line.strip(); cut = line.find(" #"); key = (line[:cut] if cut >= 0 else line).strip()   # comment after the rule; plain split, no regex on user text
     if os.path.exists(IGNORE_FILE) and any(re.split(r"(?:^|\s+)#", l.strip(), 1)[0].strip() == key for l in open(IGNORE_FILE)): return   # already there
     with open(IGNORE_FILE, "a") as f: f.write(line.rstrip() + "\n")
 def ui_ignore(conn, body, actor):
@@ -2518,7 +2518,8 @@ def trash_list():
     out.sort(key=lambda x: (x["kind"], x["day"], x["name"])); return out
 def ui_restore(conn, body, actor):
     dest = body.get("dest") or ""
-    if not os.path.realpath(dest).startswith(os.path.realpath(TRASH_DIR) + os.sep) or not os.path.isfile(dest): return 400, {"error": "not a quarantined file"}
+    dest = os.path.realpath(dest); root_ = os.path.realpath(TRASH_DIR)   # normalise first, then check, then use only the normalised path
+    if not dest.startswith(root_ + os.sep) or not os.path.isfile(dest): return 400, {"error": "not a quarantined file"}
     entry = next((t for t in trash_list() if t["dest"] == dest), None)
     if not entry: return 404, {"error": "not in trash listing"}
     orig = entry["original"]

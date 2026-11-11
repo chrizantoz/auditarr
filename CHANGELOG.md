@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Fixed: after saying yes to "Make AI subtitles for a whole show", the box stayed on "working…" with its buttons greyed out until the page was reloaded; the button now comes back as soon as the job is queued. Found by the browser bot on the public demo. The bot also ignores resources the network blocks outside the app (a proxy's analytics beacon) and names the step it got stuck on.
 - The page no longer breaks on a half or odd API answer (found by the new data fuzzer, Q34): every answer is shaped before it is drawn.
 - Subtitles painted into the picture (F32): files reported without subtitles get eight frames of their lower band inspected for burned-in lettering; when found, the row says so at low severity instead of "no subtitles" and offers Show me a frame so you can tell the language.
 - Public playground at https://demo.chrizantoz.com: try every button on fake files without installing anything; it resets on the hour.

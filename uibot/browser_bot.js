@@ -22,7 +22,11 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
   const browser = await chromium.launch(); fs.mkdirSync(path.join(__dirname, "screens"), { recursive: true });
   for (const [label, width, height] of [["phone", 400, 860], ["desktop", 1280, 900]]) {
     const page = await browser.newPage({ viewport: { width, height } }); const jsErrors = [];
-    page.on("pageerror", e => jsErrors.push(String(e))); page.on("console", m => { if (m.type() === "error") jsErrors.push(m.text()); });
+    const origin = new URL(base).origin;
+    page.on("pageerror", e => jsErrors.push(String(e))); page.on("console", m => {   // a third-party resource that the network blocks (a CDN beacon, an analytics script injected by the proxy) is not a page error
+      if (m.type() !== "error") return; const loc = m.location && m.location(); const where = loc && loc.url ? loc.url : "";
+      if (/Failed to load resource/.test(m.text()) && where && !where.startsWith(origin)) return;
+      jsErrors.push(m.text() + (where && !where.startsWith(origin) ? ` (${where})` : "")); });
     await page.goto(base); await page.waitForSelector("#findings details.grp-d", { timeout: 15000 });
     await page.evaluate(() => { const d = document.querySelector("#findings details.grp-d"); if (d) d.open = true; });   // groups start collapsed; open the first one like a person would
     await page.waitForTimeout(50);
@@ -63,7 +67,7 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
       const q = page.locator("#findings tr[id^=r-] button[data-act=quarantine]").first();
       check("live: a duplicate row offers Move to trash", (await q.count()) > 0);
       if (await q.count()) {
-        await q.click(); await page.waitForTimeout(80); await page.locator(".confirm button.primary").first().click();
+        await q.click(); await page.waitForTimeout(80); await page.locator(".confirm button.primary:not([disabled])").first().click();
         await page.waitForFunction(() => /Undo/.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
         check("live: Move to trash done, toast offers Undo", /done/.test(await page.textContent("#toast")) && (await page.locator("#toast button").count()) > 0, await page.textContent("#toast"));
         await page.locator("#toast button").first().click();
@@ -85,20 +89,22 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
       await page.fill("#w-show", "Alpha Show"); await page.click("#w-go"); await page.waitForTimeout(100);
       check("persona: whole-show AI subtitles asks before acting", await page.isVisible(".confirm"));
       if (await page.isVisible(".confirm")) {
-        await page.locator(".confirm button.primary").first().click();
+        await page.locator(".confirm button.primary:not([disabled])").first().click();
         await page.waitForFunction(prev => document.querySelector("#toast").textContent !== prev && document.querySelector("#toast").textContent.trim() !== "", toastBefore, { timeout: 20000 }).catch(() => {});
         const tt = await page.textContent("#toast"); check("persona: toast confirms the subtitles were queued", /queued/i.test(tt), tt);
+        await page.waitForSelector("#w-go", { state: "visible", timeout: 5000 }).catch(() => {});
+        check("persona: after the whole-show confirm the button comes back (no box stuck on 'working…')", await page.isVisible("#w-go"));   // found on the public demo 2026-11-11
       }
       // 3. "this one is fine, stop showing it"  -> Ignore on a row, confirm, the row is gone
       await page.evaluate(() => document.querySelectorAll("#findings details.grp-d").forEach(d => d.open = true));
       const before = await page.locator("#findings tr[id^=r-]").count(); const ign = page.locator("#findings tr[id^=r-] button[data-ign]").last();
       check("persona: rows offer Ignore", (await ign.count()) > 0);
       if (await ign.count()) {
-        const rowId = await ign.evaluate(b => b.closest("tr").id); await ign.click(); await page.waitForTimeout(100); await page.locator(".confirm button.primary").first().click();
+        const rowId = await ign.evaluate(b => b.closest("tr").id); await ign.click(); await page.waitForTimeout(100); await page.locator(".confirm button.primary:not([disabled])").first().click();
         await page.waitForFunction(id => !document.getElementById(id), rowId, { timeout: 20000 }).catch(() => {});
         check("persona: an ignored finding disappears from the list", !(await page.locator("#" + rowId).count()) && (await page.locator("#findings tr[id^=r-]").count()) < before, `${before} -> ${await page.locator("#findings tr[id^=r-]").count()}`);
       }
-      } catch (e) { check("persona tasks ran without a stuck step", false, String(e).split("\n")[0].slice(0, 160)); }
+      } catch (e) { const lines = String(e).split("\n"); const where = lines.find(l => /waiting for|locator\(/.test(l)) || ""; check("persona tasks ran without a stuck step", false, (lines[0] + " " + where.trim()).slice(0, 220)); }
     }
     // accessibility: axe-core, fail on serious/critical
     const axePath = path.join(__dirname, "node_modules", "axe-core", "axe.min.js");

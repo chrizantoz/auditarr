@@ -134,6 +134,7 @@ async function edgeChecks(S) {
   // whisper tool
   $("#w-show").value = "Kakegurui"; $("#w-season").value = "1"; $("#w-go").click(); await sleep(30); $(".confirm button.primary").click(); await sleep(100);
   check("whisper tool posts show+season", posts.some(p => p.url.includes("api/whisper") && /Kakegurui/.test(p.body)));
+  check("whole-show button comes back after its confirm (no box stuck on 'working…')", !!$("#w-go") && !$$(".confirm").some(c => /working/.test(c.textContent)));   // seen on the public demo 2026-11-11
   // ---- usability (Layer 1): plain words first, codes only as tooltips, verbs on buttons, help and undo
   const rowsAll = $$("#findings tr[id^=r-]"); check("every row leads with a plain-language sentence", rowsAll.length > 0 && rowsAll.every(r => r.querySelector(".plain") && r.querySelector(".plain").textContent.trim().length > 15), rowsAll.length + " rows");   // fixed: a sentence is longer than 15 characters; not a row count
   const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/; check("group headers show no raw check codes", $$("#findings .grp-head").every(sm => !rawCode.test(sm.textContent)), ($$("#findings .grp-head").find(sm => rawCode.test(sm.textContent)) || {}).textContent);

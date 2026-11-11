@@ -20,7 +20,7 @@ say(){ printf '\n\033[1m%s\033[0m\n' "$*"; }; die(){ echo "STOP: $*" >&2; exit 1
 say "1/6 checks"
 [ "$(git branch --show-current)" = main ] || die "not on main"
 git fetch -q origin main --tags
-[ -z "$(git status --porcelain)" ] || die "working tree is not clean"
+[ -z "$(git status --porcelain --untracked-files=no)" ] || die "working tree has uncommitted changes"
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main is not in sync with origin/main (pull or push first)"
 git rev-parse -q --verify "refs/tags/$V" >/dev/null && die "tag $V already exists"
 RUN=$(gh run list -w ci.yml --commit "$(git rev-parse HEAD)" --json databaseId,status,conclusion -q '.[0]')

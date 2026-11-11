@@ -67,7 +67,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🟢 **L3** Install docs for a first-timer: `docs/INSTALL.md` (Unraid + compose, where the keys are, the media-path rule), `docs/docker-compose.yml`, a generic `docs/unraid-template.xml`. Submitting to Community Apps is the owner's step (needs a public repo and an icon).
 
 - 🟢 **L4** (2026-11-11) Community Apps: [chrizantoz/unraid-templates](https://github.com/chrizantoz/unraid-templates) submitted and **auto-approved** the same day. Auditarr installs from the Apps tab on Unraid.
-- 🙋 **L5** Listings: awesome-selfhosted (Media Management), r/selfhosted and r/unRAID posts with the banner and the demo link, Unraid forum support thread.
+- 🙋 **L5** Listings: Unraid forum support thread first (then its URL goes into the template's Support tag), r/unRAID and r/selfhosted posts with the banner and the demo link (texts prepared 2026-11-11). awesome-selfhosted only accepts projects whose first release is 4+ months old → earliest **2027-03-12**; pull request against awesome-selfhosted-data, category Media Management.
 
 ## 🚀 Releases
 

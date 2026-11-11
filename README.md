@@ -90,6 +90,11 @@ Open `http://host:3091`. The **first run reads every file once** (roughly 25 min
 
 ➕ **Optional extras:** Tautulli for watch stats (`-v /path/to/tautulli/config.ini:/arr/tautulli.ini:ro`, powers the **Space** tab), `NTFY_URL` (+ `NTFY_TOKEN_FILE`) for phone notifications, `SUBGEN_URLS` for AI-subtitle (Whisper) servers, a Docker socket proxy at `DOCKER_API` for live subtitle-generation progress, and `PAPERCLIP_*` to hand findings to an agent. An Unraid template is in `docs/unraid-template.xml`.
 
+## 💬 Help and community
+
+- Unraid users: the [support thread on the Unraid forum](https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/).
+- Everyone: [GitHub Discussions](https://github.com/chrizantoz/auditarr/discussions) for questions and ideas, [Issues](https://github.com/chrizantoz/auditarr/issues) for bugs.
+
 ## 🔒 Who can open the page
 
 Out of the box the page is open to your local network (handy at home). On the **Setup** tab, step 4 turns on a built-in sign-in: a user and password stored hashed in Auditarr's own database, a session cookie, and a plain login page. `/health` and the import webhook (token-protected) stay reachable for monitoring and for Sonarr/Radarr. If you already protect it with a reverse proxy that sets `Remote-User` (Authelia, Authentik), set `TRUST_PROXY_AUTH=1` and that header counts as a sign-in. Forgot the password: start once with `AUTH_USER`, `AUTH_PASSWORD` and `AUTH_RESET=1`. A second, **read-only login** for family is one step further down the same page: it sees everything and can change nothing.

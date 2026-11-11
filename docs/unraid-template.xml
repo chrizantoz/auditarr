@@ -6,7 +6,7 @@
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/chrizantoz/auditarr/issues</Support>
+  <Support>https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/</Support>
   <Project>https://github.com/chrizantoz/auditarr</Project>
   <Overview>Nightly quality control for a Sonarr / Radarr / Bazarr / Plex library: opens every video file and checks what is really inside (audio language, subtitles, runtime, picture format, Plex sync, missing episodes), fixes what is safe to fix by itself, and gives you one-click reversible buttons for the rest. Plain-language page, nothing is deleted (trash with a countdown). After starting the container open the Web UI and follow the Setup tab - it asks for the addresses and API keys and tests them.</Overview>
   <Category>MediaApp:Video MediaServer:Video Tools:Utilities</Category>

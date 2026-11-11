@@ -35,6 +35,7 @@ Only after all of that does CI publish the image.
 ## 3. Every night, in production
 
 - `/api/selftest` after each run: API and detector checks with reversible actions.
+- `tests/shapes/` + `tests/shapes_check.py`: sanitised real answers (recorded with `scripts/record_shapes.py` inside a running container: `docker exec -i media-audit python3 - /config/shapes < scripts/record_shapes.py`, then copied into the repo). The fake arr objects are laid over these samples, so CI sees real field sets; the test fails if a recording carries an address, host, name or key, or if the fake loses a real field.
 - `tests/subsync.py`: subtitle timing maths (cue parsing, offset estimate, verdict, file shift, which subtitle gets checked); the stack test runs a fake Whisper and a 3 s-late subtitle file through detection and Re-time.
 - `tests/errors_log.py`: a crash inside a job keeps its traceback (errors.log, About → Recent errors, health count); the stack test fails if errors.log is not empty at the end.
 - `tests/watch_priority.py`: what someone is watching in Plex gets its subtitles first (Bazarr now, AI later, both at the head of the queue).

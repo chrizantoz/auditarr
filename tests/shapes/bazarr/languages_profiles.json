@@ -1,0 +1,28 @@
+{
+ "_meta": {
+  "endpoint": "system/languages/profiles",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "profileId": 1,
+   "name": "English",
+   "cutoff": 1,
+   "items": [
+    {
+     "id": 1,
+     "language": "en",
+     "audio_exclude": "False",
+     "audio_only_include": "False",
+     "hi": "False",
+     "forced": "False"
+    }
+   ],
+   "mustContain": [],
+   "mustNotContain": [],
+   "originalFormat": 0,
+   "tag": null
+  }
+ ]
+}

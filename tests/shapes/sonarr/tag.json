@@ -1,0 +1,21 @@
+{
+ "_meta": {
+  "endpoint": "tag",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "label": "label 1",
+   "id": 1
+  },
+  {
+   "label": "label 2",
+   "id": 8
+  },
+  {
+   "label": "label 3",
+   "id": 7
+  }
+ ]
+}

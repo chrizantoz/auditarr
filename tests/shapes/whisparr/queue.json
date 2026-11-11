@@ -1,0 +1,15 @@
+{
+ "_meta": {
+  "endpoint": "queue",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "page": 1,
+  "pageSize": 5,
+  "sortKey": "timeleft",
+  "sortDirection": "descending",
+  "totalRecords": 0,
+  "records": []
+ }
+}

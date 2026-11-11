@@ -1,0 +1,69 @@
+{
+ "_meta": {
+  "endpoint": "episodes/wanted",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [
+   {
+    "seriesTitle": "seriesTitle 1",
+    "episode_number": "9x7",
+    "episodeTitle": "episodeTitle 1",
+    "missing_subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "forced": false,
+      "hi": false
+     }
+    ],
+    "sonarrSeriesId": 347,
+    "sonarrEpisodeId": 25041,
+    "sceneName": "sceneName 10",
+    "tags": [],
+    "seriesType": "standard"
+   },
+   {
+    "seriesTitle": "seriesTitle 1",
+    "episode_number": "5x5",
+    "episodeTitle": "episodeTitle 2",
+    "missing_subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "forced": false,
+      "hi": false
+     }
+    ],
+    "sonarrSeriesId": 347,
+    "sonarrEpisodeId": 24987,
+    "sceneName": "sceneName 11",
+    "tags": [],
+    "seriesType": "standard"
+   },
+   {
+    "seriesTitle": "seriesTitle 2",
+    "episode_number": "1x7",
+    "episodeTitle": "episodeTitle 3",
+    "missing_subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "forced": false,
+      "hi": false
+     }
+    ],
+    "sonarrSeriesId": 343,
+    "sonarrEpisodeId": 24322,
+    "sceneName": "sceneName 12",
+    "tags": [],
+    "seriesType": "anime"
+   }
+  ],
+  "total": 424
+ }
+}

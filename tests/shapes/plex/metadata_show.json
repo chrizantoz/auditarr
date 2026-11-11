@@ -1,0 +1,194 @@
+{
+ "_meta": {
+  "endpoint": "/library/metadata/{rk}",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 1,
+   "allowSync": true,
+   "identifier": "REDACTED",
+   "librarySectionID": 2,
+   "librarySectionTitle": "librarySectionTitle 2",
+   "librarySectionUUID": "REDACTED",
+   "mediaTagPrefix": "/system/bundle/media/flags/",
+   "mediaTagVersion": 1792751798,
+   "Metadata": [
+    {
+     "ratingKey": "30286",
+     "key": "/library/metadata/30286/children",
+     "guid": "plex://ref125",
+     "slug": "slug 6",
+     "studio": "studio 11",
+     "type": "show",
+     "title": "title 63",
+     "librarySectionTitle": "librarySectionTitle 2",
+     "librarySectionID": 2,
+     "librarySectionKey": "/library/sections/2",
+     "contentRating": "TV-MA",
+     "contentRatingAge": 15,
+     "summary": "summary 14",
+     "index": 1,
+     "rating": 7.5,
+     "audienceRating": 7.5,
+     "userRating": 7.5,
+     "lastRatedAt": 1777813822,
+     "year": 2024,
+     "thumb": "/library/metadata/30286/thumb/1792140717",
+     "art": "/library/metadata/30286/art/1792140717",
+     "theme": "/library/metadata/30286/theme/1792140717",
+     "duration": 3600000,
+     "originallyAvailableAt": "2024-03-21",
+     "leafCount": 8,
+     "viewedLeafCount": 8,
+     "childCount": 1,
+     "addedAt": 1763139982,
+     "updatedAt": 1792140717,
+     "audienceRatingImage": "themoviedb://ref73",
+     "primaryExtraKey": "/library/metadata/30296",
+     "Image": [
+      {
+       "alt": "alt 16",
+       "type": "coverPoster",
+       "url": "/library/metadata/30286/thumb/1792140717"
+      },
+      {
+       "alt": "alt 16",
+       "type": "background",
+       "url": "/library/metadata/30286/art/1792140717"
+      },
+      {
+       "alt": "alt 16",
+       "type": "clearLogo",
+       "url": "/library/metadata/30286/clearLogo/1792140717"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 14",
+      "topRight": "topRight 10",
+      "bottomRight": "bottomRight 10",
+      "bottomLeft": "313738"
+     },
+     "Genre": [
+      {
+       "id": 6,
+       "filter": "filter 25",
+       "tag": "Drama"
+      },
+      {
+       "id": 350,
+       "filter": "filter 31",
+       "tag": "Mystery"
+      },
+      {
+       "id": 50829,
+       "filter": "filter 32",
+       "tag": "tag 75"
+      }
+     ],
+     "Country": [
+      {
+       "id": 75,
+       "filter": "filter 2",
+       "tag": "tag 7"
+      }
+     ],
+     "Guid": [
+      {
+       "id": "imdb://ref128"
+      },
+      {
+       "id": "tmdb://ref129"
+      },
+      {
+       "id": "tvdb://ref130"
+      }
+     ],
+     "Rating": [
+      {
+       "image": "imdb://ref86",
+       "value": 7.5,
+       "type": "audience"
+      },
+      {
+       "image": "rottentomatoes://ref82",
+       "value": 7.8,
+       "type": "critic"
+      },
+      {
+       "image": "rottentomatoes://ref76",
+       "value": 7.6,
+       "type": "audience"
+      }
+     ],
+     "Role": [
+      {
+       "id": 31559,
+       "filter": "filter 33",
+       "tag": "tag 65",
+       "tagKey": "hex 25",
+       "role": "role 7",
+       "thumb": "https://ref131"
+      },
+      {
+       "id": 16544,
+       "filter": "filter 34",
+       "tag": "tag 66",
+       "tagKey": "hex 26",
+       "role": "role 8",
+       "thumb": "https://ref132"
+      },
+      {
+       "id": 50830,
+       "filter": "filter 35",
+       "tag": "tag 67",
+       "tagKey": "hex 27",
+       "role": "role 9",
+       "thumb": "https://ref133"
+      }
+     ],
+     "Label": [
+      {
+       "id": 215844,
+       "filter": "filter 36",
+       "tag": "tag 76"
+      }
+     ],
+     "CommonSenseMedia": [
+      {
+       "id": 110,
+       "oneLiner": "oneLiner 4",
+       "AgeRating": [
+        {
+         "type": "official",
+         "rating": 4,
+         "age": 15
+        }
+       ]
+      }
+     ],
+     "Field": [
+      {
+       "locked": true,
+       "name": "rating"
+      },
+      {
+       "locked": true,
+       "name": "genre"
+      },
+      {
+       "locked": true,
+       "name": "collection"
+      }
+     ],
+     "Location": [
+      {
+       "path": "/data/movies/Movie 64 (2024)"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

@@ -1,0 +1,344 @@
+{
+ "_meta": {
+  "endpoint": "blocklist",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "page": 1,
+  "pageSize": 5,
+  "sortKey": "date",
+  "sortDirection": "descending",
+  "totalRecords": 132,
+  "records": [
+   {
+    "seriesId": 376,
+    "episodeIds": [
+     25779
+    ],
+    "sourceTitle": "sourceTitle 1",
+    "languages": [
+     {
+      "id": 8,
+      "name": "Japanese"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 50,
+      "name": "name 2"
+     },
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "date": "2026-11-11T17:25:00Z",
+    "protocol": "usenet",
+    "indexer": "indexer 2",
+    "message": "message 1",
+    "series": {
+     "title": "title 16",
+     "sortTitle": "sortTitle 4",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 7",
+     "network": "network 3",
+     "airTime": "01:15",
+     "images": [
+      {
+       "coverType": "banner",
+       "remoteUrl": "https://ref14"
+      },
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref15"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref16"
+      }
+     ],
+     "originalLanguage": {
+      "id": 8,
+      "name": "Japanese"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 1,
+       "monitored": true
+      },
+      {
+       "seasonNumber": 2,
+       "monitored": true
+      }
+     ],
+     "year": 2023,
+     "path": "/data/movies/Movie 19 (2023)",
+     "qualityProfileId": 8,
+     "seasonFolder": true,
+     "monitored": true,
+     "monitorNewItems": "all",
+     "useSceneNumbering": true,
+     "runtime": 24,
+     "tvdbId": 419502,
+     "tvRageId": 0,
+     "tvMazeId": 65593,
+     "tmdbId": 200777,
+     "firstAired": "2023-01-06T00:00:00Z",
+     "lastAired": "2026-12-25T00:00:00Z",
+     "seriesType": "standard",
+     "cleanTitle": "cleanTitle 2",
+     "imdbId": "tt25531288",
+     "titleSlug": "titleSlug 2",
+     "certification": "TV-14",
+     "genres": [
+      "Action",
+      "Animation",
+      "Anime",
+      "Comedy",
+      "Fantasy"
+     ],
+     "tags": [],
+     "added": "2026-11-11T16:24:26Z",
+     "ratings": {
+      "votes": 2045,
+      "value": 6.4
+     },
+     "languageProfileId": 1,
+     "id": 376
+    },
+    "id": 23476
+   },
+   {
+    "seriesId": 376,
+    "episodeIds": [
+     25778
+    ],
+    "sourceTitle": "sourceTitle 2",
+    "languages": [
+     {
+      "id": 8,
+      "name": "Japanese"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 50,
+      "name": "name 2"
+     },
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "date": "2026-11-11T17:10:00Z",
+    "protocol": "usenet",
+    "indexer": "indexer 2",
+    "message": "message 1",
+    "series": {
+     "title": "title 16",
+     "sortTitle": "sortTitle 4",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 7",
+     "network": "network 3",
+     "airTime": "01:15",
+     "images": [
+      {
+       "coverType": "banner",
+       "remoteUrl": "https://ref14"
+      },
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref15"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref16"
+      }
+     ],
+     "originalLanguage": {
+      "id": 8,
+      "name": "Japanese"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 1,
+       "monitored": true
+      },
+      {
+       "seasonNumber": 2,
+       "monitored": true
+      }
+     ],
+     "year": 2023,
+     "path": "/data/movies/Movie 19 (2023)",
+     "qualityProfileId": 8,
+     "seasonFolder": true,
+     "monitored": true,
+     "monitorNewItems": "all",
+     "useSceneNumbering": true,
+     "runtime": 24,
+     "tvdbId": 419502,
+     "tvRageId": 0,
+     "tvMazeId": 65593,
+     "tmdbId": 200777,
+     "firstAired": "2023-01-06T00:00:00Z",
+     "lastAired": "2026-12-25T00:00:00Z",
+     "seriesType": "standard",
+     "cleanTitle": "cleanTitle 2",
+     "imdbId": "tt25531288",
+     "titleSlug": "titleSlug 2",
+     "certification": "TV-14",
+     "genres": [
+      "Action",
+      "Animation",
+      "Anime",
+      "Comedy",
+      "Fantasy"
+     ],
+     "tags": [],
+     "added": "2026-11-11T16:24:26Z",
+     "ratings": {
+      "votes": 2045,
+      "value": 6.4
+     },
+     "languageProfileId": 1,
+     "id": 376
+    },
+    "id": 23475
+   },
+   {
+    "seriesId": 379,
+    "episodeIds": [
+     25851
+    ],
+    "sourceTitle": "sourceTitle 3",
+    "languages": [
+     {
+      "id": 21,
+      "name": "Korean"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "date": "2026-11-11T17:00:00Z",
+    "protocol": "torrent",
+    "indexer": "indexer 3",
+    "message": "message 1",
+    "series": {
+     "title": "title 17",
+     "sortTitle": "sortTitle 5",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 8",
+     "network": "SBS",
+     "airTime": "21:45",
+     "images": [
+      {
+       "coverType": "banner",
+       "remoteUrl": "https://ref17"
+      },
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref18"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref19"
+      }
+     ],
+     "originalLanguage": {
+      "id": 21,
+      "name": "Korean"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 1,
+       "monitored": true
+      }
+     ],
+     "year": 2026,
+     "path": "/data/movies/Movie 20 (2026)",
+     "qualityProfileId": 7,
+     "seasonFolder": false,
+     "monitored": true,
+     "monitorNewItems": "all",
+     "useSceneNumbering": false,
+     "runtime": 64,
+     "tvdbId": 460234,
+     "tvRageId": 0,
+     "tvMazeId": 91309,
+     "tmdbId": 293610,
+     "firstAired": "2026-10-09T00:00:00Z",
+     "lastAired": "2026-11-14T00:00:00Z",
+     "seriesType": "standard",
+     "cleanTitle": "doctorxmafiainwhite",
+     "imdbId": "tt39328047",
+     "titleSlug": "doctor-x-mafia-in-white",
+     "certification": "TV-14",
+     "genres": [
+      "Comedy",
+      "Drama",
+      "Mystery",
+      "Suspense",
+      "Thriller"
+     ],
+     "tags": [],
+     "added": "2026-11-11T16:45:02Z",
+     "ratings": {
+      "votes": 1060,
+      "value": 7.6
+     },
+     "languageProfileId": 1,
+     "id": 379
+    },
+    "id": 23474
+   }
+  ]
+ }
+}

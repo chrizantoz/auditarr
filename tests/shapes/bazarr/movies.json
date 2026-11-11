@@ -1,0 +1,86 @@
+{
+ "_meta": {
+  "endpoint": "movies?radarrid[]=",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [
+   {
+    "alternativeTitles": [
+     "alternativeTitles 1",
+     "alternativeTitles 2",
+     "alternativeTitles 3",
+     "alternativeTitles 4",
+     "alternativeTitles 5",
+     "alternativeTitles 6",
+     "alternativeTitles 7",
+     "alternativeTitles 8",
+     "alternativeTitles 9",
+     "alternativeTitles 10",
+     "alternativeTitles 11",
+     "alternativeTitles 12"
+    ],
+    "audio_language": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng"
+     }
+    ],
+    "created_at_timestamp": "2025-11-10 23:21:29.572123",
+    "fanart": "/data/movies/Movie 23 (2020)",
+    "imdbId": "tt1517268",
+    "missing_subtitles": [],
+    "monitored": true,
+    "overview": "overview 9",
+    "path": "/data/movies/Movie 24 (2023)/Movie 24.mkv",
+    "poster": "/data/movies/Movie 52 (2020)",
+    "profileId": 1,
+    "radarrId": 1,
+    "sceneName": "sceneName 4",
+    "subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 2,
+      "id": 1143
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 3,
+      "id": 1144
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": true,
+      "file_size": null,
+      "embedded_track_id": 4,
+      "id": 1145
+     }
+    ],
+    "tags": [
+     "huntarr-upgrade"
+    ],
+    "title": "Barbie",
+    "year": "2023"
+   }
+  ],
+  "total": 1
+ }
+}

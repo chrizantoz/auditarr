@@ -1,0 +1,154 @@
+{
+ "_meta": {
+  "endpoint": "history/since",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "episodeId": 5064,
+   "seriesId": 11,
+   "sourceTitle": "sourceTitle 13",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "qualityCutoffNotMet": false,
+   "date": "2026-11-09T18:35:25Z",
+   "downloadId": "hex 5",
+   "eventType": "grabbed",
+   "data": {
+    "indexer": "indexer 2",
+    "nzbInfoUrl": "https://ref63",
+    "releaseGroup": "WRB",
+    "age": "0",
+    "ageHours": "8.392604509777778",
+    "ageMinutes": "503.55627064333333",
+    "publishedDate": "2026-11-09T10:11:52Z",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "size": "2464465000",
+    "downloadUrl": "http://ref64",
+    "guid": "https://ref63",
+    "tvdbId": "0",
+    "protocol": "1",
+    "customFormatScore": "0",
+    "seriesMatchType": "Title",
+    "releaseSource": "Search",
+    "indexerFlags": "0"
+   },
+   "id": 7217
+  },
+  {
+   "episodeId": 5064,
+   "seriesId": 11,
+   "sourceTitle": "sourceTitle 14",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "qualityCutoffNotMet": false,
+   "date": "2026-11-09T18:36:52Z",
+   "downloadId": "hex 5",
+   "eventType": "downloadFolderImported",
+   "data": {
+    "fileId": "2444",
+    "droppedPath": "/data/movies/Movie 50 (2020)/Movie 50.mp4",
+    "importedPath": "/data/movies/Movie 49 (2020)/Movie 49.mp4",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "releaseGroup": "WRB",
+    "customFormatScore": "0",
+    "size": "2340631387",
+    "indexerFlags": "0"
+   },
+   "id": 7218
+  },
+  {
+   "episodeId": 4229,
+   "seriesId": 11,
+   "sourceTitle": "sourceTitle 11",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "qualityCutoffNotMet": false,
+   "date": "2026-11-09T18:47:19Z",
+   "downloadId": "hex 6",
+   "eventType": "grabbed",
+   "data": {
+    "indexer": "indexer 1",
+    "nzbInfoUrl": "https://ref65",
+    "releaseGroup": null,
+    "age": "2065",
+    "ageHours": "49579.78883322567",
+    "ageMinutes": "2974787.3299936",
+    "publishedDate": "2021-03-14T23:00:00Z",
+    "downloadClient": "Deluge",
+    "downloadClientName": "Deluge",
+    "size": "2126008811",
+    "downloadUrl": "http://ref66",
+    "guid": "https://ref65",
+    "tvdbId": "0",
+    "protocol": "2",
+    "customFormatScore": "0",
+    "seriesMatchType": "Title",
+    "releaseSource": "UserInvokedSearch",
+    "indexerFlags": "Freeleech",
+    "torrentInfoHash": "hex 6"
+   },
+   "id": 7219
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+ "_meta": {
+  "endpoint": "system/status",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "appName": "Radarr",
+  "instanceName": "Radarr",
+  "version": "6.4.4.10685",
+  "buildTime": "2026-09-14T15:54:38Z",
+  "isDebug": false,
+  "isProduction": true,
+  "isAdmin": false,
+  "isUserInteractive": true,
+  "startupPath": "startupPath 1",
+  "appData": "appData 1",
+  "osName": "alpine",
+  "osVersion": "3.23.8",
+  "isNetCore": true,
+  "isLinux": true,
+  "isOsx": false,
+  "isWindows": false,
+  "isDocker": true,
+  "isContainerized": true,
+  "mode": "console",
+  "branch": "master",
+  "databaseType": "sqLite",
+  "databaseVersion": "3.53.4",
+  "authentication": "REDACTED",
+  "migrationVersion": 242,
+  "urlBase": "urlBase 1",
+  "runtimeVersion": "8.0.27",
+  "runtimeName": "netcore",
+  "startTime": "2026-11-11T07:02:01Z",
+  "packageVersion": "release-5e714df",
+  "packageAuthor": "REDACTED",
+  "packageUpdateMechanism": "docker"
+ }
+}

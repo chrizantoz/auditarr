@@ -1,0 +1,16 @@
+{
+ "_meta": {
+  "endpoint": "rootfolder",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "path": "/data/movies/Movie 42 (2020)",
+   "accessible": true,
+   "freeSpace": 6166632927232,
+   "unmappedFolders": [],
+   "id": 1
+  }
+ ]
+}

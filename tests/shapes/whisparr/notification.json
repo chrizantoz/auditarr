@@ -1,0 +1,170 @@
+{
+ "_meta": {
+  "endpoint": "notification",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "onGrab": false,
+   "onDownload": true,
+   "onUpgrade": true,
+   "onImportComplete": false,
+   "onRename": false,
+   "onSeriesAdd": false,
+   "onSeriesDelete": false,
+   "onEpisodeFileDelete": false,
+   "onEpisodeFileDeleteForUpgrade": false,
+   "onHealthIssue": false,
+   "onHealthRestored": false,
+   "onApplicationUpdate": false,
+   "onManualInteractionRequired": false,
+   "supportsOnGrab": true,
+   "supportsOnDownload": true,
+   "supportsOnUpgrade": true,
+   "supportsOnImportComplete": true,
+   "supportsOnRename": true,
+   "supportsOnSeriesAdd": true,
+   "supportsOnSeriesDelete": true,
+   "supportsOnEpisodeFileDelete": true,
+   "supportsOnEpisodeFileDeleteForUpgrade": true,
+   "supportsOnHealthIssue": true,
+   "supportsOnHealthRestored": true,
+   "supportsOnApplicationUpdate": true,
+   "supportsOnManualInteractionRequired": true,
+   "includeHealthWarnings": false,
+   "name": "Auditarr",
+   "fields": [
+    {
+     "order": 0,
+     "name": "url",
+     "label": "URL",
+     "value": "http://ref58",
+     "type": "url",
+     "advanced": false,
+     "privacy": "normal",
+     "isFloat": false
+    },
+    {
+     "order": 1,
+     "name": "method",
+     "label": "Method",
+     "helpText": "helpText 1",
+     "value": 1,
+     "type": "select",
+     "advanced": false,
+     "selectOptions": [
+      {
+       "value": 1,
+       "name": "POST",
+       "order": 1
+      },
+      {
+       "value": 2,
+       "name": "PUT",
+       "order": 2
+      }
+     ],
+     "privacy": "normal",
+     "isFloat": false
+    },
+    {
+     "order": 2,
+     "name": "username",
+     "label": "Username",
+     "value": "value 1",
+     "type": "textbox",
+     "advanced": false,
+     "privacy": "userName",
+     "isFloat": false
+    }
+   ],
+   "implementationName": "Webhook",
+   "implementation": "Webhook",
+   "configContract": "WebhookSettings",
+   "infoLink": "https://ref59",
+   "tags": [],
+   "id": 2
+  },
+  {
+   "onGrab": false,
+   "onDownload": true,
+   "onUpgrade": true,
+   "onImportComplete": false,
+   "onRename": false,
+   "onSeriesAdd": false,
+   "onSeriesDelete": false,
+   "onEpisodeFileDelete": false,
+   "onEpisodeFileDeleteForUpgrade": true,
+   "onHealthIssue": false,
+   "onHealthRestored": false,
+   "onApplicationUpdate": false,
+   "onManualInteractionRequired": false,
+   "supportsOnGrab": true,
+   "supportsOnDownload": true,
+   "supportsOnUpgrade": true,
+   "supportsOnImportComplete": true,
+   "supportsOnRename": true,
+   "supportsOnSeriesAdd": true,
+   "supportsOnSeriesDelete": true,
+   "supportsOnEpisodeFileDelete": true,
+   "supportsOnEpisodeFileDeleteForUpgrade": true,
+   "supportsOnHealthIssue": true,
+   "supportsOnHealthRestored": true,
+   "supportsOnApplicationUpdate": true,
+   "supportsOnManualInteractionRequired": true,
+   "includeHealthWarnings": false,
+   "name": "healtharr",
+   "fields": [
+    {
+     "order": 0,
+     "name": "url",
+     "label": "URL",
+     "value": "http://ref60",
+     "type": "url",
+     "advanced": false,
+     "privacy": "normal",
+     "isFloat": false
+    },
+    {
+     "order": 1,
+     "name": "method",
+     "label": "Method",
+     "helpText": "helpText 1",
+     "value": 1,
+     "type": "select",
+     "advanced": false,
+     "selectOptions": [
+      {
+       "value": 1,
+       "name": "POST",
+       "order": 1
+      },
+      {
+       "value": 2,
+       "name": "PUT",
+       "order": 2
+      }
+     ],
+     "privacy": "normal",
+     "isFloat": false
+    },
+    {
+     "order": 2,
+     "name": "username",
+     "label": "Username",
+     "type": "textbox",
+     "advanced": false,
+     "privacy": "userName",
+     "isFloat": false
+    }
+   ],
+   "implementationName": "Webhook",
+   "implementation": "Webhook",
+   "configContract": "WebhookSettings",
+   "infoLink": "https://ref59",
+   "tags": [],
+   "id": 1
+  }
+ ]
+}

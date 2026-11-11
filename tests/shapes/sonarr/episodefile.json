@@ -1,0 +1,204 @@
+{
+ "_meta": {
+  "endpoint": "episodefile?seriesId=",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "seriesId": 1,
+   "seasonNumber": 1,
+   "relativePath": "/data/tv/Show 1/Season 01/Show 1 - S01E03 - Episode.mkv",
+   "path": "/data/tv/Show 2/Season 01/Show 2 - S01E03 - Episode.mkv",
+   "size": 3871734733,
+   "dateAdded": "2025-11-11T00:02:00Z",
+   "sceneName": "sceneName 1",
+   "releaseGroup": "NTb",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 12,
+     "name": "AMZN"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    },
+    {
+     "id": 6,
+     "name": "name 1"
+    }
+   ],
+   "customFormatScore": 1775,
+   "indexerFlags": 0,
+   "releaseType": "singleEpisode",
+   "mediaInfo": {
+    "audioBitrate": 640000,
+    "audioChannels": 5.1,
+    "audioCodec": "EAC3 Atmos",
+    "audioLanguages": "eng",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 0,
+    "videoCodec": "h264",
+    "videoFps": 23.976,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "58:14",
+    "scanType": "Progressive",
+    "subtitles": "eng/eng/eng/bul/cat/cze/dan/est/gre/spa/spa/spa/fin/fre/heb/hrv/hun/ind/ice/lit/lav/mac/may/nob/dut/pol/por/por/por/rum/slo/slv/srp/swe/tha/tur"
+   },
+   "qualityCutoffNotMet": false,
+   "id": 39
+  },
+  {
+   "seriesId": 1,
+   "seasonNumber": 1,
+   "relativePath": "/data/tv/Show 1/Season 01/Show 1 - S01E06 - Episode.mkv",
+   "path": "/data/tv/Show 2/Season 01/Show 2 - S01E06 - Episode.mkv",
+   "size": 4099568645,
+   "dateAdded": "2026-08-16T02:21:59Z",
+   "sceneName": "sceneName 2",
+   "releaseGroup": "Kitsune",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 12,
+     "name": "AMZN"
+    },
+    {
+     "id": 50,
+     "name": "name 2"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 1775,
+   "indexerFlags": 0,
+   "releaseType": "singleEpisode",
+   "mediaInfo": {
+    "audioBitrate": 640000,
+    "audioChannels": 5.1,
+    "audioCodec": "EAC3 Atmos",
+    "audioLanguages": "eng",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 0,
+    "videoCodec": "h264",
+    "videoFps": 23.976,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "56:14",
+    "scanType": "Progressive",
+    "subtitles": "eng/eng/bul/cat/cze/dan/gre/spa/spa/est/fin/fre/heb/hrv/hun/ind/ice/lit/lav/mac/may/nob/dut/pol/por/por/rum/slo/slv/srp/swe/tha/tur/chi/chi"
+   },
+   "qualityCutoffNotMet": false,
+   "id": 24701
+  },
+  {
+   "seriesId": 1,
+   "seasonNumber": 1,
+   "relativePath": "/data/tv/Show 1/Season 01/Show 1 - S01E07 - Episode.mkv",
+   "path": "/data/tv/Show 2/Season 01/Show 2 - S01E07 - Episode.mkv",
+   "size": 4399573987,
+   "dateAdded": "2026-08-16T02:32:46Z",
+   "sceneName": "sceneName 3",
+   "releaseGroup": "FLUX",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 12,
+     "name": "AMZN"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    },
+    {
+     "id": 6,
+     "name": "name 1"
+    }
+   ],
+   "customFormatScore": 1775,
+   "indexerFlags": 0,
+   "releaseType": "singleEpisode",
+   "mediaInfo": {
+    "audioBitrate": 640000,
+    "audioChannels": 5.1,
+    "audioCodec": "EAC3 Atmos",
+    "audioLanguages": "eng",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 0,
+    "videoCodec": "h264",
+    "videoFps": 23.976,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "1:01:02",
+    "scanType": "Progressive",
+    "subtitles": "eng/eng/bul/cat/cze/dan/est/gre/spa/fin/fre/heb/hrv/hun/ind/ice/lit/lav/mac/may/nob/dut/pol/por/rum/slo/slv/srp/swe/tha/tur"
+   },
+   "qualityCutoffNotMet": false,
+   "id": 24703
+  }
+ ]
+}

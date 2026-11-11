@@ -1,0 +1,90 @@
+{
+ "_meta": {
+  "endpoint": "command",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "name": "ProcessMonitoredDownloads",
+   "commandName": "commandName 2",
+   "body": {
+    "requiresDiskAccess": true,
+    "isLongRunning": true,
+    "sendUpdatesToClient": false,
+    "updateScheduledTask": true,
+    "isExclusive": false,
+    "isTypeExclusive": false,
+    "name": "ProcessMonitoredDownloads",
+    "trigger": "unspecified",
+    "suppressMessages": false
+   },
+   "priority": "high",
+   "status": "completed",
+   "result": "successful",
+   "queued": "2026-11-11T17:19:00Z",
+   "started": "2026-11-11T17:19:00Z",
+   "ended": "2026-11-11T17:19:00Z",
+   "duration": "00:00:00.0061893",
+   "trigger": "unspecified",
+   "stateChangeTime": "2026-11-11T17:19:00Z",
+   "sendUpdatesToClient": false,
+   "updateScheduledTask": true,
+   "id": 1035927
+  },
+  {
+   "name": "ProcessMonitoredDownloads",
+   "commandName": "commandName 2",
+   "body": {
+    "requiresDiskAccess": true,
+    "isLongRunning": true,
+    "sendUpdatesToClient": false,
+    "updateScheduledTask": true,
+    "isExclusive": false,
+    "isTypeExclusive": false,
+    "name": "ProcessMonitoredDownloads",
+    "trigger": "unspecified",
+    "suppressMessages": false
+   },
+   "priority": "high",
+   "status": "completed",
+   "result": "successful",
+   "queued": "2026-11-11T17:20:00Z",
+   "started": "2026-11-11T17:20:00Z",
+   "ended": "2026-11-11T17:20:00Z",
+   "duration": "00:00:00.0068585",
+   "trigger": "unspecified",
+   "stateChangeTime": "2026-11-11T17:20:00Z",
+   "sendUpdatesToClient": false,
+   "updateScheduledTask": true,
+   "id": 1035929
+  },
+  {
+   "name": "ProcessMonitoredDownloads",
+   "commandName": "commandName 2",
+   "body": {
+    "requiresDiskAccess": true,
+    "isLongRunning": true,
+    "sendUpdatesToClient": false,
+    "updateScheduledTask": true,
+    "isExclusive": false,
+    "isTypeExclusive": false,
+    "name": "ProcessMonitoredDownloads",
+    "trigger": "unspecified",
+    "suppressMessages": false
+   },
+   "priority": "high",
+   "status": "completed",
+   "result": "successful",
+   "queued": "2026-11-11T17:21:00Z",
+   "started": "2026-11-11T17:21:00Z",
+   "ended": "2026-11-11T17:21:00Z",
+   "duration": "00:00:00.0121033",
+   "trigger": "unspecified",
+   "stateChangeTime": "2026-11-11T17:21:00Z",
+   "sendUpdatesToClient": false,
+   "updateScheduledTask": true,
+   "id": 1035931
+  }
+ ]
+}

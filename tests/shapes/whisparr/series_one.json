@@ -1,0 +1,125 @@
+{
+ "_meta": {
+  "endpoint": "series/{id}",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "title": "title 34",
+  "sortTitle": "sortTitle 10",
+  "status": "continuing",
+  "ended": false,
+  "overview": "overview 14",
+  "previousAiring": "2026-11-06T00:00:00Z",
+  "network": "Nubiles",
+  "images": [
+   {
+    "coverType": "poster",
+    "url": "/data/movies/Movie 39 (2020)",
+    "remoteUrl": "https://ref45"
+   },
+   {
+    "coverType": "logo",
+    "url": "/data/movies/Movie 40 (2020)",
+    "remoteUrl": "https://ref46"
+   }
+  ],
+  "originalLanguage": {
+   "id": 1,
+   "name": "English"
+  },
+  "seasons": [
+   {
+    "seasonNumber": 2017,
+    "monitored": true,
+    "statistics": {
+     "previousAiring": "2017-12-29T00:00:00Z",
+     "episodeFileCount": 21,
+     "episodeCount": 34,
+     "totalEpisodeCount": 34,
+     "sizeOnDisk": 49503807489,
+     "releaseGroups": [
+      "KTR",
+      "NOGROUP"
+     ],
+     "percentOfEpisodes": 61.76470588235294
+    }
+   },
+   {
+    "seasonNumber": 2018,
+    "monitored": true,
+    "statistics": {
+     "previousAiring": "2018-12-28T00:00:00Z",
+     "episodeFileCount": 36,
+     "episodeCount": 52,
+     "totalEpisodeCount": 52,
+     "sizeOnDisk": 81782140007,
+     "releaseGroups": [
+      "KTR",
+      "KTR-Pornfuscated"
+     ],
+     "percentOfEpisodes": 69.23076923076923
+    }
+   },
+   {
+    "seasonNumber": 2019,
+    "monitored": true,
+    "statistics": {
+     "previousAiring": "2019-12-27T00:00:00Z",
+     "episodeFileCount": 27,
+     "episodeCount": 52,
+     "totalEpisodeCount": 52,
+     "sizeOnDisk": 57418340488,
+     "releaseGroups": [
+      "GalaXXXy",
+      "KTR",
+      "KTR-Pornfuscated",
+      "XXX"
+     ],
+     "percentOfEpisodes": 51.92307692307692
+    }
+   }
+  ],
+  "year": 2017,
+  "path": "/data/movies/Movie 41 (2020)",
+  "qualityProfileId": 1,
+  "monitored": true,
+  "seriesType": "standard",
+  "monitorNewItems": "all",
+  "useSceneNumbering": false,
+  "runtime": 27,
+  "tvdbId": 126,
+  "cleanTitle": "brattysis",
+  "titleSlug": "brattysis",
+  "rootFolderPath": "/data/movies/Movie 42 (2020)",
+  "genres": [],
+  "tags": [
+   1
+  ],
+  "added": "2026-02-02T04:59:39Z",
+  "ratings": {
+   "votes": 0,
+   "value": 0
+  },
+  "statistics": {
+   "seasonCount": 10,
+   "episodeFileCount": 405,
+   "episodeCount": 508,
+   "totalEpisodeCount": 508,
+   "sizeOnDisk": 800742931700,
+   "releaseGroups": [
+    "KTR",
+    "NOGROUP",
+    "KTR-Pornfuscated",
+    "GalaXXXy",
+    "XXX",
+    "WRB",
+    "PRT",
+    "WRB-FTP",
+    "WRB-XC"
+   ],
+   "percentOfEpisodes": 79.7244094488189
+  },
+  "id": 1
+ }
+}

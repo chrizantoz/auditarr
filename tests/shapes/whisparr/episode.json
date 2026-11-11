@@ -1,0 +1,141 @@
+{
+ "_meta": {
+  "endpoint": "episode?seriesId=",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "seriesId": 1,
+   "tvdbId": 247018,
+   "episodeFileId": 16,
+   "seasonNumber": 2017,
+   "title": "title 37",
+   "releaseDate": "2017-05-12",
+   "lastSearchTime": "2026-02-02T04:59:46Z",
+   "runtime": 32,
+   "overview": "overview 17",
+   "hasFile": true,
+   "monitored": true,
+   "actors": [
+    {
+     "tpdbId": 83201,
+     "name": "name 12",
+     "character": "character 1",
+     "gender": "female",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref51"
+      }
+     ]
+    },
+    {
+     "tpdbId": 82861,
+     "name": "name 13",
+     "character": "character 2",
+     "gender": "male",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref52"
+      }
+     ]
+    }
+   ],
+   "id": 1
+  },
+  {
+   "seriesId": 1,
+   "tvdbId": 246992,
+   "episodeFileId": 2150,
+   "seasonNumber": 2017,
+   "title": "title 38",
+   "releaseDate": "2017-05-19",
+   "lastSearchTime": "2026-08-25T02:16:22Z",
+   "runtime": 20,
+   "overview": "overview 18",
+   "hasFile": true,
+   "monitored": true,
+   "actors": [
+    {
+     "tpdbId": 82883,
+     "name": "name 14",
+     "character": "character 3",
+     "gender": "female",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref53"
+      }
+     ]
+    },
+    {
+     "tpdbId": 82837,
+     "name": "name 15",
+     "character": "character 4",
+     "gender": "male",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref54"
+      }
+     ]
+    }
+   ],
+   "id": 2
+  },
+  {
+   "seriesId": 1,
+   "tvdbId": 240325,
+   "episodeFileId": 2144,
+   "seasonNumber": 2017,
+   "title": "title 39",
+   "releaseDate": "2017-05-26",
+   "lastSearchTime": "2026-08-22T04:14:57Z",
+   "runtime": 27,
+   "overview": "overview 19",
+   "hasFile": true,
+   "monitored": true,
+   "actors": [
+    {
+     "tpdbId": 83749,
+     "name": "name 16",
+     "character": "character 5",
+     "gender": "female",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref55"
+      }
+     ]
+    },
+    {
+     "tpdbId": 83036,
+     "name": "name 17",
+     "character": "character 6",
+     "gender": "female",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref56"
+      }
+     ]
+    },
+    {
+     "tpdbId": 82902,
+     "name": "name 18",
+     "character": "character 7",
+     "gender": "male",
+     "images": [
+      {
+       "coverType": "unknown",
+       "remoteUrl": "https://ref57"
+      }
+     ]
+    }
+   ],
+   "id": 3
+  }
+ ]
+}

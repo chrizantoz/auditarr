@@ -1,0 +1,388 @@
+{
+ "_meta": {
+  "endpoint": "/library/onDeck",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 42,
+   "allowSync": false,
+   "identifier": "REDACTED",
+   "mediaTagPrefix": "/system/bundle/media/flags/",
+   "mediaTagVersion": 1792751798,
+   "mixedParents": true,
+   "Metadata": [
+    {
+     "allowSync": true,
+     "librarySectionID": 7,
+     "librarySectionTitle": "Anime",
+     "librarySectionUUID": "REDACTED",
+     "ratingKey": "45629",
+     "key": "/library/metadata/45629",
+     "parentRatingKey": "45194",
+     "grandparentRatingKey": "45183",
+     "guid": "plex://ref70",
+     "parentGuid": "plex://ref71",
+     "grandparentGuid": "plex://ref72",
+     "grandparentSlug": "strike-the-blood",
+     "studio": "CONNECT",
+     "type": "episode",
+     "title": "title 45",
+     "grandparentKey": "/library/metadata/45183",
+     "parentKey": "/library/metadata/45194",
+     "grandparentTitle": "grandparentTitle 1",
+     "parentTitle": "parentTitle 1",
+     "originalTitle": "originalTitle 5",
+     "contentRating": "TV-MA",
+     "summary": "summary 1",
+     "index": 4,
+     "parentIndex": 2,
+     "audienceRating": 3.3,
+     "viewOffset": 70000,
+     "lastViewedAt": 1794415938,
+     "year": 2016,
+     "thumb": "/library/metadata/45629/thumb/1783729672",
+     "art": "/library/metadata/45183/art/1763681720",
+     "parentThumb": "/library/metadata/45194/thumb/1783729672",
+     "grandparentThumb": "/library/metadata/45183/thumb/1763681720",
+     "grandparentArt": "/library/metadata/45183/art/1763681720",
+     "grandparentTheme": "/library/metadata/45183/theme/1763681720",
+     "duration": 1450450,
+     "originallyAvailableAt": "2016-12-23",
+     "addedAt": 1763681720,
+     "updatedAt": 1783729672,
+     "audienceRatingImage": "themoviedb://ref73",
+     "chapterSource": "media",
+     "Media": [
+      {
+       "id": 77455,
+       "duration": 1450450,
+       "bitrate": 2158,
+       "width": 1920,
+       "height": 1080,
+       "aspectRatio": 1.78,
+       "audioChannels": 2,
+       "audioCodec": "aac",
+       "videoCodec": "release 3",
+       "videoResolution": "1080",
+       "container": "mp4",
+       "videoFrameRate": "videoFrameRate 1",
+       "optimizedForStreaming": 0,
+       "audioProfile": "lc",
+       "has64bitOffsets": false,
+       "videoProfile": "videoProfile 1",
+       "hasVoiceActivity": false,
+       "Part": [
+        {
+         "id": 77455,
+         "key": "/library/parts/77455/1517196592/file.mp4",
+         "duration": 1450450,
+         "file": "/data/tv/Show 3/Season 02/Show 3 - S02E04 - Episode.mp4",
+         "size": 391196370,
+         "audioProfile": "lc",
+         "container": "mp4",
+         "has64bitOffsets": false,
+         "hasThumbnail": "1",
+         "optimizedForStreaming": false,
+         "videoProfile": "videoProfile 1"
+        }
+       ]
+      }
+     ],
+     "Image": [
+      {
+       "alt": "alt 1",
+       "type": "coverPoster",
+       "url": "/library/metadata/45183/thumb/1763681720"
+      },
+      {
+       "alt": "alt 1",
+       "type": "snapshot",
+       "url": "/library/metadata/45629/thumb/1783729672"
+      },
+      {
+       "alt": "alt 1",
+       "type": "background",
+       "url": "/library/metadata/45183/art/1763681720"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 1",
+      "topRight": "topRight 1",
+      "bottomRight": "bottomRight 1",
+      "bottomLeft": "bottomLeft 1"
+     },
+     "Director": [
+      {
+       "tag": "tag 1"
+      }
+     ],
+     "Writer": [
+      {
+       "tag": "tag 2"
+      },
+      {
+       "tag": "tag 3"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "tag 4"
+      },
+      {
+       "tag": "tag 5"
+      },
+      {
+       "tag": "tag 6"
+      }
+     ]
+    },
+    {
+     "allowSync": true,
+     "librarySectionID": 1,
+     "librarySectionTitle": "Movies",
+     "librarySectionUUID": "REDACTED",
+     "ratingKey": "61837",
+     "key": "/library/metadata/61837",
+     "guid": "plex://ref74",
+     "slug": "a-story-of-derry",
+     "studio": "Rideback",
+     "type": "movie",
+     "title": "title 46",
+     "titleSort": "titleSort 1",
+     "contentRating": "tmdb",
+     "summary": "summary 2",
+     "rating": 6.8,
+     "audienceRating": 6.8,
+     "userRating": 6.6,
+     "viewOffset": 318000,
+     "lastViewedAt": 1794414840,
+     "lastRatedAt": 1794139306,
+     "year": 2026,
+     "thumb": "/library/metadata/61837/thumb/1794128657",
+     "art": "/library/metadata/61837/art/1794128657",
+     "duration": 1743968,
+     "originallyAvailableAt": "2026-10-31",
+     "addedAt": 1793678885,
+     "updatedAt": 1794128657,
+     "audienceRatingImage": "themoviedb://ref73",
+     "Media": [
+      {
+       "id": 105700,
+       "duration": 1743968,
+       "bitrate": 8763,
+       "width": 1920,
+       "height": 1080,
+       "aspectRatio": 1.78,
+       "audioChannels": 6,
+       "audioCodec": "eac3",
+       "videoCodec": "release 3",
+       "videoResolution": "1080",
+       "container": "mkv",
+       "videoFrameRate": "videoFrameRate 1",
+       "audioProfile": "audioProfile 1",
+       "videoProfile": "high",
+       "hasVoiceActivity": false,
+       "Part": [
+        {
+         "id": 105731,
+         "key": "/library/parts/105731/1793678841/file.mkv",
+         "duration": 1743968,
+         "file": "/data/movies/Movie 53 (2026)/Movie 53.mkv",
+         "size": 1910724609,
+         "audioProfile": "audioProfile 1",
+         "container": "mkv",
+         "videoProfile": "high"
+        }
+       ]
+      }
+     ],
+     "Image": [
+      {
+       "alt": "alt 2",
+       "type": "coverPoster",
+       "url": "/library/metadata/61837/thumb/1794128657"
+      },
+      {
+       "alt": "alt 2",
+       "type": "background",
+       "url": "/library/metadata/61837/art/1794128657"
+      },
+      {
+       "alt": "alt 2",
+       "type": "clearLogo",
+       "url": "/library/metadata/61837/clearLogo/1794128657"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 2",
+      "topRight": "topRight 2",
+      "bottomRight": "bottomRight 2",
+      "bottomLeft": "bottomLeft 2"
+     },
+     "Genre": [
+      {
+       "tag": "Drama"
+      },
+      {
+       "tag": "Horror"
+      }
+     ],
+     "Country": [
+      {
+       "tag": "tag 7"
+      }
+     ],
+     "Director": [
+      {
+       "tag": "tag 8"
+      }
+     ],
+     "Writer": [
+      {
+       "tag": "tag 9"
+      },
+      {
+       "tag": "tag 10"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "Kiawentiio"
+      },
+      {
+       "tag": "tag 11"
+      },
+      {
+       "tag": "tag 12"
+      }
+     ]
+    },
+    {
+     "allowSync": true,
+     "librarySectionID": 1,
+     "librarySectionTitle": "Movies",
+     "librarySectionUUID": "REDACTED",
+     "ratingKey": "63033",
+     "key": "/library/metadata/63033",
+     "guid": "plex://ref75",
+     "slug": "street-fighter-2026",
+     "studio": "Capcom",
+     "type": "movie",
+     "title": "title 47",
+     "contentRating": "PG-13",
+     "contentRatingAge": 13,
+     "summary": "summary 3",
+     "rating": 4.2,
+     "audienceRating": 7.8,
+     "viewOffset": 4867000,
+     "lastViewedAt": 1794414744,
+     "year": 2026,
+     "tagline": "tagline 1",
+     "thumb": "/library/metadata/63033/thumb/1794404647",
+     "art": "/library/metadata/63033/art/1794404647",
+     "duration": 7157479,
+     "originallyAvailableAt": "2026-10-14",
+     "addedAt": 1794404645,
+     "updatedAt": 1794404647,
+     "audienceRatingImage": "rottentomatoes://ref76",
+     "primaryExtraKey": "/library/metadata/63034",
+     "ratingImage": "rottentomatoes://ref77",
+     "Media": [
+      {
+       "id": 107770,
+       "duration": 7157479,
+       "bitrate": 5507,
+       "width": 1920,
+       "height": 1012,
+       "aspectRatio": 1.85,
+       "audioChannels": 2,
+       "audioCodec": "ac3",
+       "videoCodec": "release 3",
+       "videoResolution": "1080",
+       "container": "mkv",
+       "videoFrameRate": "videoFrameRate 1",
+       "videoProfile": "high",
+       "hasVoiceActivity": false,
+       "Part": [
+        {
+         "id": 107803,
+         "key": "/library/parts/107803/1794404594/file.mkv",
+         "duration": 7157479,
+         "file": "/data/movies/Movie 54 (2026)/Movie 54.mkv",
+         "size": 4927340541,
+         "container": "mkv",
+         "videoProfile": "high"
+        }
+       ]
+      }
+     ],
+     "Image": [
+      {
+       "alt": "alt 3",
+       "type": "coverPoster",
+       "url": "/library/metadata/63033/thumb/1794404647"
+      },
+      {
+       "alt": "alt 3",
+       "type": "background",
+       "url": "/library/metadata/63033/art/1794404647"
+      },
+      {
+       "alt": "alt 3",
+       "type": "clearLogo",
+       "url": "/library/metadata/63033/clearLogo/1794404647"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 3",
+      "topRight": "a61f0f",
+      "bottomRight": "bottomRight 3",
+      "bottomLeft": "aa1709"
+     },
+     "Genre": [
+      {
+       "tag": "Action"
+      },
+      {
+       "tag": "Fantasy"
+      }
+     ],
+     "Country": [
+      {
+       "tag": "Japan"
+      },
+      {
+       "tag": "tag 7"
+      }
+     ],
+     "Director": [
+      {
+       "tag": "tag 13"
+      }
+     ],
+     "Writer": [
+      {
+       "tag": "tag 14"
+      },
+      {
+       "tag": "tag 15"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "tag 16"
+      },
+      {
+       "tag": "tag 17"
+      },
+      {
+       "tag": "tag 18"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

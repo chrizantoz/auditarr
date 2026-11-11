@@ -1,0 +1,421 @@
+{
+ "_meta": {
+  "endpoint": "blocklist",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "page": 1,
+  "pageSize": 5,
+  "sortKey": "date",
+  "sortDirection": "descending",
+  "totalRecords": 6,
+  "records": [
+   {
+    "movieId": 208,
+    "sourceTitle": "sourceTitle 5",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "webdl",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 15,
+      "name": "ATVP"
+     },
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 6,
+      "name": "name 1"
+     }
+    ],
+    "date": "2026-11-11T15:15:01Z",
+    "protocol": "usenet",
+    "indexer": "indexer 2",
+    "message": "message 2",
+    "movie": {
+     "title": "title 31",
+     "originalTitle": "originalTitle 3",
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "alternateTitles": [],
+     "secondaryYearSourceId": 0,
+     "sortTitle": "sortTitle 8",
+     "status": "released",
+     "overview": "overview 12",
+     "digitalRelease": "2026-10-08T00:00:00Z",
+     "releaseDate": "2026-10-08T00:00:00Z",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref35"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref36"
+      }
+     ],
+     "website": "https://ref37",
+     "year": 2026,
+     "youTubeTrailerId": "youTubeTrailerId 2",
+     "studio": "studio 3",
+     "path": "/data/movies/Movie 35 (2026)",
+     "qualityProfileId": 7,
+     "movieFileId": 385,
+     "monitored": true,
+     "minimumAvailability": "announced",
+     "isAvailable": true,
+     "folderName": "/data/movies/Movie 35 (2026)",
+     "runtime": 127,
+     "cleanTitle": "matchboxmovie",
+     "imdbId": "tt28498219",
+     "tmdbId": 1148365,
+     "titleSlug": "1148365",
+     "certification": "PG-13",
+     "genres": [
+      "Action",
+      "Comedy",
+      "Adventure"
+     ],
+     "keywords": [
+      "arrogant",
+      "assertive",
+      "keywords 2",
+      "cars",
+      "cheerful",
+      "keywords 10",
+      "keywords 11",
+      "keywords 12",
+      "friendship",
+      "reunion",
+      "keywords 13",
+      "keywords 14"
+     ],
+     "tags": [],
+     "added": "2026-11-11T15:12:16Z",
+     "ratings": {
+      "imdb": {
+       "votes": 13316,
+       "value": 5.7,
+       "type": "user"
+      },
+      "tmdb": {
+       "votes": 606,
+       "value": 7.597,
+       "type": "user"
+      }
+     },
+     "popularity": 84.8307,
+     "lastSearchTime": "2026-11-11T15:15:02Z",
+     "id": 208
+    },
+    "id": 107
+   },
+   {
+    "movieId": 55,
+    "sourceTitle": "sourceTitle 6",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 7,
+      "name": "Bluray-1080p",
+      "source": "bluray",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 3,
+      "name": "name 10"
+     },
+     {
+      "id": 43,
+      "name": "name 11"
+     }
+    ],
+    "date": "2026-11-10T23:49:22Z",
+    "protocol": "usenet",
+    "indexer": "indexer 4",
+    "message": "message 3",
+    "movie": {
+     "title": "title 32",
+     "originalTitle": "originalTitle 4",
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "alternateTitles": [],
+     "secondaryYearSourceId": 0,
+     "sortTitle": "sortTitle 9",
+     "status": "released",
+     "overview": "overview 13",
+     "inCinemas": "2012-12-12T00:00:00Z",
+     "physicalRelease": "2013-03-21T00:00:00Z",
+     "digitalRelease": "2013-04-13T00:00:00Z",
+     "releaseDate": "2012-12-12T00:00:00Z",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref38"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref39"
+      }
+     ],
+     "website": "http://ref40",
+     "year": 2012,
+     "youTubeTrailerId": "CXqZK-nbZ74",
+     "studio": "studio 4",
+     "path": "/data/movies/Movie 36 (2012)",
+     "qualityProfileId": 7,
+     "movieFileId": 380,
+     "monitored": true,
+     "minimumAvailability": "announced",
+     "isAvailable": true,
+     "folderName": "/data/movies/Movie 36 (2012)",
+     "runtime": 169,
+     "cleanTitle": "cleanTitle 3",
+     "imdbId": "tt0903624",
+     "tmdbId": 49051,
+     "titleSlug": "49051",
+     "certification": "PG-13",
+     "genres": [
+      "Adventure",
+      "Fantasy",
+      "Action"
+     ],
+     "keywords": [
+      "keywords 15",
+      "burglar",
+      "keywords 16",
+      "contract",
+      "creature",
+      "dwarf",
+      "elves",
+      "keywords 17",
+      "keywords 18",
+      "keywords 3",
+      "goblins",
+      "keywords 19"
+     ],
+     "tags": [],
+     "added": "2025-11-25T01:07:07Z",
+     "ratings": {
+      "imdb": {
+       "votes": 941017,
+       "value": 7.8,
+       "type": "user"
+      },
+      "tmdb": {
+       "votes": 20322,
+       "value": 7.388,
+       "type": "user"
+      },
+      "metacritic": {
+       "votes": 0,
+       "value": 58,
+       "type": "user"
+      },
+      "rottenTomatoes": {
+       "votes": 0,
+       "value": 64,
+       "type": "user"
+      },
+      "trakt": {
+       "votes": 28966,
+       "value": 7.8762,
+       "type": "user"
+      }
+     },
+     "collection": {
+      "title": "title 33",
+      "tmdbId": 121938
+     },
+     "popularity": 18.7274,
+     "lastSearchTime": "2026-11-10T23:49:27Z",
+     "id": 55
+    },
+    "id": 106
+   },
+   {
+    "movieId": 55,
+    "sourceTitle": "sourceTitle 7",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 7,
+      "name": "Bluray-1080p",
+      "source": "bluray",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 3,
+      "name": "name 10"
+     },
+     {
+      "id": 43,
+      "name": "name 11"
+     }
+    ],
+    "date": "2026-11-10T23:48:58Z",
+    "protocol": "usenet",
+    "indexer": "indexer 4",
+    "message": "message 3",
+    "movie": {
+     "title": "title 32",
+     "originalTitle": "originalTitle 4",
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "alternateTitles": [],
+     "secondaryYearSourceId": 0,
+     "sortTitle": "sortTitle 9",
+     "status": "released",
+     "overview": "overview 13",
+     "inCinemas": "2012-12-12T00:00:00Z",
+     "physicalRelease": "2013-03-21T00:00:00Z",
+     "digitalRelease": "2013-04-13T00:00:00Z",
+     "releaseDate": "2012-12-12T00:00:00Z",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref38"
+      },
+      {
+       "coverType": "fanart",
+       "remoteUrl": "https://ref39"
+      }
+     ],
+     "website": "http://ref40",
+     "year": 2012,
+     "youTubeTrailerId": "CXqZK-nbZ74",
+     "studio": "studio 4",
+     "path": "/data/movies/Movie 36 (2012)",
+     "qualityProfileId": 7,
+     "movieFileId": 380,
+     "monitored": true,
+     "minimumAvailability": "announced",
+     "isAvailable": true,
+     "folderName": "/data/movies/Movie 36 (2012)",
+     "runtime": 169,
+     "cleanTitle": "cleanTitle 3",
+     "imdbId": "tt0903624",
+     "tmdbId": 49051,
+     "titleSlug": "49051",
+     "certification": "PG-13",
+     "genres": [
+      "Adventure",
+      "Fantasy",
+      "Action"
+     ],
+     "keywords": [
+      "keywords 15",
+      "burglar",
+      "keywords 16",
+      "contract",
+      "creature",
+      "dwarf",
+      "elves",
+      "keywords 17",
+      "keywords 18",
+      "keywords 3",
+      "goblins",
+      "keywords 19"
+     ],
+     "tags": [],
+     "added": "2025-11-25T01:07:07Z",
+     "ratings": {
+      "imdb": {
+       "votes": 941017,
+       "value": 7.8,
+       "type": "user"
+      },
+      "tmdb": {
+       "votes": 20322,
+       "value": 7.388,
+       "type": "user"
+      },
+      "metacritic": {
+       "votes": 0,
+       "value": 58,
+       "type": "user"
+      },
+      "rottenTomatoes": {
+       "votes": 0,
+       "value": 64,
+       "type": "user"
+      },
+      "trakt": {
+       "votes": 28966,
+       "value": 7.8762,
+       "type": "user"
+      }
+     },
+     "collection": {
+      "title": "title 33",
+      "tmdbId": 121938
+     },
+     "popularity": 18.7274,
+     "lastSearchTime": "2026-11-10T23:49:27Z",
+     "id": 55
+    },
+    "id": 105
+   }
+  ]
+ }
+}

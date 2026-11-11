@@ -1,0 +1,16 @@
+{
+ "_meta": {
+  "endpoint": "/identity",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 0,
+   "apiVersion": "1.2.3",
+   "claimed": true,
+   "machineIdentifier": "REDACTED",
+   "version": "1.43.5.11079-b3b13e506"
+  }
+ }
+}

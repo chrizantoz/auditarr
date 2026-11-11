@@ -1,0 +1,171 @@
+{
+ "_meta": {
+  "endpoint": "history/since",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "episodeId": 12005,
+   "seriesId": 139,
+   "sourceTitle": "/data/tv/Show 3/Season 03/Show 3 - S03E01 - Episode.mkv",
+   "languages": [
+    {
+     "id": 8,
+     "name": "Japanese"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 49,
+     "name": "name 6"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 500,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T05:03:25Z",
+   "eventType": "episodeFileDeleted",
+   "data": {
+    "reason": "MissingFromDisk",
+    "releaseGroup": "MTBB",
+    "size": "1444194530",
+    "indexerFlags": "Freeleech",
+    "releaseType": "SingleEpisode"
+   },
+   "id": 121235
+  },
+  {
+   "episodeId": 12005,
+   "seriesId": 139,
+   "sourceTitle": "sourceTitle 4",
+   "languages": [
+    {
+     "id": 8,
+     "name": "Japanese"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 49,
+     "name": "name 6"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 500,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T05:10:22Z",
+   "downloadId": "hex 2",
+   "eventType": "grabbed",
+   "data": {
+    "indexer": "indexer 4",
+    "nzbInfoUrl": "https://ref20",
+    "releaseGroup": "MTBB",
+    "age": "124",
+    "ageHours": "2984.241857640639",
+    "ageMinutes": "179054.511458515",
+    "publishedDate": "2026-07-08T20:55:52Z",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "size": "1642187930",
+    "downloadUrl": "http://ref21",
+    "guid": "https://ref20",
+    "tvdbId": "0",
+    "tvRageId": "0",
+    "imdbId": null,
+    "protocol": "1",
+    "customFormatScore": "500",
+    "seriesMatchType": "Alias",
+    "releaseSource": "UserInvokedSearch",
+    "indexerFlags": "0",
+    "releaseType": "SingleEpisode",
+    "releaseHash": "C23462B4"
+   },
+   "id": 121236
+  },
+  {
+   "episodeId": 12005,
+   "seriesId": 139,
+   "sourceTitle": "sourceTitle 4",
+   "languages": [
+    {
+     "id": 8,
+     "name": "Japanese"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 49,
+     "name": "name 6"
+    },
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 500,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T05:11:58Z",
+   "downloadId": "hex 2",
+   "eventType": "downloadFolderImported",
+   "data": {
+    "fileId": "33349",
+    "droppedPath": "/data/movies/Movie 21 (2020)/Movie 21.mkv",
+    "importedPath": "/data/tv/Show 3/Season 03/Show 3 - S03E01 - Episode.mkv",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "releaseGroup": "MTBB",
+    "customFormatScore": "500",
+    "size": "1444194530",
+    "indexerFlags": "0",
+    "releaseType": "SingleEpisode"
+   },
+   "id": 121237
+  }
+ ]
+}

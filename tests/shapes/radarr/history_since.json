@@ -1,0 +1,176 @@
+{
+ "_meta": {
+  "endpoint": "history/since",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "movieId": 186,
+   "sourceTitle": "sourceTitle 8",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "webdl",
+     "resolution": 1080,
+     "modifier": "none"
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 0,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T07:35:32Z",
+   "downloadId": "hex 3",
+   "eventType": "grabbed",
+   "data": {
+    "indexer": "indexer 2",
+    "nzbInfoUrl": "https://ref41",
+    "releaseGroup": "ETHEL",
+    "age": "0",
+    "ageHours": "0.13112045530555555",
+    "ageMinutes": "7.86722771",
+    "publishedDate": "2026-11-10T07:27:40Z",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "size": "7925816000",
+    "downloadUrl": "http://ref42",
+    "guid": "https://ref41",
+    "tmdbId": "0",
+    "imdbId": "36586020",
+    "protocol": "1",
+    "customFormatScore": "0",
+    "movieMatchType": "Id",
+    "releaseSource": "Rss",
+    "indexerFlags": "0",
+    "indexerId": "5"
+   },
+   "id": 1156
+  },
+  {
+   "movieId": 186,
+   "sourceTitle": "sourceTitle 8",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "webdl",
+     "resolution": 1080,
+     "modifier": "none"
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "customFormatScore": 0,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T07:37:01Z",
+   "downloadId": "hex 3",
+   "eventType": "downloadFolderImported",
+   "data": {
+    "fileId": "375",
+    "droppedPath": "/data/movies/Movie 37 (2020)/Movie 37.mkv",
+    "importedPath": "/data/movies/Movie 38 (2026)/Movie 38.mkv",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "releaseGroup": "ETHEL",
+    "customFormatScore": "0",
+    "size": "7529923614",
+    "indexerFlags": "0"
+   },
+   "id": 1157
+  },
+  {
+   "movieId": 186,
+   "sourceTitle": "sourceTitle 9",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "webdl",
+     "resolution": 1080,
+     "modifier": "none"
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [
+    {
+     "id": 1,
+     "name": "English"
+    },
+    {
+     "id": 23,
+     "name": "MA"
+    }
+   ],
+   "customFormatScore": 20,
+   "qualityCutoffNotMet": true,
+   "date": "2026-11-10T13:41:31Z",
+   "downloadId": "hex 4",
+   "eventType": "grabbed",
+   "data": {
+    "indexer": "indexer 2",
+    "nzbInfoUrl": "https://ref43",
+    "releaseGroup": "lived",
+    "age": "0",
+    "ageHours": "0.30712328619444446",
+    "ageMinutes": "18.427397283333335",
+    "publishedDate": "2026-11-10T13:23:06Z",
+    "downloadClient": "NZBGet",
+    "downloadClientName": "NZBGet",
+    "size": "6190550000",
+    "downloadUrl": "http://ref44",
+    "guid": "https://ref43",
+    "tmdbId": "0",
+    "imdbId": "36586020",
+    "protocol": "1",
+    "customFormatScore": "20",
+    "movieMatchType": "Id",
+    "releaseSource": "Rss",
+    "indexerFlags": "0",
+    "indexerId": "5"
+   },
+   "id": 1158
+  }
+ ]
+}

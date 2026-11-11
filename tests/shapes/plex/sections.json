@@ -1,0 +1,102 @@
+{
+ "_meta": {
+  "endpoint": "/library/sections",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 6,
+   "allowSync": false,
+   "title1": "title1 1",
+   "Directory": [
+    {
+     "allowSync": true,
+     "filters": true,
+     "refreshing": false,
+     "key": "8",
+     "type": "movie",
+     "title": "title 44",
+     "agent": "tv.plex.agents.movie",
+     "scanner": "scanner 1",
+     "language": "en-US",
+     "metadataAgentProviderGroupId": 1,
+     "uuid": "REDACTED",
+     "updatedAt": 1794417074,
+     "createdAt": 1763609252,
+     "scannedAt": 1794417023,
+     "content": true,
+     "directory": true,
+     "contentChangedAt": 4609083,
+     "hidden": 0,
+     "Location": [
+      {
+       "id": 10,
+       "path": "/data/folder10"
+      }
+     ]
+    },
+    {
+     "allowSync": true,
+     "filters": true,
+     "refreshing": false,
+     "key": "1",
+     "type": "movie",
+     "title": "Movies",
+     "agent": "tv.plex.agents.movie",
+     "scanner": "scanner 1",
+     "language": "en-US",
+     "metadataAgentProviderGroupId": 1,
+     "uuid": "REDACTED",
+     "updatedAt": 1794418020,
+     "createdAt": 1761018530,
+     "scannedAt": 1794417092,
+     "content": true,
+     "directory": true,
+     "contentChangedAt": 4609143,
+     "hidden": 0,
+     "Location": [
+      {
+       "id": 1,
+       "path": "/data/movies/Movie 25 (2020)"
+      },
+      {
+       "id": 2,
+       "path": "/data/movies/Movie 10 (2020)"
+      },
+      {
+       "id": 3,
+       "path": "/data/movies/Movie 5 (2020)"
+      }
+     ]
+    },
+    {
+     "allowSync": true,
+     "filters": true,
+     "refreshing": false,
+     "key": "7",
+     "type": "show",
+     "title": "Anime",
+     "agent": "tv.plex.agents.series",
+     "scanner": "scanner 2",
+     "language": "en-US",
+     "metadataAgentProviderGroupId": 2,
+     "uuid": "REDACTED",
+     "updatedAt": 1794418020,
+     "createdAt": 1761192992,
+     "scannedAt": 1794417019,
+     "content": true,
+     "directory": true,
+     "contentChangedAt": 4610800,
+     "hidden": 0,
+     "Location": [
+      {
+       "id": 9,
+       "path": "/data/movies/Movie 10 (2020)"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

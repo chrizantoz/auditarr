@@ -1,0 +1,39 @@
+{
+ "_meta": {
+  "endpoint": "rootfolder",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "path": "/data/movies/Movie 5 (2020)",
+   "accessible": true,
+   "freeSpace": 6166632927232,
+   "unmappedFolders": [
+    {
+     "name": "name 3",
+     "path": "/data/movies/Movie 15 (2020)",
+     "relativePath": "/data/folder1"
+    },
+    {
+     "name": "name 4",
+     "path": "/data/movies/Movie 16 (2014)",
+     "relativePath": "/data/folder2"
+    },
+    {
+     "name": "name 5",
+     "path": "/data/movies/Movie 17 (2005)",
+     "relativePath": "/data/folder3"
+    }
+   ],
+   "id": 1
+  },
+  {
+   "path": "/data/movies/Movie 10 (2020)",
+   "accessible": true,
+   "freeSpace": 6166632927232,
+   "unmappedFolders": [],
+   "id": 2
+  }
+ ]
+}

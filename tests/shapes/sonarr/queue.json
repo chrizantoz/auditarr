@@ -1,0 +1,175 @@
+{
+ "_meta": {
+  "endpoint": "queue",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "page": 1,
+  "pageSize": 5,
+  "sortKey": "timeleft",
+  "sortDirection": "descending",
+  "totalRecords": 59,
+  "records": [
+   {
+    "seriesId": 378,
+    "episodeId": 25808,
+    "seasonNumber": 1,
+    "languages": [
+     {
+      "id": 10,
+      "name": "Chinese"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 23,
+      "name": "NF"
+     }
+    ],
+    "customFormatScore": 75,
+    "size": 79638982810,
+    "title": "title 15",
+    "estimatedCompletionTime": "2026-11-11T18:25:21Z",
+    "added": "2026-11-11T16:43:19Z",
+    "status": "downloading",
+    "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "statusMessages": [],
+    "downloadId": "hex 1",
+    "protocol": "torrent",
+    "downloadClient": "Deluge",
+    "downloadClientHasPostImportCategory": false,
+    "indexer": "indexer 1",
+    "outputPath": "/data/movies/Movie 18 (2020)",
+    "episodeHasFile": false,
+    "sizeleft": 49286377626,
+    "timeleft": "00:58:33",
+    "id": 1429132911
+   },
+   {
+    "seriesId": 378,
+    "episodeId": 25809,
+    "seasonNumber": 1,
+    "languages": [
+     {
+      "id": 10,
+      "name": "Chinese"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 23,
+      "name": "NF"
+     }
+    ],
+    "customFormatScore": 75,
+    "size": 79638982810,
+    "title": "title 15",
+    "estimatedCompletionTime": "2026-11-11T18:25:21Z",
+    "added": "2026-11-11T16:43:19Z",
+    "status": "downloading",
+    "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "statusMessages": [],
+    "downloadId": "hex 1",
+    "protocol": "torrent",
+    "downloadClient": "Deluge",
+    "downloadClientHasPostImportCategory": false,
+    "indexer": "indexer 1",
+    "outputPath": "/data/movies/Movie 18 (2020)",
+    "episodeHasFile": false,
+    "sizeleft": 49286377626,
+    "timeleft": "00:58:33",
+    "id": 394153663
+   },
+   {
+    "seriesId": 378,
+    "episodeId": 25810,
+    "seasonNumber": 1,
+    "languages": [
+     {
+      "id": 10,
+      "name": "Chinese"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [
+     {
+      "id": 1,
+      "name": "English"
+     },
+     {
+      "id": 23,
+      "name": "NF"
+     }
+    ],
+    "customFormatScore": 75,
+    "size": 79638982810,
+    "title": "title 15",
+    "estimatedCompletionTime": "2026-11-11T18:25:21Z",
+    "added": "2026-11-11T16:43:19Z",
+    "status": "downloading",
+    "trackedDownloadStatus": "ok",
+    "trackedDownloadState": "downloading",
+    "statusMessages": [],
+    "downloadId": "hex 1",
+    "protocol": "torrent",
+    "downloadClient": "Deluge",
+    "downloadClientHasPostImportCategory": false,
+    "indexer": "indexer 1",
+    "outputPath": "/data/movies/Movie 18 (2020)",
+    "episodeHasFile": false,
+    "sizeleft": 49286377626,
+    "timeleft": "00:58:33",
+    "id": 1869353729
+   }
+  ]
+ }
+}

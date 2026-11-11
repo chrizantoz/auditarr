@@ -1,0 +1,577 @@
+{
+ "_meta": {
+  "endpoint": "movie",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "title": "Barbie",
+   "originalTitle": "Barbie",
+   "originalLanguage": {
+    "id": 1,
+    "name": "English"
+   },
+   "alternateTitles": [
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 1,
+     "title": "title 18",
+     "id": 1
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 1,
+     "title": "title 19",
+     "id": 2
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 1,
+     "title": "title 20",
+     "id": 3
+    }
+   ],
+   "secondaryYearSourceId": 0,
+   "sortTitle": "barbie",
+   "sizeOnDisk": 9116714308,
+   "status": "released",
+   "overview": "overview 9",
+   "inCinemas": "2023-07-19T00:00:00Z",
+   "physicalRelease": "2023-10-17T00:00:00Z",
+   "digitalRelease": "2023-09-12T00:00:00Z",
+   "releaseDate": "2023-07-19T00:00:00Z",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 22 (2020)",
+     "remoteUrl": "https://ref22"
+    },
+    {
+     "coverType": "fanart",
+     "url": "/data/movies/Movie 23 (2020)",
+     "remoteUrl": "https://ref23"
+    }
+   ],
+   "website": "https://ref24",
+   "year": 2023,
+   "youTubeTrailerId": "Y1IgAEejvqM",
+   "studio": "studio 1",
+   "path": "/data/movies/Movie 24 (2023)",
+   "qualityProfileId": 7,
+   "hasFile": true,
+   "movieFileId": 297,
+   "monitored": true,
+   "minimumAvailability": "announced",
+   "isAvailable": true,
+   "folderName": "/data/movies/Movie 24 (2023)",
+   "runtime": 114,
+   "cleanTitle": "barbie",
+   "imdbId": "tt1517268",
+   "tmdbId": 346698,
+   "titleSlug": "346698",
+   "rootFolderPath": "/data/movies/Movie 25 (2020)",
+   "certification": "PG-13",
+   "genres": [
+    "Comedy",
+    "Adventure",
+    "Fantasy"
+   ],
+   "keywords": [
+    "keywords 1",
+    "keywords 2",
+    "bold",
+    "celebratory",
+    "doll",
+    "existentialism",
+    "keywords 3",
+    "keywords 4",
+    "feminism",
+    "keywords 5",
+    "keywords 6",
+    "hilarious"
+   ],
+   "tags": [
+    2
+   ],
+   "added": "2025-10-21T05:52:27Z",
+   "ratings": {
+    "imdb": {
+     "votes": 710231,
+     "value": 6.8,
+     "type": "user"
+    },
+    "tmdb": {
+     "votes": 11786,
+     "value": 6.905,
+     "type": "user"
+    },
+    "metacritic": {
+     "votes": 0,
+     "value": 80,
+     "type": "user"
+    },
+    "rottenTomatoes": {
+     "votes": 0,
+     "value": 88,
+     "type": "user"
+    },
+    "trakt": {
+     "votes": 39349,
+     "value": 7.36776,
+     "type": "user"
+    }
+   },
+   "movieFile": {
+    "movieId": 1,
+    "relativePath": "/data/folder4",
+    "path": "/data/movies/Movie 24 (2023)/Movie 24.mkv",
+    "size": 9116714308,
+    "dateAdded": "2026-08-19T19:30:37Z",
+    "sceneName": "sceneName 4",
+    "releaseGroup": "HALLOWED",
+    "edition": "edition 1",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 7,
+      "name": "Bluray-1080p",
+      "source": "bluray",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "indexerFlags": 0,
+    "mediaInfo": {
+     "audioBitrate": 640000,
+     "audioChannels": 5.1,
+     "audioCodec": "EAC3",
+     "audioLanguages": "eng",
+     "audioStreamCount": 1,
+     "videoBitDepth": 8,
+     "videoBitrate": 0,
+     "videoCodec": "x264",
+     "videoFps": 23.976,
+     "videoDynamicRange": "",
+     "videoDynamicRangeType": "",
+     "resolution": "1920x960",
+     "runTime": "1:54:03",
+     "scanType": "Progressive",
+     "subtitles": "eng/eng/eng/chi/dut/fre/ger/jpn/spa"
+    },
+    "originalFilePath": "/data/movies/Movie 26 (2020)/Movie 26.mkv",
+    "qualityCutoffNotMet": false,
+    "id": 297
+   },
+   "popularity": 21.5072,
+   "lastSearchTime": "2026-11-05T18:30:09Z",
+   "statistics": {
+    "movieFileCount": 1,
+    "sizeOnDisk": 9116714308,
+    "releaseGroups": [
+     "HALLOWED"
+    ],
+    "movieFileQualities": [
+     {
+      "id": 7,
+      "name": "name 7",
+      "source": "release 1",
+      "resolution": 1080,
+      "modifier": "none"
+     }
+    ]
+   },
+   "id": 1
+  },
+  {
+   "title": "title 21",
+   "originalTitle": "originalTitle 1",
+   "originalLanguage": {
+    "id": 8,
+    "name": "Japanese"
+   },
+   "alternateTitles": [
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 2,
+     "title": "title 22",
+     "id": 15
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 2,
+     "title": "title 23",
+     "id": 16
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 2,
+     "title": "title 24",
+     "id": 17
+    }
+   ],
+   "secondaryYearSourceId": 0,
+   "sortTitle": "sortTitle 6",
+   "sizeOnDisk": 6737046094,
+   "status": "released",
+   "overview": "overview 10",
+   "inCinemas": "2025-09-19T00:00:00Z",
+   "digitalRelease": "2025-12-09T00:00:00Z",
+   "releaseDate": "2025-09-19T00:00:00Z",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 27 (2020)",
+     "remoteUrl": "https://ref25"
+    },
+    {
+     "coverType": "fanart",
+     "url": "/data/movies/Movie 28 (2020)",
+     "remoteUrl": "https://ref26"
+    }
+   ],
+   "website": "https://ref27",
+   "year": 2025,
+   "youTubeTrailerId": "GJ1jrCnm-t8",
+   "studio": "MAPPA",
+   "path": "/data/movies/Movie 29 (2025)",
+   "qualityProfileId": 7,
+   "hasFile": true,
+   "movieFileId": 254,
+   "monitored": true,
+   "minimumAvailability": "announced",
+   "isAvailable": true,
+   "folderName": "/data/movies/Movie 29 (2025)",
+   "runtime": 100,
+   "cleanTitle": "chainsawmanmovierezearc",
+   "imdbId": "tt30472557",
+   "tmdbId": 1218925,
+   "titleSlug": "1218925",
+   "rootFolderPath": "/data/movies/Movie 25 (2020)",
+   "certification": "R",
+   "genres": [
+    "Animation",
+    "Action",
+    "Romance",
+    "Fantasy"
+   ],
+   "keywords": [
+    "anime",
+    "awestruck",
+    "keywords 7",
+    "chainsaw",
+    "complex",
+    "keywords 8",
+    "distressing",
+    "dramatic",
+    "frantic",
+    "gore",
+    "introspective",
+    "loneliness"
+   ],
+   "tags": [
+    2,
+    5
+   ],
+   "added": "2025-10-23T17:58:25Z",
+   "ratings": {
+    "imdb": {
+     "votes": 72765,
+     "value": 8.3,
+     "type": "user"
+    },
+    "tmdb": {
+     "votes": 1287,
+     "value": 8.537,
+     "type": "user"
+    },
+    "metacritic": {
+     "votes": 0,
+     "value": 71,
+     "type": "user"
+    },
+    "rottenTomatoes": {
+     "votes": 0,
+     "value": 96,
+     "type": "user"
+    },
+    "trakt": {
+     "votes": 6005,
+     "value": 8.69992,
+     "type": "user"
+    }
+   },
+   "movieFile": {
+    "movieId": 2,
+    "relativePath": "/data/folder5",
+    "path": "/data/movies/Movie 29 (2025)/Movie 29.mkv",
+    "size": 6737046094,
+    "dateAdded": "2026-08-17T08:38:18Z",
+    "sceneName": "sceneName 5",
+    "releaseGroup": "BYNDR",
+    "edition": "edition 1",
+    "languages": [
+     {
+      "id": 8,
+      "name": "Japanese"
+     },
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "webdl",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "indexerFlags": 0,
+    "mediaInfo": {
+     "audioBitrate": 448000,
+     "audioChannels": 5.1,
+     "audioCodec": "EAC3 Atmos",
+     "audioLanguages": "jpn/eng",
+     "audioStreamCount": 2,
+     "videoBitDepth": 8,
+     "videoBitrate": 7888490,
+     "videoCodec": "x264",
+     "videoFps": 23.976,
+     "videoDynamicRange": "",
+     "videoDynamicRangeType": "",
+     "resolution": "1920x1080",
+     "runTime": "1:40:15",
+     "scanType": "Progressive",
+     "subtitles": "eng/eng/eng/eng/ara/bul/cze/dan/ger/gre/spa/spa/est/fin/fre/heb/hun/ind/ita/kor/lit/lav/dut/nor/por/por/slo/slv/swe/tha/ukr/vie/chi/chi/chi"
+    },
+    "originalFilePath": "/data/movies/Movie 30 (2020)/Movie 30.mkv",
+    "qualityCutoffNotMet": true,
+    "id": 254
+   },
+   "collection": {
+    "title": "title 25",
+    "tmdbId": 1544712
+   },
+   "popularity": 22.7397,
+   "lastSearchTime": "2026-11-10T03:27:09Z",
+   "statistics": {
+    "movieFileCount": 1,
+    "sizeOnDisk": 6737046094,
+    "releaseGroups": [
+     "BYNDR"
+    ],
+    "movieFileQualities": [
+     {
+      "id": 3,
+      "name": "name 8",
+      "source": "release 2",
+      "resolution": 1080,
+      "modifier": "none"
+     }
+    ]
+   },
+   "id": 2
+  },
+  {
+   "title": "title 26",
+   "originalTitle": "originalTitle 2",
+   "originalLanguage": {
+    "id": 1,
+    "name": "English"
+   },
+   "alternateTitles": [
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 3,
+     "title": "title 27",
+     "id": 27
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 3,
+     "title": "title 28",
+     "id": 28
+    },
+    {
+     "sourceType": "tmdb",
+     "movieMetadataId": 3,
+     "title": "title 29",
+     "id": 1196
+    }
+   ],
+   "secondaryYearSourceId": 0,
+   "sortTitle": "sortTitle 7",
+   "sizeOnDisk": 12501235092,
+   "status": "released",
+   "overview": "overview 11",
+   "inCinemas": "2025-09-25T00:00:00Z",
+   "physicalRelease": "2025-12-05T00:00:00Z",
+   "digitalRelease": "2025-10-14T00:00:00Z",
+   "releaseDate": "2025-09-25T00:00:00Z",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 31 (2020)",
+     "remoteUrl": "https://ref28"
+    },
+    {
+     "coverType": "fanart",
+     "url": "/data/movies/Movie 32 (2020)",
+     "remoteUrl": "https://ref29"
+    }
+   ],
+   "website": "https://ref30",
+   "year": 2025,
+   "youTubeTrailerId": "youTubeTrailerId 1",
+   "studio": "studio 2",
+   "path": "/data/movies/Movie 33 (2025)",
+   "qualityProfileId": 7,
+   "hasFile": true,
+   "movieFileId": 223,
+   "monitored": true,
+   "minimumAvailability": "announced",
+   "isAvailable": true,
+   "folderName": "/data/movies/Movie 33 (2025)",
+   "runtime": 98,
+   "cleanTitle": "thestrangerschapter2",
+   "imdbId": "tt28671344",
+   "tmdbId": 1010756,
+   "titleSlug": "1010756",
+   "rootFolderPath": "/data/movies/Movie 25 (2020)",
+   "certification": "R",
+   "genres": [
+    "Horror",
+    "Thriller"
+   ],
+   "keywords": [
+    "ambulance",
+    "hospital",
+    "keywords 9",
+    "reboot",
+    "sequel",
+    "slasher"
+   ],
+   "tags": [],
+   "added": "2025-10-23T22:26:47Z",
+   "ratings": {
+    "imdb": {
+     "votes": 15536,
+     "value": 4.7,
+     "type": "user"
+    },
+    "tmdb": {
+     "votes": 419,
+     "value": 6,
+     "type": "user"
+    },
+    "metacritic": {
+     "votes": 0,
+     "value": 28,
+     "type": "user"
+    },
+    "rottenTomatoes": {
+     "votes": 0,
+     "value": 21,
+     "type": "user"
+    },
+    "trakt": {
+     "votes": 1446,
+     "value": 5.54495,
+     "type": "user"
+    }
+   },
+   "movieFile": {
+    "movieId": 3,
+    "relativePath": "/data/folder6",
+    "path": "/data/movies/Movie 33 (2025)/Movie 33.mkv",
+    "size": 12501235092,
+    "dateAdded": "2026-08-15T15:38:31Z",
+    "sceneName": "sceneName 6",
+    "releaseGroup": "playHD",
+    "edition": "edition 1",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 7,
+      "name": "Bluray-1080p",
+      "source": "bluray",
+      "resolution": 1080,
+      "modifier": "none"
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "indexerFlags": 0,
+    "mediaInfo": {
+     "audioBitrate": 1024000,
+     "audioChannels": 5.1,
+     "audioCodec": "EAC3",
+     "audioLanguages": "eng",
+     "audioStreamCount": 1,
+     "videoBitDepth": 8,
+     "videoBitrate": 15833582,
+     "videoCodec": "x264",
+     "videoFps": 23.976,
+     "videoDynamicRange": "",
+     "videoDynamicRangeType": "",
+     "resolution": "1920x800",
+     "runTime": "1:38:51",
+     "scanType": "Progressive",
+     "subtitles": "eng/eng/rum"
+    },
+    "originalFilePath": "/data/movies/Movie 34 (2020)/Movie 34.mkv",
+    "qualityCutoffNotMet": false,
+    "id": 223
+   },
+   "collection": {
+    "title": "title 30",
+    "tmdbId": 1172926
+   },
+   "popularity": 5.1185,
+   "lastSearchTime": "2026-11-08T08:45:34Z",
+   "statistics": {
+    "movieFileCount": 1,
+    "sizeOnDisk": 12501235092,
+    "releaseGroups": [
+     "playHD"
+    ],
+    "movieFileQualities": [
+     {
+      "id": 7,
+      "name": "name 7",
+      "source": "release 1",
+      "resolution": 1080,
+      "modifier": "none"
+     }
+    ]
+   },
+   "id": 3
+  }
+ ]
+}

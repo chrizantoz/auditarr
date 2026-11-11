@@ -1,0 +1,26 @@
+{
+ "_meta": {
+  "endpoint": "providers",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [
+   {
+    "name": "bsplayer",
+    "status": "Good",
+    "retry": "-"
+   },
+   {
+    "name": "gestdown",
+    "status": "Good",
+    "retry": "-"
+   },
+   {
+    "name": "subtitlecat",
+    "status": "Good",
+    "retry": "-"
+   }
+  ]
+ }
+}

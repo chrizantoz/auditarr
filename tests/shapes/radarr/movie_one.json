@@ -1,0 +1,195 @@
+{
+ "_meta": {
+  "endpoint": "movie/{id}",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "title": "Barbie",
+  "originalTitle": "Barbie",
+  "originalLanguage": {
+   "id": 1,
+   "name": "English"
+  },
+  "alternateTitles": [
+   {
+    "sourceType": "tmdb",
+    "movieMetadataId": 1,
+    "title": "title 18",
+    "id": 1
+   },
+   {
+    "sourceType": "tmdb",
+    "movieMetadataId": 1,
+    "title": "title 19",
+    "id": 2
+   },
+   {
+    "sourceType": "tmdb",
+    "movieMetadataId": 1,
+    "title": "title 20",
+    "id": 3
+   }
+  ],
+  "secondaryYearSourceId": 0,
+  "sortTitle": "barbie",
+  "sizeOnDisk": 9116714308,
+  "status": "released",
+  "overview": "overview 9",
+  "inCinemas": "2023-07-19T00:00:00Z",
+  "physicalRelease": "2023-10-17T00:00:00Z",
+  "digitalRelease": "2023-09-12T00:00:00Z",
+  "releaseDate": "2023-07-19T00:00:00Z",
+  "images": [
+   {
+    "coverType": "poster",
+    "url": "/data/movies/Movie 22 (2020)",
+    "remoteUrl": "https://ref22"
+   },
+   {
+    "coverType": "fanart",
+    "url": "/data/movies/Movie 23 (2020)",
+    "remoteUrl": "https://ref23"
+   }
+  ],
+  "website": "https://ref24",
+  "year": 2023,
+  "youTubeTrailerId": "Y1IgAEejvqM",
+  "studio": "studio 1",
+  "path": "/data/movies/Movie 24 (2023)",
+  "qualityProfileId": 7,
+  "hasFile": true,
+  "movieFileId": 297,
+  "monitored": true,
+  "minimumAvailability": "announced",
+  "isAvailable": true,
+  "folderName": "/data/movies/Movie 24 (2023)",
+  "runtime": 114,
+  "cleanTitle": "barbie",
+  "imdbId": "tt1517268",
+  "tmdbId": 346698,
+  "titleSlug": "346698",
+  "rootFolderPath": "/data/movies/Movie 25 (2020)",
+  "certification": "PG-13",
+  "genres": [
+   "Comedy",
+   "Adventure",
+   "Fantasy"
+  ],
+  "keywords": [
+   "keywords 1",
+   "keywords 2",
+   "bold",
+   "celebratory",
+   "doll",
+   "existentialism",
+   "keywords 3",
+   "keywords 4",
+   "feminism",
+   "keywords 5",
+   "keywords 6",
+   "hilarious"
+  ],
+  "tags": [
+   2
+  ],
+  "added": "2025-10-21T05:52:27Z",
+  "ratings": {
+   "imdb": {
+    "votes": 710231,
+    "value": 6.8,
+    "type": "user"
+   },
+   "tmdb": {
+    "votes": 11786,
+    "value": 6.905,
+    "type": "user"
+   },
+   "metacritic": {
+    "votes": 0,
+    "value": 80,
+    "type": "user"
+   },
+   "rottenTomatoes": {
+    "votes": 0,
+    "value": 88,
+    "type": "user"
+   },
+   "trakt": {
+    "votes": 39349,
+    "value": 7.36776,
+    "type": "user"
+   }
+  },
+  "movieFile": {
+   "movieId": 1,
+   "relativePath": "/data/folder4",
+   "path": "/data/movies/Movie 24 (2023)/Movie 24.mkv",
+   "size": 9116714308,
+   "dateAdded": "2026-08-19T19:30:37Z",
+   "sceneName": "sceneName 4",
+   "releaseGroup": "HALLOWED",
+   "edition": "edition 1",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 7,
+     "name": "Bluray-1080p",
+     "source": "bluray",
+     "resolution": 1080,
+     "modifier": "none"
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "indexerFlags": 0,
+   "mediaInfo": {
+    "audioBitrate": 640000,
+    "audioChannels": 5.1,
+    "audioCodec": "EAC3",
+    "audioLanguages": "eng",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 0,
+    "videoCodec": "x264",
+    "videoFps": 23.976,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x960",
+    "runTime": "1:54:03",
+    "scanType": "Progressive",
+    "subtitles": "eng/eng/eng/chi/dut/fre/ger/jpn/spa"
+   },
+   "originalFilePath": "/data/movies/Movie 26 (2020)/Movie 26.mkv",
+   "qualityCutoffNotMet": false,
+   "id": 297
+  },
+  "popularity": 21.5072,
+  "lastSearchTime": "2026-11-05T18:30:09Z",
+  "statistics": {
+   "movieFileCount": 1,
+   "sizeOnDisk": 9116714308,
+   "releaseGroups": [
+    "HALLOWED"
+   ],
+   "movieFileQualities": [
+    {
+     "id": 7,
+     "name": "name 7",
+     "source": "release 1",
+     "resolution": 1080,
+     "modifier": "none"
+    }
+   ]
+  },
+  "id": 1
+ }
+}

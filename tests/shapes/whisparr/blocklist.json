@@ -1,0 +1,279 @@
+{
+ "_meta": {
+  "endpoint": "blocklist",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "page": 1,
+  "pageSize": 5,
+  "sortKey": "date",
+  "sortDirection": "descending",
+  "totalRecords": 22,
+  "records": [
+   {
+    "seriesId": 1,
+    "episodeIds": [
+     206
+    ],
+    "sourceTitle": "sourceTitle 10",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 5,
+      "name": "WEBDL-720p",
+      "source": "web",
+      "resolution": 720
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [],
+    "date": "2026-11-10T19:00:00Z",
+    "protocol": "torrent",
+    "indexer": "indexer 1",
+    "message": "message 1",
+    "series": {
+     "title": "title 34",
+     "sortTitle": "sortTitle 10",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 14",
+     "network": "Nubiles",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref45"
+      },
+      {
+       "coverType": "logo",
+       "remoteUrl": "https://ref46"
+      }
+     ],
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 2017,
+       "monitored": true
+      },
+      {
+       "seasonNumber": 2018,
+       "monitored": true
+      },
+      {
+       "seasonNumber": 2019,
+       "monitored": true
+      }
+     ],
+     "year": 2017,
+     "path": "/data/movies/Movie 41 (2020)",
+     "qualityProfileId": 1,
+     "monitored": true,
+     "seriesType": "standard",
+     "monitorNewItems": "all",
+     "useSceneNumbering": false,
+     "runtime": 27,
+     "tvdbId": 126,
+     "cleanTitle": "brattysis",
+     "titleSlug": "brattysis",
+     "genres": [],
+     "tags": [
+      1
+     ],
+     "added": "2026-02-02T04:59:39Z",
+     "ratings": {
+      "votes": 0,
+      "value": 0
+     },
+     "id": 1
+    },
+    "id": 1015
+   },
+   {
+    "seriesId": 11,
+    "episodeIds": [
+     4229
+    ],
+    "sourceTitle": "sourceTitle 11",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [],
+    "date": "2026-11-09T19:05:00Z",
+    "protocol": "torrent",
+    "indexer": "indexer 1",
+    "message": "message 1",
+    "series": {
+     "title": "title 40",
+     "sortTitle": "sortTitle 13",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 20",
+     "network": "Nubiles",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref61"
+      },
+      {
+       "coverType": "logo",
+       "remoteUrl": "https://ref62"
+      }
+     ],
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 2017,
+       "monitored": false
+      },
+      {
+       "seasonNumber": 2018,
+       "monitored": false
+      },
+      {
+       "seasonNumber": 2019,
+       "monitored": false
+      }
+     ],
+     "year": 2017,
+     "path": "/data/movies/Movie 49 (2020)",
+     "qualityProfileId": 1,
+     "monitored": true,
+     "seriesType": "standard",
+     "monitorNewItems": "all",
+     "useSceneNumbering": false,
+     "runtime": 27,
+     "tvdbId": 77,
+     "cleanTitle": "myfamilypies",
+     "titleSlug": "myfamilypies",
+     "genres": [],
+     "tags": [],
+     "added": "2026-11-05T14:10:31Z",
+     "ratings": {
+      "votes": 0,
+      "value": 0
+     },
+     "id": 11
+    },
+    "id": 1014
+   },
+   {
+    "seriesId": 11,
+    "episodeIds": [
+     4231
+    ],
+    "sourceTitle": "sourceTitle 12",
+    "languages": [
+     {
+      "id": 1,
+      "name": "English"
+     }
+    ],
+    "quality": {
+     "quality": {
+      "id": 3,
+      "name": "WEBDL-1080p",
+      "source": "web",
+      "resolution": 1080
+     },
+     "revision": {
+      "version": 1,
+      "real": 0,
+      "isRepack": false
+     }
+    },
+    "customFormats": [],
+    "date": "2026-11-09T16:00:56Z",
+    "protocol": "usenet",
+    "indexer": "indexer 4",
+    "message": "message 4",
+    "series": {
+     "title": "title 40",
+     "sortTitle": "sortTitle 13",
+     "status": "continuing",
+     "ended": false,
+     "overview": "overview 20",
+     "network": "Nubiles",
+     "images": [
+      {
+       "coverType": "poster",
+       "remoteUrl": "https://ref61"
+      },
+      {
+       "coverType": "logo",
+       "remoteUrl": "https://ref62"
+      }
+     ],
+     "originalLanguage": {
+      "id": 1,
+      "name": "English"
+     },
+     "seasons": [
+      {
+       "seasonNumber": 2017,
+       "monitored": false
+      },
+      {
+       "seasonNumber": 2018,
+       "monitored": false
+      },
+      {
+       "seasonNumber": 2019,
+       "monitored": false
+      }
+     ],
+     "year": 2017,
+     "path": "/data/movies/Movie 49 (2020)",
+     "qualityProfileId": 1,
+     "monitored": true,
+     "seriesType": "standard",
+     "monitorNewItems": "all",
+     "useSceneNumbering": false,
+     "runtime": 27,
+     "tvdbId": 77,
+     "cleanTitle": "myfamilypies",
+     "titleSlug": "myfamilypies",
+     "genres": [],
+     "tags": [],
+     "added": "2026-11-05T14:10:31Z",
+     "ratings": {
+      "votes": 0,
+      "value": 0
+     },
+     "id": 11
+    },
+    "id": 1013
+   }
+  ]
+ }
+}

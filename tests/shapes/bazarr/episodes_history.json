@@ -1,0 +1,11 @@
+{
+ "_meta": {
+  "endpoint": "episodes/history",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [],
+  "total": 932
+ }
+}

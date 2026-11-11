@@ -1,0 +1,39 @@
+{
+ "_meta": {
+  "endpoint": "system/status",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "appName": "Sonarr",
+  "instanceName": "Sonarr",
+  "version": "4.0.20.3014",
+  "buildTime": "2026-09-16T16:37:39Z",
+  "isDebug": false,
+  "isProduction": true,
+  "isAdmin": false,
+  "isUserInteractive": true,
+  "startupPath": "startupPath 1",
+  "appData": "appData 1",
+  "osName": "alpine",
+  "osVersion": "3.23.8",
+  "isNetCore": true,
+  "isLinux": true,
+  "isOsx": false,
+  "isWindows": false,
+  "isDocker": true,
+  "mode": "console",
+  "branch": "main",
+  "authentication": "REDACTED",
+  "migrationVersion": 217,
+  "urlBase": "urlBase 1",
+  "runtimeVersion": "6.0.13",
+  "runtimeName": "runtimeName 1",
+  "startTime": "2026-11-11T07:01:36Z",
+  "packageVersion": "release-75cd073",
+  "packageAuthor": "REDACTED",
+  "packageUpdateMechanism": "docker",
+  "databaseVersion": "3.53.4",
+  "databaseType": "sqLite"
+ }
+}

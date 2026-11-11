@@ -1,0 +1,107 @@
+{
+ "_meta": {
+  "endpoint": "providers/episodes",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [
+   {
+    "dont_matches": [
+     "video_codec",
+     "audio_codec",
+     "streaming_service",
+     "hash"
+    ],
+    "forced": "False",
+    "hearing_impaired": "False",
+    "language": "en",
+    "matches": [
+     "source",
+     "resolution",
+     "release_group",
+     "year",
+     "season",
+     "series",
+     "episode",
+     "hearing_impaired"
+    ],
+    "original_format": "False",
+    "orig_score": 357,
+    "provider": "gestdown",
+    "release_info": [
+     "release_info 1"
+    ],
+    "score": 99,
+    "score_without_hash": 357,
+    "subtitle": "subtitle 1",
+    "uploader": null,
+    "url": "https://ref67"
+   },
+   {
+    "dont_matches": [
+     "audio_codec",
+     "streaming_service",
+     "hash",
+     "release_group",
+     "video_codec"
+    ],
+    "forced": "False",
+    "hearing_impaired": "False",
+    "language": "en",
+    "matches": [
+     "source",
+     "resolution",
+     "year",
+     "season",
+     "series",
+     "episode",
+     "hearing_impaired"
+    ],
+    "original_format": "False",
+    "orig_score": 337,
+    "provider": "gestdown",
+    "release_info": [
+     "release_info 2"
+    ],
+    "score": 93,
+    "score_without_hash": 337,
+    "subtitle": "subtitle 2",
+    "uploader": null,
+    "url": "https://ref68"
+   },
+   {
+    "dont_matches": [
+     "streaming_service",
+     "hash",
+     "year",
+     "release_group",
+     "video_codec"
+    ],
+    "forced": "False",
+    "hearing_impaired": "False",
+    "language": "en",
+    "matches": [
+     "audio_codec",
+     "source",
+     "resolution",
+     "season",
+     "series",
+     "episode",
+     "hearing_impaired"
+    ],
+    "original_format": "False",
+    "orig_score": 248,
+    "provider": "subtitlecat",
+    "release_info": [
+     "release_info 3"
+    ],
+    "score": 68,
+    "score_without_hash": 248,
+    "subtitle": "subtitle 3",
+    "uploader": null,
+    "url": "https://ref69"
+   }
+  ]
+ }
+}

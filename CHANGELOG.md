@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Real answers in the fake stack (Q24, first half): sanitised recordings of what real Sonarr, Radarr, Whisparr, Bazarr and Plex answer now live in tests/shapes, and the fake arr services carry every field the real ones send. A test guards both fidelity and privacy of the recordings.
 - Staging soak before promotion (Q26): a new image is promoted only after a read-only run on a copy of the real database passes the self-test, the UI bot, an empty error log, zero write attempts, and a findings comparison with production.
 - Subtitle timing (F20): the app can now tell when subtitles run early, late or drift. It listens to three short samples with Whisper and compares them with the subtitle times. Out-of-step files become findings with a Re-time button that fixes a constant offset on the spot (external file rewritten, embedded track remuxed losslessly) or asks Bazarr to re-time drifting subtitles. Checked nightly for recently changed subtitles and for what people are watching; on demand per show or movie from the Tools box.
 - No swallowed errors (Q25): any failure inside a job or hook now keeps its full traceback in errors.log and on the About tab under Recent errors, ready to paste into a bug report. About shows a green "No errors in the last 24 hours" line when all is well, Today says ✓ no errors, and the health check counts errors.

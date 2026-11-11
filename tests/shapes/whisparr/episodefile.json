@@ -1,0 +1,162 @@
+{
+ "_meta": {
+  "endpoint": "episodefile?seriesId=",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "seriesId": 1,
+   "seasonNumber": 2026,
+   "relativePath": "/data/folder7",
+   "path": "/data/movies/Movie 41 (2020)/Movie 41.mp4",
+   "size": 1971789312,
+   "dateAdded": "2026-02-02T05:09:13Z",
+   "sceneName": "sceneName 7",
+   "releaseGroup": "WRB",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "indexerFlags": 0,
+   "mediaInfo": {
+    "audioBitrate": 196002,
+    "audioChannels": 2,
+    "audioCodec": "AAC",
+    "audioLanguages": "und",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 7776087,
+    "videoCodec": "x264",
+    "videoFps": 29.97,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "32:56",
+    "scanType": "Progressive",
+    "subtitles": ""
+   },
+   "qualityCutoffNotMet": false,
+   "id": 1
+  },
+  {
+   "seriesId": 1,
+   "seasonNumber": 2026,
+   "relativePath": "/data/folder8",
+   "path": "/data/movies/Movie 41 (2020)/Movie 41.mp4",
+   "size": 2411361886,
+   "dateAdded": "2026-02-02T05:09:13Z",
+   "sceneName": "sceneName 8",
+   "releaseGroup": "WRB",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "indexerFlags": 0,
+   "mediaInfo": {
+    "audioBitrate": 196001,
+    "audioChannels": 2,
+    "audioCodec": "AAC",
+    "audioLanguages": "und",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 9938101,
+    "videoCodec": "x264",
+    "videoFps": 29.97,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "31:41",
+    "scanType": "Progressive",
+    "subtitles": ""
+   },
+   "qualityCutoffNotMet": false,
+   "id": 2
+  },
+  {
+   "seriesId": 1,
+   "seasonNumber": 2025,
+   "relativePath": "/data/folder9",
+   "path": "/data/movies/Movie 41 (2020)/Movie 41.mp4",
+   "size": 2180170946,
+   "dateAdded": "2026-02-02T05:09:13Z",
+   "sceneName": "sceneName 9",
+   "releaseGroup": "WRB",
+   "languages": [
+    {
+     "id": 1,
+     "name": "English"
+    }
+   ],
+   "quality": {
+    "quality": {
+     "id": 3,
+     "name": "WEBDL-1080p",
+     "source": "web",
+     "resolution": 1080
+    },
+    "revision": {
+     "version": 1,
+     "real": 0,
+     "isRepack": false
+    }
+   },
+   "customFormats": [],
+   "customFormatScore": 0,
+   "indexerFlags": 0,
+   "mediaInfo": {
+    "audioBitrate": 196000,
+    "audioChannels": 2,
+    "audioCodec": "AAC",
+    "audioLanguages": "eng",
+    "audioStreamCount": 1,
+    "videoBitDepth": 8,
+    "videoBitrate": 9296531,
+    "videoCodec": "x264",
+    "videoFps": 29.97,
+    "videoDynamicRange": "",
+    "videoDynamicRangeType": "",
+    "resolution": "1920x1080",
+    "runTime": "30:35",
+    "scanType": "Progressive",
+    "subtitles": ""
+   },
+   "qualityCutoffNotMet": false,
+   "id": 3
+  }
+ ]
+}

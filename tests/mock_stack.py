@@ -6,6 +6,18 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 KEY = "test"
+SHAPES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shapes")
+def shape(name, default=None):
+    """A recorded, sanitised answer of the real service (tests/shapes/<service>/<name>.json, made by scripts/record_shapes.py), or `default` when none is recorded."""
+    try: return json.load(open(os.path.join(SHAPES, name + ".json")))["body"]
+    except Exception: return default
+DROP = {"sonarr/episode": {"runtime", "overview", "lastSearchTime", "finaleType"}, "sonarr/series": {"runtime", "statistics", "seasons", "overview", "images", "alternateTitles"}, "radarr/movie": {"runtime", "overview", "images", "alternateTitles", "statistics", "movieFile", "sizeOnDisk"},
+        "sonarr/episodefile": {"mediaInfo", "languages", "quality", "size"}, "radarr/moviefile": {"mediaInfo", "languages", "quality", "size"}}   # measurements the hand-made world must own
+def templated(name, obj):
+    """The hand-made object laid over a real-shaped sample: every field the real service sends is present, our test values win."""
+    t = shape(name); t = t[0] if isinstance(t, list) and t else t
+    if not isinstance(t, dict): return obj
+    out = {k: v for k, v in json.loads(json.dumps(t)).items() if k not in DROP.get(name, set())}; out.update(obj); return out
 def iso(days_ago=0): return (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def default_world(tv_root="/data/tv", movie_root="/data/movies"):
@@ -25,6 +37,8 @@ def default_world(tv_root="/data/tv", movie_root="/data/movies"):
     movies = [dict(id=1, title="Beta Movie", year=2021, titleSlug="beta-movie", path=mdir, runtime=1, monitored=True, hasFile=True, isAvailable=True, tags=[],
                    originalLanguage={"id": 1, "name": "English"}, movieFile={"id": 21})]
     mfiles = [dict(id=21, movieId=1, path=os.path.join(mdir, "Beta Movie (2021) [WEBDL-1080p]-grp.mkv"), size=0, dateAdded=iso(40), quality={"quality": {"name": "Unknown", "resolution": 0}}, mediaInfo={}, languages=[])]
+    series = [templated("sonarr/series", x) for x in series]; eps = [templated("sonarr/episode", x) for x in eps]; files = [templated("sonarr/episodefile", x) for x in files]
+    movies = [templated("radarr/movie", x) for x in movies]; mfiles = [templated("radarr/moviefile", x) for x in mfiles]
     return dict(tv_root=tv_root, movie_root=movie_root, series=series, episodes=eps, files=files, movies=movies, mfiles=mfiles, tags=[], wanted_eps=[103], wanted_movies=[], cmd_id=[100])
 
 class Handler(BaseHTTPRequestHandler):

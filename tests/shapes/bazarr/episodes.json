@@ -1,0 +1,148 @@
+{
+ "_meta": {
+  "endpoint": "episodes?seriesid[]=",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": [
+   {
+    "audio_language": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng"
+     }
+    ],
+    "episode": 8,
+    "missing_subtitles": [],
+    "monitored": true,
+    "path": "/data/tv/Show 2/Season 01/Show 2 - S01E08 - Episode.mkv",
+    "season": 1,
+    "sonarrEpisodeId": 8,
+    "sonarrSeriesId": 1,
+    "subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 2,
+      "id": 87575
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 3,
+      "id": 87576
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": true,
+      "file_size": null,
+      "embedded_track_id": 4,
+      "id": 87577
+     }
+    ],
+    "title": "title 41",
+    "sceneName": "sceneName 13"
+   },
+   {
+    "audio_language": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng"
+     }
+    ],
+    "episode": 7,
+    "missing_subtitles": [],
+    "monitored": true,
+    "path": "/data/tv/Show 2/Season 01/Show 2 - S01E07 - Episode.mkv",
+    "season": 1,
+    "sonarrEpisodeId": 7,
+    "sonarrSeriesId": 1,
+    "subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 2,
+      "id": 87544
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": true,
+      "file_size": null,
+      "embedded_track_id": 3,
+      "id": 87545
+     }
+    ],
+    "title": "title 42",
+    "sceneName": "sceneName 3"
+   },
+   {
+    "audio_language": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng"
+     }
+    ],
+    "episode": 6,
+    "missing_subtitles": [],
+    "monitored": true,
+    "path": "/data/tv/Show 2/Season 01/Show 2 - S01E06 - Episode.mkv",
+    "season": 1,
+    "sonarrEpisodeId": 6,
+    "sonarrSeriesId": 1,
+    "subtitles": [
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": false,
+      "file_size": null,
+      "embedded_track_id": 2,
+      "id": 87509
+     },
+     {
+      "name": "English",
+      "code2": "en",
+      "code3": "eng",
+      "path": null,
+      "forced": false,
+      "hi": true,
+      "file_size": null,
+      "embedded_track_id": 3,
+      "id": 87510
+     }
+    ],
+    "title": "title 43",
+    "sceneName": "sceneName 2"
+   }
+  ]
+ }
+}

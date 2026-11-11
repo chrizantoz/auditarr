@@ -1,0 +1,24 @@
+{
+ "_meta": {
+  "endpoint": "system/status",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "data": {
+   "bazarr_version": "1.6.2",
+   "package_version": "package_version 1",
+   "sonarr_version": "4.0.20.3014",
+   "radarr_version": "6.4.4.10685",
+   "operating_system": "operating_system 1",
+   "python_version": "3.12.16",
+   "database_engine": "database_engine 1",
+   "database_migration": "database_migration 1",
+   "bazarr_directory": "/data/movies/Movie 51 (2020)",
+   "bazarr_config_directory": "bazarr_config_directory 1",
+   "start_time": 1794380870.2968502,
+   "timezone": "America/Winnipeg",
+   "cpu_cores": 36
+  }
+ }
+}

@@ -1,0 +1,260 @@
+{
+ "_meta": {
+  "endpoint": "/library/sections/{key}/all",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 180,
+   "allowSync": true,
+   "art": "/data/movies/Movie 55 (2020)/Movie 55.jpg",
+   "identifier": "REDACTED",
+   "librarySectionID": 2,
+   "librarySectionTitle": "librarySectionTitle 2",
+   "librarySectionUUID": "REDACTED",
+   "mediaTagPrefix": "/system/bundle/media/flags/",
+   "mediaTagVersion": 1792751798,
+   "nocache": true,
+   "thumb": "/data/movies/Movie 55 (2020)/Movie 55.png",
+   "title1": "title1 3",
+   "title2": "title2 3",
+   "viewGroup": "show",
+   "viewMode": 65592,
+   "Metadata": [
+    {
+     "ratingKey": "30286",
+     "key": "/library/metadata/30286/children",
+     "guid": "plex://ref125",
+     "slug": "slug 6",
+     "studio": "studio 11",
+     "type": "show",
+     "title": "title 63",
+     "contentRating": "TV-MA",
+     "contentRatingAge": 15,
+     "summary": "summary 14",
+     "index": 1,
+     "rating": 7.5,
+     "audienceRating": 7.5,
+     "userRating": 7.5,
+     "lastRatedAt": 1777813822,
+     "year": 2024,
+     "thumb": "/library/metadata/30286/thumb/1792140717",
+     "art": "/library/metadata/30286/art/1792140717",
+     "theme": "/library/metadata/30286/theme/1792140717",
+     "duration": 3600000,
+     "originallyAvailableAt": "2024-03-21",
+     "leafCount": 8,
+     "viewedLeafCount": 8,
+     "childCount": 1,
+     "addedAt": 1763139982,
+     "updatedAt": 1792140717,
+     "audienceRatingImage": "themoviedb://ref73",
+     "primaryExtraKey": "/library/metadata/30296",
+     "Image": [
+      {
+       "alt": "alt 16",
+       "type": "coverPoster",
+       "url": "/library/metadata/30286/thumb/1792140717"
+      },
+      {
+       "alt": "alt 16",
+       "type": "background",
+       "url": "/library/metadata/30286/art/1792140717"
+      },
+      {
+       "alt": "alt 16",
+       "type": "clearLogo",
+       "url": "/library/metadata/30286/clearLogo/1792140717"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 14",
+      "topRight": "topRight 10",
+      "bottomRight": "bottomRight 10",
+      "bottomLeft": "313738"
+     },
+     "Genre": [
+      {
+       "tag": "Drama"
+      },
+      {
+       "tag": "Mystery"
+      }
+     ],
+     "Country": [
+      {
+       "tag": "tag 7"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "tag 65"
+      },
+      {
+       "tag": "tag 66"
+      },
+      {
+       "tag": "tag 67"
+      }
+     ]
+    },
+    {
+     "ratingKey": "52143",
+     "key": "/library/metadata/52143/children",
+     "guid": "plex://ref126",
+     "slug": "slug 7",
+     "studio": "studio 12",
+     "type": "show",
+     "title": "title 64",
+     "contentRating": "TV-MA",
+     "contentRatingAge": 15,
+     "summary": "summary 15",
+     "index": 1,
+     "rating": 7.4,
+     "audienceRating": 7.4,
+     "userRating": 6.7,
+     "lastRatedAt": 1777813822,
+     "year": 2026,
+     "tagline": "tagline 7",
+     "thumb": "/library/metadata/52143/thumb/1788942053",
+     "art": "/library/metadata/52143/art/1788942053",
+     "duration": 3000000,
+     "originallyAvailableAt": "2026-02-18",
+     "leafCount": 8,
+     "viewedLeafCount": 0,
+     "childCount": 1,
+     "addedAt": 1771548405,
+     "updatedAt": 1788942053,
+     "audienceRatingImage": "themoviedb://ref73",
+     "primaryExtraKey": "/library/metadata/52148",
+     "Image": [
+      {
+       "alt": "alt 17",
+       "type": "coverPoster",
+       "url": "/library/metadata/52143/thumb/1788942053"
+      },
+      {
+       "alt": "alt 17",
+       "type": "background",
+       "url": "/library/metadata/52143/art/1788942053"
+      },
+      {
+       "alt": "alt 17",
+       "type": "clearLogo",
+       "url": "/library/metadata/52143/clearLogo/1788942053"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "472214",
+      "topRight": "topRight 11",
+      "bottomRight": "bottomRight 11",
+      "bottomLeft": "924133"
+     },
+     "Genre": [
+      {
+       "tag": "Crime"
+      },
+      {
+       "tag": "Drama"
+      }
+     ],
+     "Country": [
+      {
+       "tag": "tag 7"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "tag 68"
+      },
+      {
+       "tag": "tag 69"
+      },
+      {
+       "tag": "tag 70"
+      }
+     ]
+    },
+    {
+     "ratingKey": "53137",
+     "key": "/library/metadata/53137/children",
+     "guid": "plex://ref127",
+     "slug": "the-100",
+     "studio": "studio 13",
+     "type": "show",
+     "title": "title 65",
+     "titleSort": "100",
+     "contentRating": "TV-14",
+     "contentRatingAge": 15,
+     "summary": "summary 16",
+     "index": 1,
+     "rating": 7.9,
+     "audienceRating": 7.9,
+     "userRating": 7.5,
+     "lastRatedAt": 1777813822,
+     "year": 2014,
+     "tagline": "tagline 8",
+     "thumb": "/library/metadata/53137/thumb/1792140744",
+     "art": "/library/metadata/53137/art/1792140744",
+     "theme": "/library/metadata/53137/theme/1792140744",
+     "duration": 2520000,
+     "originallyAvailableAt": "2014-03-19",
+     "leafCount": 100,
+     "viewedLeafCount": 0,
+     "childCount": 7,
+     "addedAt": 1776829587,
+     "updatedAt": 1792140744,
+     "audienceRatingImage": "themoviedb://ref73",
+     "Image": [
+      {
+       "alt": "alt 18",
+       "type": "coverPoster",
+       "url": "/library/metadata/53137/thumb/1792140744"
+      },
+      {
+       "alt": "alt 18",
+       "type": "background",
+       "url": "/library/metadata/53137/art/1792140744"
+      },
+      {
+       "alt": "alt 18",
+       "type": "clearLogo",
+       "url": "/library/metadata/53137/clearLogo/1792140744"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 15",
+      "topRight": "topRight 12",
+      "bottomRight": "bottomRight 12",
+      "bottomLeft": "bottomLeft 10"
+     },
+     "Genre": [
+      {
+       "tag": "tag 71"
+      },
+      {
+       "tag": "Drama"
+      }
+     ],
+     "Country": [
+      {
+       "tag": "tag 7"
+      }
+     ],
+     "Role": [
+      {
+       "tag": "tag 72"
+      },
+      {
+       "tag": "tag 73"
+      },
+      {
+       "tag": "tag 74"
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

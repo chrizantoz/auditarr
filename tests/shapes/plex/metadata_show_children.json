@@ -1,0 +1,82 @@
+{
+ "_meta": {
+  "endpoint": "/library/metadata/{rk}/children",
+  "recorded": "2026-11-11T12:28",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": {
+  "MediaContainer": {
+   "size": 1,
+   "allowSync": true,
+   "art": "/library/metadata/30286/art/1792140717",
+   "identifier": "REDACTED",
+   "key": "30286",
+   "librarySectionID": 2,
+   "librarySectionTitle": "librarySectionTitle 2",
+   "librarySectionUUID": "REDACTED",
+   "mediaTagPrefix": "/system/bundle/media/flags/",
+   "mediaTagVersion": 1792751798,
+   "nocache": true,
+   "parentIndex": 1,
+   "parentTitle": "parentTitle 4",
+   "parentYear": 2024,
+   "summary": "summary 14",
+   "theme": "/library/metadata/30286/theme/1792140717",
+   "thumb": "/library/metadata/30286/thumb/1792140717",
+   "title1": "title1 3",
+   "title2": "title2 6",
+   "viewGroup": "season",
+   "viewMode": 65593,
+   "Metadata": [
+    {
+     "ratingKey": "30287",
+     "key": "/library/metadata/30287/children",
+     "parentRatingKey": "30286",
+     "guid": "plex://ref134",
+     "parentGuid": "plex://ref125",
+     "parentSlug": "parentSlug 1",
+     "parentStudio": "parentStudio 2",
+     "type": "season",
+     "title": "title 58",
+     "parentKey": "/library/metadata/30286",
+     "parentTitle": "parentTitle 4",
+     "summary": "summary 13",
+     "index": 1,
+     "parentIndex": 1,
+     "parentYear": 2024,
+     "thumb": "/library/metadata/30287/thumb/1783728892",
+     "art": "/library/metadata/30286/art/1792140717",
+     "parentThumb": "/library/metadata/30286/thumb/1792140717",
+     "parentTheme": "/library/metadata/30286/theme/1792140717",
+     "leafCount": 8,
+     "viewedLeafCount": 8,
+     "addedAt": 1763139982,
+     "updatedAt": 1783728892,
+     "Image": [
+      {
+       "alt": "alt 13",
+       "type": "coverPoster",
+       "url": "/library/metadata/30287/thumb/1783728892"
+      },
+      {
+       "alt": "alt 13",
+       "type": "background",
+       "url": "/library/metadata/30286/art/1792140717"
+      },
+      {
+       "alt": "alt 13",
+       "type": "clearLogo",
+       "url": "/library/metadata/30286/clearLogo/1792140717"
+      }
+     ],
+     "UltraBlurColors": {
+      "topLeft": "topLeft 14",
+      "topRight": "topRight 10",
+      "bottomRight": "bottomRight 10",
+      "bottomLeft": "313738"
+     }
+    }
+   ]
+  }
+ }
+}

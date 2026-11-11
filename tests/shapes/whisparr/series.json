@@ -1,0 +1,343 @@
+{
+ "_meta": {
+  "endpoint": "series",
+  "recorded": "2026-11-11T12:27",
+  "note": "sanitised real answer; ids/dates/enums real, text replaced"
+ },
+ "body": [
+  {
+   "title": "title 34",
+   "sortTitle": "sortTitle 10",
+   "status": "continuing",
+   "ended": false,
+   "overview": "overview 14",
+   "previousAiring": "2026-11-06T00:00:00Z",
+   "network": "Nubiles",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 39 (2020)",
+     "remoteUrl": "https://ref45"
+    },
+    {
+     "coverType": "logo",
+     "url": "/data/movies/Movie 40 (2020)",
+     "remoteUrl": "https://ref46"
+    }
+   ],
+   "originalLanguage": {
+    "id": 1,
+    "name": "English"
+   },
+   "seasons": [
+    {
+     "seasonNumber": 2017,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2017-12-29T00:00:00Z",
+      "episodeFileCount": 21,
+      "episodeCount": 34,
+      "totalEpisodeCount": 34,
+      "sizeOnDisk": 49503807489,
+      "releaseGroups": [
+       "KTR",
+       "NOGROUP"
+      ],
+      "percentOfEpisodes": 61.76470588235294
+     }
+    },
+    {
+     "seasonNumber": 2018,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2018-12-28T00:00:00Z",
+      "episodeFileCount": 36,
+      "episodeCount": 52,
+      "totalEpisodeCount": 52,
+      "sizeOnDisk": 81782140007,
+      "releaseGroups": [
+       "KTR",
+       "KTR-Pornfuscated"
+      ],
+      "percentOfEpisodes": 69.23076923076923
+     }
+    },
+    {
+     "seasonNumber": 2019,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2019-12-27T00:00:00Z",
+      "episodeFileCount": 27,
+      "episodeCount": 52,
+      "totalEpisodeCount": 52,
+      "sizeOnDisk": 57418340488,
+      "releaseGroups": [
+       "GalaXXXy",
+       "KTR",
+       "KTR-Pornfuscated",
+       "XXX"
+      ],
+      "percentOfEpisodes": 51.92307692307692
+     }
+    }
+   ],
+   "year": 2017,
+   "path": "/data/movies/Movie 41 (2020)",
+   "qualityProfileId": 1,
+   "monitored": true,
+   "seriesType": "standard",
+   "monitorNewItems": "all",
+   "useSceneNumbering": false,
+   "runtime": 27,
+   "tvdbId": 126,
+   "cleanTitle": "brattysis",
+   "titleSlug": "brattysis",
+   "rootFolderPath": "/data/movies/Movie 42 (2020)",
+   "genres": [],
+   "tags": [
+    1
+   ],
+   "added": "2026-02-02T04:59:39Z",
+   "ratings": {
+    "votes": 0,
+    "value": 0
+   },
+   "statistics": {
+    "seasonCount": 10,
+    "episodeFileCount": 405,
+    "episodeCount": 508,
+    "totalEpisodeCount": 508,
+    "sizeOnDisk": 800742931700,
+    "releaseGroups": [
+     "KTR",
+     "NOGROUP",
+     "KTR-Pornfuscated",
+     "GalaXXXy",
+     "XXX",
+     "WRB",
+     "PRT",
+     "WRB-FTP",
+     "WRB-XC"
+    ],
+    "percentOfEpisodes": 79.7244094488189
+   },
+   "id": 1
+  },
+  {
+   "title": "title 35",
+   "sortTitle": "sortTitle 11",
+   "status": "continuing",
+   "ended": false,
+   "overview": "overview 15",
+   "previousAiring": "2026-11-01T00:00:00Z",
+   "network": "Nubiles",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 43 (2020)",
+     "remoteUrl": "https://ref47"
+    },
+    {
+     "coverType": "logo",
+     "url": "/data/movies/Movie 44 (2020)",
+     "remoteUrl": "https://ref48"
+    }
+   ],
+   "originalLanguage": {
+    "id": 1,
+    "name": "English"
+   },
+   "seasons": [
+    {
+     "seasonNumber": 2015,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2015-12-28T00:00:00Z",
+      "episodeFileCount": 1,
+      "episodeCount": 7,
+      "totalEpisodeCount": 7,
+      "sizeOnDisk": 3284842934,
+      "releaseGroups": [
+       "KTR"
+      ],
+      "percentOfEpisodes": 14.285714285714286
+     }
+    },
+    {
+     "seasonNumber": 2016,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2016-12-30T00:00:00Z",
+      "episodeFileCount": 13,
+      "episodeCount": 24,
+      "totalEpisodeCount": 24,
+      "sizeOnDisk": 27571008710,
+      "releaseGroups": [
+       "KTR"
+      ],
+      "percentOfEpisodes": 54.166666666666664
+     }
+    },
+    {
+     "seasonNumber": 2017,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2017-12-16T00:00:00Z",
+      "episodeFileCount": 15,
+      "episodeCount": 24,
+      "totalEpisodeCount": 24,
+      "sizeOnDisk": 37248753751,
+      "releaseGroups": [
+       "KTR",
+       "NOGROUP"
+      ],
+      "percentOfEpisodes": 62.5
+     }
+    }
+   ],
+   "year": 2015,
+   "path": "/data/movies/Movie 45 (2020)",
+   "qualityProfileId": 1,
+   "monitored": true,
+   "seriesType": "standard",
+   "monitorNewItems": "all",
+   "useSceneNumbering": false,
+   "runtime": 27,
+   "tvdbId": 82,
+   "cleanTitle": "stepsiblingscaught",
+   "titleSlug": "stepsiblingscaught",
+   "rootFolderPath": "/data/movies/Movie 42 (2020)",
+   "genres": [],
+   "tags": [
+    1
+   ],
+   "added": "2026-02-02T06:59:34Z",
+   "ratings": {
+    "votes": 0,
+    "value": 0
+   },
+   "statistics": {
+    "seasonCount": 12,
+    "episodeFileCount": 278,
+    "episodeCount": 355,
+    "totalEpisodeCount": 355,
+    "sizeOnDisk": 530096380915,
+    "releaseGroups": [
+     "KTR",
+     "NOGROUP",
+     "KTR-Pornfuscated",
+     "NCR",
+     "PRT",
+     "WRB",
+     "XXX",
+     "WRB-XC"
+    ],
+    "percentOfEpisodes": 78.30985915492958
+   },
+   "id": 2
+  },
+  {
+   "title": "title 36",
+   "sortTitle": "sortTitle 12",
+   "status": "ended",
+   "ended": true,
+   "overview": "overview 16",
+   "previousAiring": "2019-01-01T00:00:00Z",
+   "network": "network 4",
+   "images": [
+    {
+     "coverType": "poster",
+     "url": "/data/movies/Movie 46 (2020)",
+     "remoteUrl": "https://ref49"
+    },
+    {
+     "coverType": "logo",
+     "url": "/data/movies/Movie 47 (2020)",
+     "remoteUrl": "https://ref50"
+    }
+   ],
+   "originalLanguage": {
+    "id": 1,
+    "name": "English"
+   },
+   "seasons": [
+    {
+     "seasonNumber": 2013,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2013-01-01T00:00:00Z",
+      "episodeFileCount": 0,
+      "episodeCount": 1,
+      "totalEpisodeCount": 1,
+      "sizeOnDisk": 0,
+      "releaseGroups": [],
+      "percentOfEpisodes": 0
+     }
+    },
+    {
+     "seasonNumber": 2014,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2014-12-23T00:00:00Z",
+      "episodeFileCount": 7,
+      "episodeCount": 16,
+      "totalEpisodeCount": 16,
+      "sizeOnDisk": 14829740375,
+      "releaseGroups": [
+       "KTR",
+       "SEXORS"
+      ],
+      "percentOfEpisodes": 43.75
+     }
+    },
+    {
+     "seasonNumber": 2015,
+     "monitored": true,
+     "statistics": {
+      "previousAiring": "2015-07-28T00:00:00Z",
+      "episodeFileCount": 12,
+      "episodeCount": 13,
+      "totalEpisodeCount": 13,
+      "sizeOnDisk": 21944514424,
+      "releaseGroups": [
+       "KTR"
+      ],
+      "percentOfEpisodes": 92.3076923076923
+     }
+    }
+   ],
+   "year": 2013,
+   "path": "/data/movies/Movie 48 (2020)",
+   "qualityProfileId": 1,
+   "monitored": true,
+   "seriesType": "standard",
+   "monitorNewItems": "all",
+   "useSceneNumbering": false,
+   "runtime": 38,
+   "tvdbId": 745,
+   "cleanTitle": "czechtaxi",
+   "titleSlug": "czechtaxi",
+   "rootFolderPath": "/data/movies/Movie 42 (2020)",
+   "genres": [],
+   "tags": [],
+   "added": "2026-07-10T16:29:32Z",
+   "ratings": {
+    "votes": 0,
+    "value": 0
+   },
+   "statistics": {
+    "seasonCount": 5,
+    "episodeFileCount": 29,
+    "episodeCount": 42,
+    "totalEpisodeCount": 42,
+    "sizeOnDisk": 48539147499,
+    "releaseGroups": [
+     "KTR",
+     "SEXORS"
+    ],
+    "percentOfEpisodes": 69.04761904761905
+   },
+   "id": 9
+  }
+ ]
+}

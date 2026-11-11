@@ -1,6 +1,6 @@
 """Q25 no swallowed errors: a failure inside a job keeps its traceback (errors.log + About → Recent errors + health count).
 Run: python tests/errors_log.py   Exit 1 on failure."""
-import os, sys, tempfile, time
+import os, sys, tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="auditarr-errlog-"); os.environ["REPORT_DIR"] = os.environ["CONFIG_DIR"]
 sys.path.insert(0, ROOT)

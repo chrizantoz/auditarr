@@ -42,14 +42,14 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **Q6** Visual-regression check: baseline screenshots (in `uibot/baseline/`, taken from CI) that fail on a >1 % pixel change at phone and desktop width; refresh them on purpose after a visual change.
 - [x] **Q7** "Monkey" run: 60 seconds of random clicking with no JavaScript errors, and every save preceded by a confirm box.
 - [x] **Q8** Rotating failure drill: a different service down each week (all / Bazarr / Plex / Whisparr by week number). The slow-service variant is split out as Q9.
-- [ ] **Q9** Slow-service drill: put a latency-injecting proxy in front of one service to prove timeouts, not just outright failures.
+- [x] **Q9** (2026-11-11) Slow-service drill: `auditarr-deploy.sh drill 4` puts Sonarr behind a 200 s latency proxy (a throwaway python container); the staged run must finish within 25 min, report Sonarr degraded and write nothing. Part of the weekly rotation.
 
 🤖 **Bots, next layer (added 2026-11-11, ranked)**
 - [x] **Q10** (2026-11-11) Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
 - [x] **Q11** (2026-11-11) Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
 - [x] **Q12** (2026-11-11) Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
 - [x] **Q13** (2026-11-11) Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
-- [ ] **Q14** Restore drill (weekly, on the host): start a throwaway container on last night's backup and load its page.
+- [x] **Q14** (2026-11-11) Restore drill: `auditarr-deploy.sh restore` integrity-checks the newest nightly state backup, boots a throwaway read-only container on it and checks the page, open findings and run history come back; fails if the backup is older than 48 h. Weekly cron on the host.
 - [x] **Q15** (2026-11-11) Chaos in the fake stack: `tests/e2e_chaos.py` + `mock_stack.chaos()` (500s, slow answers, Radarr vanishing); degraded finish, findings kept, no writes, clean recovery.
 - [x] **Q16** (2026-11-11) Performance budget: `tests/perf_budget.py` seeds 10k files / 5k findings and fails CI when the report, page state, Today, plan or memory exceed their budgets (today: all under 0.1 s, 55 MB).
 - [x] **Q17** (2026-11-11) Persona scripts in the live browser bot: "why is this episode missing" (search → row → sentence → Search now), "make AI subtitles for the whole show" (Tools box → confirm → queued), "stop showing this one" (Ignore → row gone), plus the existing "undo the last move".

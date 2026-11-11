@@ -4,6 +4,8 @@
 #   auditarr-deploy.sh stage <image>      run the image against a COPY of the database with every write gate off, wait for its run + self-test, compare with production
 #   auditarr-deploy.sh update             pull :latest; if it is new, stage it; promote only if staging passes (nightly, cron)
 #   auditarr-deploy.sh rollback           recreate production from the previously running image
+#   auditarr-deploy.sh drill [n]          weekly fault drill: production image staged read-only with services unreachable (n=4: Sonarr behind a 200 s latency proxy)
+#   auditarr-deploy.sh restore            weekly restore drill: boot a throwaway container on the newest nightly state backup, prove the page comes up with its history
 set -u
 # Site values live in auditarr-deploy.env next to this script (not in the repository); these are the generic defaults.
 IMG_REPO="ghcr.io/chrizantoz/auditarr"; L=/mnt/user/appdata/auditarr; STATE=/boot/config/custom/auditarr-deploy.state
@@ -59,6 +61,10 @@ if mode == "drill":   # dependencies were pointed at dead ports: the run must st
     extra_down = set(H.get("degraded") or []) - expect; reasons += [f"{m} reported down but was not part of the drill" for m in sorted(extra_down)]
     if H.get("write_attempts"): reasons.append(f"tried to write {H['write_attempts']}x")
     if not sf: reasons.append("no findings at all - the other arrs were not audited")
+    try:   # a slow service must cost minutes, not the night: the run has to give up on it within the client timeouts
+        import datetime; pr = Sg.get("progress") or {}; dur = (datetime.datetime.fromisoformat(pr["updated"]) - datetime.datetime.fromisoformat(pr["started"])).total_seconds()
+        if dur > 1500: reasons.append(f"run took {dur/60:.0f} min with {os.environ.get('DRILL_SET')} unreachable - timeouts too long")
+    except Exception: pass
     print("PASS" if not reasons else "FAIL: " + "; ".join(reasons)); sys.exit(0)
 if st.get("failed") or not st.get("total"): reasons.append(f"self-test {st.get('passed')}/{st.get('total')} failed={st.get('failed')}")
 if (Sg.get("progress") or {}).get("phase") != "done": reasons.append(f"staged run phase={(Sg.get('progress') or {}).get('phase')}")
@@ -94,11 +100,69 @@ case "${1:-}" in
       echo "previous=$(docker inspect media-audit --format '{{index .RepoDigests 0}}' 2>/dev/null || echo $cur)" > $STATE
       run_prod "$IMG_REPO:latest" && notify "Auditarr updated" "new image passed staging and is live: ${tag:0:60}" || notify "Auditarr update FAILED to start" "$tag" high
     else notify "Auditarr update held back" "new image failed staging - production unchanged. See /var/log/auditarr-deploy.log" high; fi ;;
-  drill)   # fault drill: the running production image, staged read-only with services pointed at dead ports; rotates weekly (all three / bazarr / plex / whisparr)
+  drill)   # fault drill: the running production image, staged read-only with services pointed at dead ports; rotates weekly (all three / bazarr / plex / whisparr / slow sonarr)
     img=$(docker inspect media-audit --format '{{.Config.Image}}' 2>/dev/null || echo $IMG_REPO:latest)
-    case "${2:-$(( 10#$(date +%U) % 4 ))}" in 1) DRILL_SET="bazarr";; 2) DRILL_SET="plex";; 3) DRILL_SET="whisparr";; *) DRILL_SET="bazarr plex whisparr";; esac
-    extra=""; for svc in $DRILL_SET; do extra="$extra -e $(echo $svc | tr a-z A-Z)_URL=http://127.0.0.1:9"; done; export DRILL_SET
-    if stage "$img" "$extra" drill; then notify "Auditarr fault drill passed" "with $DRILL_SET unreachable the audit still finished, reported it as degraded and wrote nothing"
-    else notify "Auditarr fault drill FAILED" "see /var/log/auditarr-deploy.log" high; exit 1; fi ;;
-  *) echo "usage: $0 run|stage|update|rollback|drill [image]"; exit 2 ;;
+    case "${2:-$(( 10#$(date +%U) % 5 ))}" in 1) DRILL_SET="bazarr";; 2) DRILL_SET="plex";; 3) DRILL_SET="whisparr";; 4) DRILL_SET="slow";; *) DRILL_SET="bazarr plex whisparr";; esac
+    if [ "$DRILL_SET" = slow ]; then   # Q9 slow-service drill: Sonarr behind a proxy that only answers after 200 s (longer than the client timeout); the run must give up on it in time, not hang all night
+      up=$(docker exec media-audit python3 -c 'import sys; sys.path.insert(0,"/app"); import audit; c=audit.db(); audit.load_settings(c); print((audit.arr_apps().get("sonarr") or [""])[0])' 2>/dev/null)
+      [ -n "$up" ] || { log "slow drill: cannot find the Sonarr address"; notify "Auditarr slow-service drill FAILED" "cannot find the Sonarr address" high; exit 1; }
+      docker rm -f auditarr-slowproxy >/dev/null 2>&1
+      docker run -d --name auditarr-slowproxy --network $NETWORK -e UP="$up" -e DELAY=200 -l com.centurylinklabs.watchtower.enable=false python:3.12-alpine python -c "$(cat <<'PY'
+import asyncio, os, urllib.parse
+u = urllib.parse.urlparse(os.environ["UP"]); host, port, delay = u.hostname, u.port or 80, float(os.environ.get("DELAY", "200"))
+async def pipe(r, w):
+    try:
+        while True:
+            b = await r.read(65536)
+            if not b: break
+            w.write(b); await w.drain()
+    except Exception: pass
+    finally:
+        try: w.close()
+        except Exception: pass
+async def handle(cr, cw):
+    await asyncio.sleep(delay)
+    try: ur, uw = await asyncio.open_connection(host, port)
+    except Exception: cw.close(); return
+    await asyncio.gather(pipe(cr, uw), pipe(ur, cw))
+async def main():
+    s = await asyncio.start_server(handle, "0.0.0.0", 8989); await s.serve_forever()
+asyncio.run(main())
+PY
+)" >/dev/null || { log "slow proxy failed to start"; exit 1; }
+      sleep 2; pip_=$(docker inspect auditarr-slowproxy --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' | head -c 40)
+      DRILL_SET="sonarr"; export DRILL_SET; ok=0; stage "$img" "-e SONARR_URL=http://$pip_:8989" drill && ok=1; docker rm -f auditarr-slowproxy >/dev/null 2>&1
+      if [ $ok = 1 ]; then notify "Auditarr slow-service drill passed" "with Sonarr answering only after the timeout, the audit still finished in time, reported it as degraded and wrote nothing"
+      else notify "Auditarr slow-service drill FAILED" "see /var/log/auditarr-deploy.log" high; exit 1; fi
+    else
+      extra=""; for svc in $DRILL_SET; do extra="$extra -e $(echo $svc | tr a-z A-Z)_URL=http://127.0.0.1:9"; done; export DRILL_SET
+      if stage "$img" "$extra" drill; then notify "Auditarr fault drill passed" "with $DRILL_SET unreachable the audit still finished, reported it as degraded and wrote nothing"
+      else notify "Auditarr fault drill FAILED" "see /var/log/auditarr-deploy.log" high; exit 1; fi
+    fi ;;
+  restore)   # Q14 restore drill: the newest nightly state backup must open, boot a throwaway container, and show its findings and run history
+    bk=$(ls -t $L/data/backups/state-*.db 2>/dev/null | head -1)
+    [ -n "$bk" ] || { log "restore drill: no backup in $L/data/backups"; notify "Auditarr restore drill FAILED" "no state backup found" high; exit 1; }
+    RD="$L-restore"; docker rm -f media-audit-restore >/dev/null 2>&1; rm -rf "$RD"; mkdir -p "$RD/data"; cp "$bk" "$RD/data/state.db"; cp "$L/data/ignore.txt" "$RD/data/" 2>/dev/null
+    ic=$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("PRAGMA integrity_check").fetchone()[0])' "$RD/data/state.db" 2>&1 | head -c 120)
+    img=$(docker inspect media-audit --format '{{.Config.Image}}' 2>/dev/null || echo $IMG_REPO:latest)
+    docker run -d --name media-audit-restore -p 3094:3091 $(common_args | tr '\n' ' ') -e RUN_ON_START=0 -e RUN_AT=23:59 -e JOBS=off -e READ_ONLY=1 -e PAPERCLIP=off -e PLEX_REFRESH=off -e PLEX_CHECK=off \
+      -e ARR_RESCAN=off -e DEDUPE=off -e REMEDIATE=off -e HOST_CONTAINERNAME=media-audit-restore -l com.centurylinklabs.watchtower.enable=false -v $RD/data:/config "$img" >/dev/null || { log "restore container failed to start"; exit 1; }
+    i=0; while [ $i -lt 24 ]; do sleep 5; i=$((i+1)); curl -sf --max-time 5 http://127.0.0.1:3094/health >/dev/null && break; done
+    nf=$(docker exec media-audit-restore python3 -c 'import sqlite3; c=sqlite3.connect("/config/state.db"); print(c.execute("SELECT count(*) FROM finding WHERE resolved_at IS NULL").fetchone()[0], c.execute("SELECT count(*) FROM run").fetchone()[0])' 2>/dev/null)
+    verdict=$(python3 - "$ic" "$bk" "$nf" <<'EOF'
+import json, sys, urllib.request, os, time
+ic, bk, nf = sys.argv[1], sys.argv[2], (sys.argv[3] or "0 0").split(); reasons = []
+if ic != "ok": reasons.append(f"integrity_check: {ic}")
+try: st = json.load(urllib.request.urlopen("http://127.0.0.1:3094/api/state", timeout=30)); hist = json.load(urllib.request.urlopen("http://127.0.0.1:3094/api/history", timeout=30))
+except Exception as e: reasons.append(f"page did not come up: {e!r}"[:120]); st, hist = {}, {}
+if int(nf[0]) == 0: reasons.append("restored database has no open findings")
+if int(nf[1]) == 0 or not (hist.get("runs") or []): reasons.append("restored database has no run history")
+age_h = (time.time() - os.path.getmtime(bk)) / 3600
+if age_h > 48: reasons.append(f"newest backup is {age_h:.0f} h old - the nightly backup is not running")
+print(("PASS" if not reasons else "FAIL: " + "; ".join(reasons)) + f" ({os.path.basename(bk)}, {age_h:.0f} h old, {nf[0]} open findings, {nf[1]} runs, page {'ok' if st else 'down'})")
+EOF
+)
+    docker rm -f media-audit-restore >/dev/null 2>&1; rm -rf "$RD"; log "restore drill -> $verdict"
+    if echo "$verdict" | grep -q '^PASS'; then notify "Auditarr restore drill passed" "$verdict"; else notify "Auditarr restore drill FAILED" "$verdict" high; exit 1; fi ;;
+  *) echo "usage: $0 run|stage|update|rollback|drill [n]|restore [image]"; exit 2 ;;
 esac

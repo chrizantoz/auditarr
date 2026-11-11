@@ -8,6 +8,8 @@ A one-person project that moves other people's files has to be paranoid. This is
 |---|---|---|
 | compile + pyflakes | no syntax errors, no undefined names | `audit.py`, `tests/*.py` |
 | synthetic media | 26 ffmpeg-generated files, each with one known defect (French audio, no audio, 10-bit, wrong length, duplicate, orphan…), must produce exactly the expected finding and severity | `tests/synthetic_media.py` |
+| slow-service drill (host, weekly rotation) | Sonarr behind a 200 s latency proxy: the staged read-only run must finish within 25 minutes, report Sonarr as degraded and write nothing, proving the client timeouts work | `docs/auditarr-deploy.sh drill 4` |
+| restore drill (host, weekly) | the newest nightly state backup is integrity-checked and booted in a throwaway container; the page must come up with its open findings and run history; a backup older than 48 h fails | `docs/auditarr-deploy.sh restore` |
 | persona tasks (live browser) | three tasks a non-technical person would try, done only through the page against the live fake stack and judged by outcome: find out why an episode is missing, make AI subtitles for a whole show, ignore a finding; plus trash → Undo | `uibot/browser_bot.js` (LIVE mode, run by `tests/e2e_stack.py`) |
 | performance budget | 10,000 files, 5,000 open findings, 2,000 actions seeded; report build, page state, Today, scores, plan and history must each finish within a fixed budget, the state payload under 12 MB, peak memory under 900 MB | `tests/perf_budget.py` |
 | fake arr stack | `tests/mock_stack.py` is also published on its own as [arr-mock](https://github.com/chrizantoz/arr-mock) for other arr companion apps; keep the two in sync when the mock changes | `tests/mock_stack.py` |

@@ -1,0 +1,51 @@
+# How Auditarr tests itself
+
+A one-person project that moves other people's files has to be paranoid. This is the harness, in the order a change passes through it. Copy whatever is useful; everything here is plain Python, Node and shell.
+
+## 1. On every push (GitHub Actions, `.github/workflows/ci.yml`)
+
+| step | what it proves | file |
+|---|---|---|
+| compile + pyflakes | no syntax errors, no undefined names | `audit.py`, `tests/*.py` |
+| synthetic media | 26 ffmpeg-generated files, each with one known defect (French audio, no audio, 10-bit, wrong length, duplicate, orphan…), must produce exactly the expected finding and severity | `tests/synthetic_media.py` |
+| plain-language guard | 19 pinned sentences; every check name, sentence and button label is code-free, jargon-free, short, and ends in a full stop | `tests/plain_language.py` |
+| contract | every action the page can send exists in the backend, has a confirm sentence and a label; every API path the page calls exists | `tests/contract.py` |
+| jsdom bot | 46 checks against sanitized fixtures from a real library, plus five edge worlds (empty, 2000-finding show, every service down, API errors, fresh install) | `uibot/ui_bot.js`, `uibot/fixtures/`, `uibot/edge_fixtures.py` |
+| real browser (Playwright) | phone and desktop: no horizontal scroll, controls on screen, plain words only, help opens, confirm before every write, accessibility scan (axe, serious/critical fail), 60-click seeded monkey, screenshots | `uibot/browser_bot.js` |
+| visual regression | screenshots vs committed baselines, >1 % pixel change fails | `uibot/visual_diff.js`, `uibot/baseline/` |
+| end to end | a fake Sonarr/Radarr/Bazarr + synthetic media under `/data` + the real daemon: findings appear, Move to trash moves the file, Undo restores it, re-download sends the arr its commands, the import webhook flags a bad file within seconds, sign-in gates the page, secrets never leak, the built-in self-test passes, and the browser bot clicks the real page | `tests/e2e_stack.py`, `tests/mock_stack.py` |
+
+Only after all of that does CI publish the image.
+
+## 2. Before production (on the Docker host, `docs/auditarr-deploy.sh update`)
+
+1. Pull `:latest`; stop if the digest is unchanged.
+2. Start the candidate as a **staging** container on another port with a copy of the real database and `READ_ONLY=1`: every write to an arr, Bazarr, Plex or a media file is refused and counted (`guard_write` in `audit.py`), independent of the per-feature gates. Staging also runs with every nightly automation gate off and `JOBS=off`.
+3. Let it run a full audit and its self-test.
+4. Judge: self-test green, run finished, total findings within 20 % of production, no check more than doubled (medium and above), zero write attempts.
+5. **Promote** only then: wait until production is idle (`/health` reports `busy: 0`), recreate the container, remember the previous image for `rollback`.
+
+## 3. Every night, in production
+
+- `/api/selftest` after each run: API and detector checks with reversible actions.
+- The jsdom bot against the live page (the `auditarr-uibot` image), result shown in the header chip and the History tab.
+- Backup proof: the nightly SQLite backup is reopened and integrity-checked.
+- Every Sunday a **fault drill**: the production image is staged with Bazarr, Plex or Whisparr pointed at a dead port (rotating); the run must finish, report the outage as degraded, and write nothing.
+
+## 4. Rules that made the difference
+
+- **Tests must bite.** When CI's accessibility scan rejected a new theme twice, that was the harness doing its job. Assertions that cannot fail are decoration.
+- **Prove writes, do not list them.** A read-only mode that counts attempts beats a checklist of feature gates: the next feature cannot forget to be on the list.
+- **Compare per check, fail on increases.** Totals hide a detector that silently vanished or doubled; drops are usually fixes landing, so they are notes, not failures.
+- **Real files, fake services.** ffmpeg can make a 30-second file with any defect you like in a second; a fake arr is a 150-line HTTP server. Together they let the whole pipeline run on a CI runner.
+- **Sanitize fixtures, then use them everywhere.** The same scrubbed snapshot feeds the bots, the edge worlds and the public demo.
+
+## Running it locally
+
+```bash
+python tests/synthetic_media.py            # needs ffmpeg
+python tests/plain_language.py && python tests/contract.py
+cd uibot && npm install jsdom@24.1.3 && node ui_bot.js ../ui.html fixtures && cd ..
+cd uibot && npm install playwright@1.49.1 axe-core@4.10.2 && npx playwright install chromium-headless-shell && node browser_bot.js ../ui.html fixtures && cd ..
+sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py   # fake stack + real daemon + browser bot
+```

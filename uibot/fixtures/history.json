@@ -1,0 +1,745 @@
+{
+"runs": [
+{
+"started": "2026-11-09T23:02",
+"duration_s": 1435,
+"files": 14001,
+"probed": 10401,
+"active": 889,
+"new": 889,
+"resolved": 0,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-09T23:48",
+"duration_s": 55,
+"files": 14001,
+"probed": 0,
+"active": 1674,
+"new": 979,
+"resolved": 194,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-09T23:51",
+"duration_s": 54,
+"files": 14001,
+"probed": 0,
+"active": 1669,
+"new": 0,
+"resolved": 5,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-09T23:59",
+"duration_s": 54,
+"files": 14001,
+"probed": 0,
+"active": 1669,
+"new": 0,
+"resolved": 0,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:00",
+"duration_s": 55,
+"files": 14001,
+"probed": 0,
+"active": 1669,
+"new": 0,
+"resolved": 0,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:02",
+"duration_s": 56,
+"files": 14001,
+"probed": 0,
+"active": 1669,
+"new": 0,
+"resolved": 0,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:04",
+"duration_s": 55,
+"files": 14000,
+"probed": 0,
+"active": 1665,
+"new": 0,
+"resolved": 4,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:06",
+"duration_s": 54,
+"files": 14000,
+"probed": 0,
+"active": 1665,
+"new": 0,
+"resolved": 0,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:13",
+"duration_s": 56,
+"files": 14001,
+"probed": 1,
+"active": 1665,
+"new": 1,
+"resolved": 1,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T00:16",
+"duration_s": 55,
+"files": 14001,
+"probed": 0,
+"active": 1615,
+"new": 0,
+"resolved": 50,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T05:00",
+"duration_s": 61,
+"files": 14002,
+"probed": 3,
+"active": 1464,
+"new": 3,
+"resolved": 3,
+"by_severity": null,
+"dedupes": null,
+"regrabs": null,
+"purged": null,
+"trash_gb": null,
+"plex_refreshed": null
+},
+{
+"started": "2026-11-10T08:21",
+"duration_s": 66,
+"files": 14003,
+"probed": 1,
+"active": 1463,
+"new": 3,
+"resolved": 0,
+"by_severity": {
+"high": 2,
+"low": 1045,
+"medium": 416
+},
+"dedupes": 1,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T08:26",
+"duration_s": 62,
+"files": 14003,
+"probed": 2,
+"active": 1463,
+"new": 2,
+"resolved": 0,
+"by_severity": {
+"high": 2,
+"low": 1045,
+"medium": 416
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T08:28",
+"duration_s": 63,
+"files": 14003,
+"probed": 0,
+"active": 1460,
+"new": 0,
+"resolved": 3,
+"by_severity": {
+"low": 1044,
+"medium": 416
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T08:35",
+"duration_s": 71,
+"files": 14003,
+"probed": 4,
+"active": 1459,
+"new": 0,
+"resolved": 0,
+"by_severity": {
+"low": 1043,
+"medium": 416
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T09:04",
+"duration_s": 73,
+"files": 14003,
+"probed": 2,
+"active": 1459,
+"new": 1,
+"resolved": 0,
+"by_severity": {
+"low": 1043,
+"medium": 416
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T09:33",
+"duration_s": 106,
+"files": 14018,
+"probed": 149,
+"active": 1119,
+"new": 0,
+"resolved": 13,
+"by_severity": {
+"low": 898,
+"medium": 221
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 4.9,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T09:45",
+"duration_s": 97,
+"files": 14018,
+"probed": 0,
+"active": 1089,
+"new": 0,
+"resolved": 0,
+"by_severity": {
+"low": 898,
+"medium": 191
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 39.4,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T10:10",
+"duration_s": 358,
+"files": 14018,
+"probed": 4,
+"active": 1059,
+"new": 0,
+"resolved": 0,
+"by_severity": {
+"low": 898,
+"medium": 161
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 5
+},
+{
+"started": "2026-11-10T10:30",
+"duration_s": 138,
+"files": 14008,
+"probed": 30,
+"active": 1059,
+"new": 22,
+"resolved": 0,
+"by_severity": {
+"high": 22,
+"low": 898,
+"medium": 139
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T10:40",
+"duration_s": 136,
+"files": 14006,
+"probed": 1,
+"active": 1261,
+"new": 225,
+"resolved": 23,
+"by_severity": {
+"low": 905,
+"medium": 356
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T10:42",
+"duration_s": 126,
+"files": 14006,
+"probed": 0,
+"active": 1740,
+"new": 482,
+"resolved": 3,
+"by_severity": {
+"low": 1371,
+"medium": 369
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T10:46",
+"duration_s": 131,
+"files": 14006,
+"probed": 0,
+"active": 1678,
+"new": 0,
+"resolved": 62,
+"by_severity": {
+"low": 1367,
+"medium": 311
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 3
+},
+{
+"started": "2026-11-10T10:50",
+"duration_s": 127,
+"files": 14006,
+"probed": 0,
+"active": 1685,
+"new": 7,
+"resolved": 0,
+"by_severity": {
+"low": 1367,
+"medium": 318
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 109.5,
+"plex_refreshed": 3
+},
+{
+"started": "2026-11-10T11:17",
+"duration_s": 134,
+"files": 13942,
+"probed": 21,
+"active": 1694,
+"new": 134,
+"resolved": 22,
+"by_severity": {
+"high": 18,
+"low": 1436,
+"medium": 240
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 223.3,
+"plex_refreshed": 2
+},
+{
+"started": "2026-11-10T11:23",
+"duration_s": 170,
+"files": 13949,
+"probed": 7,
+"active": 2047,
+"new": 374,
+"resolved": 18,
+"by_severity": {
+"high": 21,
+"low": 1807,
+"medium": 219
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 227.0,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T11:34",
+"duration_s": 160,
+"files": 13965,
+"probed": 16,
+"active": 2028,
+"new": 2,
+"resolved": 21,
+"by_severity": {
+"high": 21,
+"low": 1790,
+"medium": 217
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 227.0,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T11:48",
+"duration_s": 139,
+"files": 13979,
+"probed": 14,
+"active": 2013,
+"new": 2,
+"resolved": 17,
+"by_severity": {
+"high": 3,
+"low": 1787,
+"medium": 223
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 227.0,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T11:58",
+"duration_s": 148,
+"files": 13986,
+"probed": 10,
+"active": 2001,
+"new": 1,
+"resolved": 13,
+"by_severity": {
+"low": 1781,
+"medium": 220
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 223.3,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T13:34",
+"duration_s": 806,
+"files": 14000,
+"probed": 14,
+"active": 1803,
+"new": 63,
+"resolved": 74,
+"by_severity": {
+"high": 1,
+"low": 1605,
+"medium": 197
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 291.8,
+"plex_refreshed": 14
+},
+{
+"started": "2026-11-10T13:59",
+"duration_s": 168,
+"files": 14029,
+"probed": 32,
+"active": 1764,
+"new": 5,
+"resolved": 41,
+"by_severity": {
+"low": 1616,
+"medium": 148
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 293.3,
+"plex_refreshed": 9
+},
+{
+"started": "2026-11-10T14:07",
+"duration_s": 105,
+"files": 14038,
+"probed": 11,
+"active": 1753,
+"new": 0,
+"resolved": 9,
+"by_severity": {
+"low": 1603,
+"medium": 150
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 296.2,
+"plex_refreshed": 2
+},
+{
+"started": "2026-11-10T15:19",
+"duration_s": 114,
+"files": 14045,
+"probed": 8,
+"active": 1716,
+"new": 1,
+"resolved": 31,
+"by_severity": {
+"low": 1590,
+"medium": 126
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 298.1,
+"plex_refreshed": 1
+},
+{
+"started": "2026-11-10T15:58",
+"duration_s": 103,
+"files": 14049,
+"probed": 4,
+"active": 1712,
+"new": 0,
+"resolved": 4,
+"by_severity": {
+"low": 1590,
+"medium": 122
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 298.1,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T16:06",
+"duration_s": 105,
+"files": 14050,
+"probed": 1,
+"active": 1711,
+"new": 0,
+"resolved": 1,
+"by_severity": {
+"high": 1,
+"low": 1589,
+"medium": 121
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 298.1,
+"plex_refreshed": 0
+},
+{
+"started": "2026-11-10T17:04",
+"duration_s": 502,
+"files": 14055,
+"probed": 1005,
+"active": 1704,
+"new": 0,
+"resolved": 5,
+"by_severity": {
+"low": 1589,
+"medium": 115
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 298.1,
+"plex_refreshed": 20
+},
+{
+"started": "2026-11-10T19:41",
+"duration_s": 544,
+"files": 14063,
+"probed": 2017,
+"active": 1042,
+"new": 61,
+"resolved": 163,
+"by_severity": {
+"low": 880,
+"medium": 162
+},
+"dedupes": 0,
+"regrabs": 0,
+"purged": 0,
+"trash_gb": 310.4,
+"plex_refreshed": 24
+}
+],
+"days": {
+"2026-11-09": {
+"dedupe": 0,
+"regrab": 0,
+"quarantine": 0,
+"restore": 0,
+"ignore": 0,
+"fixtag": 0,
+"subsearch": 0,
+"purge": 0,
+"purge_gb": 0.0
+},
+"2026-11-10": {
+"dedupe": 105,
+"regrab": 199,
+"quarantine": 116,
+"restore": 8,
+"ignore": 67,
+"fixtag": 167,
+"subsearch": 100,
+"purge": 5,
+"purge_gb": 337.90000000000003
+}
+},
+"tests": {
+"selftest": {
+"ts": "2026-11-10T19:50:51",
+"passed": 27,
+"total": 27,
+"failed": [],
+"duration_s": 8
+},
+"uibot": {
+"ts": "2026-11-10T20:22:09",
+"passed": 36,
+"total": 36,
+"failed": []
+},
+"history": [
+{
+"ts": "2026-11-10T15:14:57",
+"passed": 36,
+"total": 36,
+"duration_s": 7,
+"failed": []
+},
+{
+"ts": "2026-11-10T15:21:30",
+"passed": 37,
+"total": 37,
+"duration_s": 7,
+"failed": []
+},
+{
+"ts": "2026-11-10T15:38:35",
+"passed": 37,
+"total": 37,
+"duration_s": 7,
+"failed": []
+},
+{
+"ts": "2026-11-10T16:00:22",
+"passed": 37,
+"total": 37,
+"duration_s": 6,
+"failed": []
+},
+{
+"ts": "2026-11-10T16:08:50",
+"passed": 37,
+"total": 37,
+"duration_s": 7,
+"failed": []
+},
+{
+"ts": "2026-11-10T17:13:15",
+"passed": 36,
+"total": 36,
+"duration_s": 13,
+"failed": []
+},
+{
+"ts": "2026-11-10T18:31:16",
+"passed": 33,
+"total": 33,
+"duration_s": 8,
+"failed": []
+},
+{
+"ts": "2026-11-10T19:50:51",
+"passed": 27,
+"total": 27,
+"duration_s": 8,
+"failed": []
+}
+],
+"ok": true,
+"backup": {}
+}
+}

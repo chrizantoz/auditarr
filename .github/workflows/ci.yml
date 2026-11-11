@@ -1,0 +1,36 @@
+name: ci
+on: { push: { branches: [main] }, pull_request: {} }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -m py_compile audit.py tests/*.py
+      - run: pip install -q pyflakes && python -m pyflakes audit.py tests/*.py
+      - run: sudo apt-get install -y -qq ffmpeg mkvtoolnix >/dev/null && python tests/synthetic_media.py
+      - run: python tests/plain_language.py && python tests/contract.py
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - run: cd uibot && npm install --silent jsdom@24.1.3 && node ui_bot.js ../ui.html fixtures
+      - run: cd uibot && python3 edge_fixtures.py && for c in empty huge down errors; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
+      - run: cd uibot && npm install --silent playwright@1.49.1 axe-core@4.10.2 && npx playwright install --with-deps chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
+      - run: sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py
+      - run: cd uibot && npm install --silent pixelmatch@6.0.0 pngjs@7.0.0 && node visual_diff.js
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: ui-screenshots, path: uibot/screens/*.png, if-no-files-found: ignore }
+  image:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        with: { context: ., push: true, tags: "ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}" }
+      - uses: docker/build-push-action@v6
+        with: { context: ./uibot, push: true, tags: "ghcr.io/${{ github.repository }}-uibot:latest" }

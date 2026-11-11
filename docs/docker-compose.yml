@@ -1,0 +1,26 @@
+# Auditarr - minimal docker compose. Start it, open http://<host>:3091, follow the Setup tab.
+# The only thing that must be right here is the media mount: the folder your Sonarr/Radarr write to,
+# mounted at the SAME path they use (look at a file path in Sonarr; if it starts with /data/media, mount to /data/media).
+services:
+  auditarr:
+    image: ghcr.io/chrizantoz/auditarr:latest
+    container_name: auditarr
+    restart: unless-stopped
+    ports:
+      - "3091:3091"
+    environment:
+      TZ: America/Winnipeg          # your time zone; the nightly audit runs at RUN_AT in this zone
+      RUN_AT: "05:00"
+      # Optional - the Setup tab asks for these, but you can also set them here:
+      # SONARR_URL: http://192.168.1.10:8989
+      # SONARR_APIKEY: xxxxxxxx
+      # RADARR_URL: http://192.168.1.10:7878
+      # RADARR_APIKEY: xxxxxxxx
+      # BAZARR_URL: http://192.168.1.10:6767
+      # BAZARR_APIKEY: xxxxxxxx
+      # PLEX_URL: http://192.168.1.10:32400
+      # PLEX_TOKEN: xxxxxxxx
+      # NTFY_URL: https://ntfy.sh/your-topic   # morning digest push (optional)
+    volumes:
+      - ./auditarr:/config                      # database, reports, backups, ignore list
+      - /path/to/media:/data/media              # <- change: same path as your arrs see it, read-write (trash moves)

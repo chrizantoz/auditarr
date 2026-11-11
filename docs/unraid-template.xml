@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Auditarr</Name>
+  <Repository>ghcr.io/chrizantoz/auditarr:latest</Repository>
+  <Registry>https://github.com/chrizantoz/auditarr/pkgs/container/auditarr</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/chrizantoz/auditarr/issues</Support>
+  <Project>https://github.com/chrizantoz/auditarr</Project>
+  <Overview>Nightly quality control for a Sonarr / Radarr / Bazarr / Plex library: opens every video file and checks what is really inside (audio language, subtitles, runtime, picture format, Plex sync, missing episodes), fixes what is safe to fix by itself, and gives you one-click reversible buttons for the rest. Plain-language page, nothing is deleted (trash with a countdown). After starting the container open the Web UI and follow the Setup tab - it asks for the addresses and API keys and tests them.</Overview>
+  <Category>MediaApp:Video MediaServer:Video Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:3091]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/chrizantoz/auditarr/main/docs/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/chrizantoz/auditarr/main/docs/icon.png</Icon>
+  <ExtraParams>--memory=1g</ExtraParams>
+  <DateInstalled></DateInstalled>
+  <Config Name="Web UI port" Target="3091" Default="3091" Mode="tcp" Description="the page, the API and /health" Type="Port" Display="always" Required="true" Mask="false">3091</Config>
+  <Config Name="Config (database, reports, backups)" Target="/config" Default="/mnt/user/appdata/auditarr" Mode="rw" Description="" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/auditarr</Config>
+  <Config Name="Media (same path as Sonarr/Radarr use)" Target="/data/media" Default="/mnt/user/data/media" Mode="rw" Description="Look at any file path in Sonarr: if it starts with /data/media, mount your media share here. Read-write so files can be moved to the trash folder and back." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/media</Config>
+  <Config Name="TZ" Target="TZ" Default="America/New_York" Mode="" Description="your time zone - the nightly audit runs at RUN_AT in this zone" Type="Variable" Display="always" Required="true" Mask="false">America/New_York</Config>
+  <Config Name="RUN_AT" Target="RUN_AT" Default="05:00" Mode="" Description="daily run time (HH:MM)" Type="Variable" Display="always" Required="true" Mask="false">05:00</Config>
+  <Config Name="SONARR_URL" Target="SONARR_URL" Default="" Mode="" Description="optional here - the Setup tab asks for it" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="SONARR_APIKEY" Target="SONARR_APIKEY" Default="" Mode="" Description="optional here - the Setup tab asks for it" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="RADARR_URL" Target="RADARR_URL" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="RADARR_APIKEY" Target="RADARR_APIKEY" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="BAZARR_URL" Target="BAZARR_URL" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="BAZARR_APIKEY" Target="BAZARR_APIKEY" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PLEX_URL" Target="PLEX_URL" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="PLEX_TOKEN" Target="PLEX_TOKEN" Default="" Mode="" Description="optional" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="NTFY_URL" Target="NTFY_URL" Default="" Mode="" Description="morning digest push, e.g. https://ntfy.sh/your-topic (empty = none)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="PREFERRED_AUDIO" Target="PREFERRED_AUDIO" Default="eng" Mode="" Description="language(s) that count as right for non-anime (ISO 639-2, comma list)" Type="Variable" Display="advanced" Required="false" Mask="false">eng</Config>
+  <Config Name="PREFERRED_SUBS" Target="PREFERRED_SUBS" Default="eng" Mode="" Description="subtitle language(s) you want" Type="Variable" Display="advanced" Required="false" Mask="false">eng</Config>
+  <Config Name="REMEDIATE" Target="REMEDIATE" Default="dryrun|off|on" Mode="" Description="re-download broken files by itself: off / dryrun (only report) / on (also needs REMEDIATE_CONFIRM). Files go to the trash first." Type="Variable" Display="advanced" Required="false" Mask="false">dryrun</Config>
+  <Config Name="REMEDIATE_CONFIRM" Target="REMEDIATE_CONFIRM" Default="" Mode="" Description="type I_UNDERSTAND_FILES_WILL_BE_DELETED to allow REMEDIATE=on" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+</Container>

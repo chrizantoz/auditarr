@@ -1,0 +1,426 @@
+{
+"items": [
+{
+"name": "DEDUPE",
+"kind": "mode",
+"default": "off",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "quarantine unmanaged duplicate files next to the arr-managed copy"
+},
+{
+"name": "DEDUPE_MAX",
+"kind": "int",
+"default": "50",
+"env": "50",
+"saved": null,
+"value": "50",
+"source": "container env",
+"help": "max duplicates quarantined per run"
+},
+{
+"name": "DEDUPE_MIN_RUNS",
+"kind": "int",
+"default": "2",
+"env": null,
+"saved": null,
+"value": "2",
+"source": "default",
+"help": "a duplicate must be seen this many runs first"
+},
+{
+"name": "REMEDIATE",
+"kind": "mode",
+"default": "off",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "quarantine a bad file and have the arr search again (needs REMEDIATE_CONFIRM in the container env for 'on')"
+},
+{
+"name": "REMEDIATE_CHECKS",
+"kind": "csv",
+"default": "WRONG_LANGUAGE,RUNTIME_SHORT",
+"env": null,
+"saved": null,
+"value": "WRONG_LANGUAGE,RUNTIME_SHORT",
+"source": "default",
+"help": "which high/critical checks remediation acts on"
+},
+{
+"name": "REMEDIATE_MAX",
+"kind": "int",
+"default": "5",
+"env": null,
+"saved": null,
+"value": "5",
+"source": "default",
+"help": "max files re-grabbed per run"
+},
+{
+"name": "REMEDIATE_MIN_RUNS",
+"kind": "int",
+"default": "2",
+"env": null,
+"saved": null,
+"value": "2",
+"source": "default",
+"help": "finding must persist this many runs"
+},
+{
+"name": "REMEDIATE_MIN_AGE_HOURS",
+"kind": "num",
+"default": "20",
+"env": null,
+"saved": null,
+"value": "20",
+"source": "default",
+"help": "finding must be at least this old"
+},
+{
+"name": "REMEDIATE_FILE_MIN_AGE_HOURS",
+"kind": "num",
+"default": "24",
+"env": null,
+"saved": null,
+"value": "24",
+"source": "default",
+"help": "file must have been imported at least this long ago"
+},
+{
+"name": "REGRAB_WAIT_DAYS",
+"kind": "num",
+"default": "4",
+"env": null,
+"saved": null,
+"value": "4",
+"source": "default",
+"help": "if nothing is imported this many days after a re-grab, restore the original Show 324 the trash"
+},
+{
+"name": "ARR_RESCAN",
+"kind": "mode",
+"default": "on",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "ask the arr to rescan a series/movie whose media info is stale"
+},
+{
+"name": "PAPERCLIP",
+"kind": "mode",
+"default": "on",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "file one read-only Paperclip issue per day with new high findings"
+},
+{
+"name": "PAPERCLIP_MIN_SEVERITY",
+"kind": "sev",
+"default": "high",
+"env": null,
+"saved": null,
+"value": "high",
+"source": "default",
+"help": "minimum severity handed to Paperclip"
+},
+{
+"name": "PLEX_REFRESH",
+"kind": "onoff",
+"default": "on",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "tell Plex to rescan the folder after every file action"
+},
+{
+"name": "PLEX_CHECK",
+"kind": "onoff",
+"default": "on",
+"env": "on",
+"saved": null,
+"value": "on",
+"source": "container env",
+"help": "flag arr files that Plex has not indexed (PLEX_MISSING)"
+},
+{
+"name": "PLEX_MIN_AGE_HOURS",
+"kind": "num",
+"default": "12",
+"env": null,
+"saved": null,
+"value": "12",
+"source": "default",
+"help": "ignore files newer than this for PLEX_MISSING"
+},
+{
+"name": "MISSING_MIN_DAYS",
+"kind": "int",
+"default": "3",
+"env": null,
+"saved": null,
+"value": "3",
+"source": "default",
+"help": "flag monitored episodes/movies released at least this many days ago that still have no file (0 = off)"
+},
+{
+"name": "ANIME_ORIGINAL_AUDIO",
+"kind": "onoff",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "flag anime files that have no Japanese (original-language) audio track as DUB_ONLY"
+},
+{
+"name": "AUTO_VERIFY",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: run the content check on new runtime/title findings (max AUTO_VERIFY_MAX per night)"
+},
+{
+"name": "AUTO_VERIFY_MAX",
+"kind": "int",
+"default": "10",
+"env": null,
+"saved": null,
+"value": "10",
+"source": "default",
+"help": "max content checks queued per night"
+},
+{
+"name": "AUTO_WHISPER",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: queue AI subtitles for files Bazarr has found nothing for in AUTO_WHISPER_DAYS days (NO_SUBS / UND_AUDIO_NO_SUBS; max AUTO_WHISPER_MAX per night)"
+},
+{
+"name": "AUTO_WHISPER_MAX",
+"kind": "int",
+"default": "10",
+"env": null,
+"saved": null,
+"value": "10",
+"source": "default",
+"help": "max AI-subtitle jobs queued per night"
+},
+{
+"name": "AUTO_WHISPER_DAYS",
+"kind": "int",
+"default": "3",
+"env": null,
+"saved": null,
+"value": "3",
+"source": "default",
+"help": "days a no-subtitles finding must stay open before AI subtitles are queued"
+},
+{
+"name": "AUTO_ACCEPTLANG",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"
+},
+{
+"name": "AUTO_ACCEPTLANG_MIN_FILES",
+"kind": "int",
+"default": "3",
+"env": null,
+"saved": null,
+"value": "3",
+"source": "default",
+"help": "a season needs at least this many files, all in the same language, before it is accepted automatically"
+},
+{
+"name": "AUTO_FIXHEADER",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"
+},
+{
+"name": "SUBTAG",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: sniff untagged embedded subtitle tracks and write the language tag (mkv only, English/Japanese/Russian detected Show 324 the text)"
+},
+{
+"name": "SUBTAG_MAX",
+"kind": "int",
+"default": "100",
+"env": null,
+"saved": null,
+"value": "100",
+"source": "default",
+"help": "max files sub-tagged per run"
+},
+{
+"name": "TRASH_DAYS",
+"kind": "int",
+"default": "14",
+"env": null,
+"saved": null,
+"value": "14",
+"source": "default",
+"help": "keep re-grabbed/orphan files in the trash this many days"
+},
+{
+"name": "TRASH_DAYS_ARCHIVE",
+"kind": "int",
+"default": "30",
+"env": null,
+"saved": null,
+"value": "30",
+"source": "default",
+"help": "keep archived (watched & cold) seasons in the trash this many days"
+},
+{
+"name": "TRACK_PREFS",
+"kind": "mode",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: set default audio/subtitle flags in MKVs (anime -> Japanese/original audio, else English; English subs) and Plex's remembered selection"
+},
+{
+"name": "TRACK_PREFS_MAX",
+"kind": "int",
+"default": "1000",
+"env": null,
+"saved": null,
+"value": "1000",
+"source": "default",
+"help": "max files whose MKV default flags are rewritten per night"
+},
+{
+"name": "PLEX_SELECT_MAX",
+"kind": "int",
+"default": "2000",
+"env": null,
+"saved": null,
+"value": "2000",
+"source": "default",
+"help": "max Plex items whose selected audio/subtitle stream is set per night"
+},
+{
+"name": "WATCH_STATS",
+"kind": "onoff",
+"default": "on",
+"env": null,
+"saved": null,
+"value": "on",
+"source": "default",
+"help": "nightly: combine Tautulli plays, Plex watched counts and file sizes into the Space tab"
+},
+{
+"name": "COLD_DAYS",
+"kind": "int",
+"default": "180",
+"env": null,
+"saved": null,
+"value": "180",
+"source": "default",
+"help": "a fully watched season counts as cold when nobody played it for this many days"
+},
+{
+"name": "NEVER_WATCHED_DAYS",
+"kind": "int",
+"default": "365",
+"env": null,
+"saved": null,
+"value": "365",
+"source": "default",
+"help": "never-played titles are listed once they are this old"
+},
+{
+"name": "SPACE_MIN_GB",
+"kind": "num",
+"default": "3",
+"env": null,
+"saved": null,
+"value": "3",
+"source": "default",
+"help": "ignore seasons/movies smaller than this in the Space tab"
+},
+{
+"name": "TRASH_DAYS_DEDUPE",
+"kind": "int",
+"default": "3",
+"env": null,
+"saved": "2",
+"value": "2",
+"source": "saved in UI",
+"help": "keep duplicates in the trash this many days"
+},
+{
+"name": "PREFERRED_AUDIO",
+"kind": "csv",
+"default": "eng",
+"env": null,
+"saved": null,
+"value": "eng",
+"source": "default",
+"help": "audio languages that are always acceptable (ISO 639-2)"
+},
+{
+"name": "PREFERRED_SUBS",
+"kind": "csv",
+"default": "eng",
+"env": null,
+"saved": null,
+"value": "eng",
+"source": "default",
+"help": "subtitle languages that count as 'has subs'"
+},
+{
+"name": "NTFY_MIN_SEVERITY",
+"kind": "sev",
+"default": "medium",
+"env": null,
+"saved": null,
+"value": "medium",
+"source": "default",
+"help": "push a notification for new findings at or above this severity"
+},
+{
+"name": "STALE_HOURS",
+"kind": "num",
+"default": "30",
+"env": null,
+"saved": null,
+"value": "30",
+"source": "default",
+"help": "/health reports 503 when the last run is older than this"
+}
+],
+"warning": "",
+"run_in_progress": false
+}

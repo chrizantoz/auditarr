@@ -35,7 +35,7 @@ Open `http://<host>:3091` and follow the Setup tab as above.
 - **Unraid:** Docker tab → check for updates → **update** on Auditarr. Your settings, history and ignore list live in the appdata folder and survive.
 - **Docker compose:** `docker compose pull auditarr && docker compose up -d auditarr`.
 - **Deploy script** (`docs/auditarr-deploy.sh update`): stages the new image against a copy of your database first and only promotes it if the staged run looks sane.
-- **Update now button:** Settings → About shows one when the container is started with `UPDATE_HOOK_URL` (plus `UPDATE_HOOK_TOKEN` if the hook wants one). Point it at Watchtower's HTTP API (`http://watchtower:8080/v1/update`) or any webhook that pulls and recreates the container; the app cannot replace itself from inside.
+- **Update now button:** the About tab shows one when the container is started with `UPDATE_HOOK_URL` (plus `UPDATE_HOOK_TOKEN` if the hook wants one). Point it at Watchtower's HTTP API (`http://watchtower:8080/v1/update`) or any webhook that pulls and recreates the container; the app cannot replace itself from inside.
 - The page checks GitHub for the newest release once a day and shows an **update available** chip in the header. `UPDATE_CHECK=0` turns that off.
 
 ## After the first audit

@@ -42,7 +42,7 @@ Three steps. **1 Connect your apps**: paste each app's address and API key (Sona
 - 📈 **History**: one line per nightly run, the self-test results, library health over time, and **Flaky connections**: services that failed once and recovered. A few is normal; the same one every night is worth a look.
 - ⚙️ **Settings**: switches for what Auditarr may do by itself, in plain words (Off / Only report / On). Change, **Save changes**, done. Advanced view shows every knob with its environment name.
 - 📡 **Live**: the running audit's progress and the last log lines.
-- ℹ️ **About** (bottom of Settings): version and build, newest release, what it runs in, tools found, database size, uptime, and **Check for updates**. An **Update now** button appears when the host offers an update hook; otherwise it tells you how to update where you installed it.
+- ℹ️ **About**: version and build, newest release, what it runs in, tools found, database size, uptime, and **Check for updates**. An **Update now** button appears when the host offers an update hook; otherwise it tells you how to update where you installed it.
 
 ## 🏷️ The chips in the header
 

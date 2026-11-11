@@ -2909,7 +2909,7 @@ def about_info(fetch=False, refresh=False, conn=None):
 def ui_update(conn, actor):
     """POST /api/update: ask the host to update this container through a webhook (Watchtower's HTTP API or anything that pulls and recreates). The app cannot replace itself from inside."""
     url = E("UPDATE_HOOK_URL")
-    if not url: return 400, {"error": "no update hook configured - update from the host (Unraid Docker tab, docker compose pull, or the deploy script); see Settings → About"}
+    if not url: return 400, {"error": "no update hook configured - update from the host (Unraid Docker tab, docker compose pull, or the deploy script); see the About tab"}
     if READ_ONLY: return 409, {"error": "read-only copy"}
     hdr = {"User-Agent": "auditarr"}; tok = E("UPDATE_HOOK_TOKEN")
     if tok: hdr["Authorization"] = "Bearer " + tok

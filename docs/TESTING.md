@@ -35,6 +35,7 @@ Only after all of that does CI publish the image.
 ## 3. Every night, in production
 
 - `/api/selftest` after each run: API and detector checks with reversible actions.
+- `uibot/fuzz_ui.js`: hundreds of mangled API answers (missing fields, nulls, wrong types, huge strings) through the page with no JavaScript error allowed; a new seed every CI run.
 - `uibot/first_run_bot.js` (run by `tests/e2e_stack.py` against a second, blank daemon): a real browser does a first install end to end - Setup cards, Test, Save connections, reload, Find my apps, first audit.
 - `uibot/lint_buttons.py` + the bot's final sweep: every button id and click hook on the page must be referenced by a bot, and the jsdom bot presses one button of each kind on every tab (confirms accepted, no JavaScript error allowed). Born from the Save-connections bug.
 - `uibot/lint_checks.py`: a bot check that compares a count with a fixed number fails CI unless the line says `// fixed:` and why; the `tidy` fixture (a clean library) runs the full check suite so nothing assumes mess.

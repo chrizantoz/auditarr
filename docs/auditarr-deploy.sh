@@ -112,6 +112,7 @@ case "${1:-}" in
   rollback) prev=$(grep '^previous=' $STATE 2>/dev/null | cut -d= -f2); [ -n "$prev" ] && run_prod "$prev" && notify "Auditarr rolled back" "$prev" || { log "no previous image recorded"; exit 1; } ;;
   update)
     docker pull -q $IMG_REPO:latest >/dev/null 2>&1 || { log "pull failed"; exit 1; }
+    docker pull -q "$UIBOT_IMG" >/dev/null 2>&1 || log "note: could not pull the UI bot image; the nightly check may run an older bot"   # Q27: the bot and the page must be the same build
     new=$(docker inspect $IMG_REPO:latest --format '{{.Id}}'); cur=$(docker inspect media-audit --format '{{.Image}}' 2>/dev/null)
     [ "$new" = "$cur" ] && { log "no new image"; exit 0; }
     tag="$IMG_REPO@$(docker inspect $IMG_REPO:latest --format '{{index .RepoDigests 0}}' | cut -d@ -f2)"

@@ -4,6 +4,8 @@
 set -u
 AUDIT_URL="${AUDIT_URL:-http://media-audit:3091}"; UI_HTML="${UI_HTML:-/app/ui.html}"; OUT="${OUT:-/out/uibot.json}"
 mkdir -p /tmp/data
+# no page mounted at UI_HTML? take the one the app is serving right now, so a stale copy can never be tested by mistake
+[ -s "$UI_HTML" ] || { curl -sf "$AUDIT_URL/" -o /tmp/data/ui.html && UI_HTML=/tmp/data/ui.html; }
 for e in state history settings trash; do curl -sf "$AUDIT_URL/api/$e" -o /tmp/data/$e.json || { echo "{\"ts\":\"$(date -Iseconds)\",\"passed\":0,\"total\":0,\"failed\":[\"could not fetch api/$e\"]}" > "$OUT"; exit 1; }; done
 node /bot/ui_bot.js "$UI_HTML" /tmp/data > /tmp/bot.log 2>&1; rc=$?
 PASSED=$(grep -c "^PASS " /tmp/bot.log); TOTAL=$(grep -cE "^(PASS|FAIL) " /tmp/bot.log)

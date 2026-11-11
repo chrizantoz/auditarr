@@ -2,7 +2,7 @@
 
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
-## 2026-11-11 — v2.9
+## v0.9.1 — 2026-11-11
 
 ### Added
 - 👁️ **Read-only login** (F9): Setup → Protect the page → read-only account. A viewer sees the whole page without buttons, and the server answers 403 to any change from that session; the role travels in the signed session cookie.

@@ -17,9 +17,12 @@ const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true
     if (u.includes("api/run")) return body("{}"); return { ok: false, status: 404, headers: { get: () => "" }, json: async () => ({}) };
   };
   w.setInterval = () => 0; // no background polling in the test
+  w.HTMLElement.prototype.scrollIntoView = function () {}; w.scrollTo = () => {};   // jsdom has no layout; the live page scrolls on some clicks
 } });
 const w = dom.window, d = w.document, $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
 const results = []; const check = (name, cond, info = "") => { results.push([cond, name, info]); };
+process.on("uncaughtException", e => errors.push("uncaught: " + String(e && e.stack ? e.stack.split("\n")[0] : e)));   // a page handler that throws must fail a check, not kill the bot
+process.on("unhandledRejection", e => errors.push("unhandled: " + String(e && e.stack ? e.stack.split("\n")[0] : e)));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const EDGE = fs.existsSync(path.join(dataDir, "edge.json")) ? JSON.parse(fs.readFileSync(path.join(dataDir, "edge.json"), "utf8")).case : null;
 async function edgeChecks(S) {

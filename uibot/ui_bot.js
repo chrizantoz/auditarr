@@ -36,6 +36,11 @@ async function edgeChecks(S) {
     await sleep(200); check("fresh: setup shows the three steps and a card per app", /Connect your apps/.test(txt("#setup")) && $$("#setup .card").length >= 4 && $$("#setup button[data-test]").length >= 4, $$("#setup .card").length + " cards");   // fixed: one card per supported app (Sonarr, Radarr, Whisparr, Bazarr, Plex)
     check("fresh: first-audit button is disabled until an arr is connected", !!$("#runnow2") && $("#runnow2").disabled);
     $("#setup button[data-test]").click(); await sleep(100); check("fresh: Test posts to /api/test_connection", posts.some(p => p.url.includes("api/test_connection")));
+    const card = $("#setup .card[data-svc=sonarr]"); card.querySelector("[data-f=url]").value = "http://192.168.1.10:8989"; card.querySelector("[data-f=key]").value = "abcdef0123456789abcdef0123456789";
+    let threw = ""; try { $("#save-setup").click(); await sleep(150); } catch (e) { threw = String(e); }
+    const saved = posts.find(p => p.url.includes("api/settings")); let sb = saved && saved.body; try { sb = typeof sb === "string" ? JSON.parse(sb) : sb; } catch (e) { sb = null; }
+    check("fresh: Save connections posts the typed address and key to /api/settings", !!sb && sb.set && sb.set.SONARR_URL === "http://192.168.1.10:8989" && sb.set.SONARR_APIKEY === "abcdef0123456789abcdef0123456789", threw || JSON.stringify(sb).slice(0, 160) || "no post");
+    check("fresh: Save connections does not throw", errors.length === 0 && !threw, errors.concat(threw ? [threw] : []).slice(0, 2).join(" | "));
   }
   if (EDGE === "huge") {
     const t0 = Date.now(); const renderCount = $$("#findings tr[id^=r-]").length;

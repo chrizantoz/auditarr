@@ -56,3 +56,5 @@ cd uibot && npm install jsdom@24.1.3 && node ui_bot.js ../ui.html fixtures && cd
 cd uibot && npm install playwright@1.49.1 axe-core@4.10.2 && npx playwright install chromium-headless-shell && node browser_bot.js ../ui.html fixtures && cd ..
 sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py   # fake stack + real daemon + browser bot
 ```
+
+CI installs ffmpeg and mkvtoolnix with `scripts/ci-media-tools.sh` (static ffmpeg from GitHub releases, mkvtoolnix copied out of the Debian image the container is built on) instead of Ubuntu's package mirrors, which stalled CI for an hour on 2026-11-11. Run it with `sudo` on any Debian or Ubuntu box that lacks the tools.

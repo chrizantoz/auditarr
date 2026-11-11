@@ -48,7 +48,7 @@ jobs:
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.licenses=GPL-3.0
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with: { context: ., push: true, tags: "${{ steps.meta.outputs.tags }}", labels: "${{ steps.meta.outputs.labels }}" }
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with: { context: ./uibot, push: true, tags: "ghcr.io/${{ github.repository }}-uibot:latest" }

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Staging soak before promotion (Q26): a new image is promoted only after a read-only run on a copy of the real database passes the self-test, the UI bot, an empty error log, zero write attempts, and a findings comparison with production.
 - Subtitle timing (F20): the app can now tell when subtitles run early, late or drift. It listens to three short samples with Whisper and compares them with the subtitle times. Out-of-step files become findings with a Re-time button that fixes a constant offset on the spot (external file rewritten, embedded track remuxed losslessly) or asks Bazarr to re-time drifting subtitles. Checked nightly for recently changed subtitles and for what people are watching; on demand per show or movie from the Tools box.
 - No swallowed errors (Q25): any failure inside a job or hook now keeps its full traceback in errors.log and on the About tab under Recent errors, ready to paste into a bug report. About shows a green "No errors in the last 24 hours" line when all is well, Today says ✓ no errors, and the health check counts errors.
 - Subtitles first for what people are watching (F31): every 5 minutes, whatever is playing in Plex or next up on a Home gets its missing subtitles pushed to the front: Bazarr search now, AI subtitles if Bazarr still has nothing 20 minutes later. Settings WATCH_PRIORITY and WATCH_PRIORITY_MINUTES. Rows show ▶ watching now.

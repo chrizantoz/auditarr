@@ -1,14 +1,15 @@
 #!/bin/bash
 # Auditarr deploy / staging / rollback for a Docker host (written for Unraid). Install at /boot/config/custom/auditarr-deploy.sh with an auditarr-deploy.env beside it.
 #   auditarr-deploy.sh run <image>        recreate the production container from <image>
-#   auditarr-deploy.sh stage <image>      run the image against a COPY of the database with every write gate off, wait for its run + self-test, compare with production
+#   auditarr-deploy.sh stage <image>      soak: run the image against a COPY of the database with every write gate off, wait for its run + self-test, click through it with the UI bot,
+#                                         require an empty errors.log, and compare its findings with production (no kind of problem may appear or vanish)
 #   auditarr-deploy.sh update             pull :latest; if it is new, stage it; promote only if staging passes (nightly, cron)
 #   auditarr-deploy.sh rollback           recreate production from the previously running image
 #   auditarr-deploy.sh drill [n]          weekly fault drill: production image staged read-only with services unreachable (n=4: Sonarr behind a 200 s latency proxy)
 #   auditarr-deploy.sh restore            weekly restore drill: boot a throwaway container on the newest nightly state backup, prove the page comes up with its history
 set -u
 # Site values live in auditarr-deploy.env next to this script (not in the repository); these are the generic defaults.
-IMG_REPO="ghcr.io/chrizantoz/auditarr"; L=/mnt/user/appdata/auditarr; STATE=/boot/config/custom/auditarr-deploy.state
+IMG_REPO="ghcr.io/chrizantoz/auditarr"; UIBOT_IMG="ghcr.io/chrizantoz/auditarr-uibot:latest"; L=/mnt/user/appdata/auditarr; STATE=/boot/config/custom/auditarr-deploy.state
 NTFY=""; NTFY_TOKEN_FILE=""; HOST_IP=192.168.1.10; NETWORK=bridge; CONTAINER=media-audit; PAPERCLIP_ARGS=""; EXTRA_MOUNTS=""; EXTRA_ENV=""; EXTRA_ENV_ARR=(); SECRET_MOUNTS=""; EXTRA_NETWORKS=""   # EXTRA_ENV_ARR=(-e "NAME=value with spaces") for values that contain spaces
 [ -f "$(dirname "$0")/auditarr-deploy.env" ] && . "$(dirname "$0")/auditarr-deploy.env"
 log(){ echo "$(date '+%F %T') $*"; }
@@ -42,11 +43,19 @@ stage(){ # $1 = image, $2 = extra docker args (fault drill), $3 = "drill" to jud
     -e SUBTAG=off -e AUTO_FIXHEADER=off -e AUTO_VERIFY=off -e AUTO_ACCEPTLANG=off -e AUTO_WHISPER=off -e TRACK_PREFS=off -e JOBS=off -e READ_ONLY=1 -e TRASH_DIR=/data/media/.media-audit-trash-staging -e HOST_CONTAINERNAME=media-audit-staging \
     -l com.centurylinklabs.watchtower.enable=false -v $S/data:/config $extra "$img" >/dev/null || { log "staging container failed to start"; return 1; }
   local i=0; while [ $i -lt 180 ]; do sleep 10; i=$((i+1)); [ -f "$S/data/reports/selftest.json" ] && break; done
-  local prod stag verdict
+  local prod stag verdict bot="skipped"
+  if [ "$mode" != "drill" ]; then   # Q26: the UI bot clicks through the staged page (fetched from staging itself), results land in $S/data/reports/uibot.json
+    docker image inspect "$UIBOT_IMG" >/dev/null 2>&1 || docker pull -q "$UIBOT_IMG" >/dev/null 2>&1
+    if docker image inspect "$UIBOT_IMG" >/dev/null 2>&1; then
+      docker run --rm -e TZ=${TZ:-UTC} -e AUDIT_URL=http://$HOST_IP:3093 -e UI_HTML=/tmp/fetch-from-app -v "$S/data/reports":/out "$UIBOT_IMG" > "$S/uibot.log" 2>&1
+      bot=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(f"{j.get(\"passed\")}/{j.get(\"total\")}" + (" failed: " + "; ".join(j.get("failed") or []) if j.get("failed") else ""))' "$S/data/reports/uibot.json" 2>/dev/null || echo "bot did not report")
+    else bot="bot image unavailable"; fi
+  fi
   curl -s http://127.0.0.1:3091/api/state > "$S/prod.json"; curl -s http://127.0.0.1:3093/api/state > "$S/stag.json"; curl -s http://127.0.0.1:3093/health > "$S/health.json"
+  cp "$S/data/reports/errors.log" "$S/errors.log" 2>/dev/null || : > "$S/errors.log"; echo "$bot" > "$S/bot.txt"
   prod=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(len(j["findings"]), j["health"]["status"])' "$S/prod.json" 2>/dev/null)
   stag=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(len(j["findings"]), j["progress"]["phase"])' "$S/stag.json" 2>/dev/null)
-  verdict=$(python3 - "$S/data/reports/selftest.json" "$S/prod.json" "$S/stag.json" "$S/health.json" "$mode" <<'EOF'
+  verdict=$(python3 - "$S/data/reports/selftest.json" "$S/prod.json" "$S/stag.json" "$S/health.json" "$mode" "$S/errors.log" "$S/bot.txt" <<'EOF'
 import json, sys, collections
 def load(p):
     try: return json.load(open(p))
@@ -76,13 +85,23 @@ for c in sorted(set(pc) | set(sc)):   # a check that suddenly doubles (medium+) 
     if max(a, b) >= 20 and b > 2 * a: reasons.append(f"{c} {a} -> {b} (new noise)")
     elif max(a, b) >= 20 and b < 0.5 * a: notes.append(f"{c} {a} -> {b}")
 if notes: print("note: drops " + "; ".join(notes), file=sys.stderr)
+for c in sorted(set(pc) | set(sc)):   # Q26: a kind of problem that appears from nowhere, or vanishes while nothing was fixed (staging is read-only), is a detector change - hold the release
+    a, b = pc.get(c, 0), sc.get(c, 0)
+    if a == 0 and b >= 5: reasons.append(f"{c}: new kind of problem, {b} findings that production never had")
+    if a >= 10 and b == 0: reasons.append(f"{c}: {a} findings vanished with nothing fixed")
 if H.get("write_attempts"): reasons.append(f"staging tried to write {H['write_attempts']}x: {H.get('write_log')}")
 if not H.get("read_only"): reasons.append("staging is not in READ_ONLY mode")
+try: errtxt = open(sys.argv[6], encoding="utf-8", errors="replace").read().strip()
+except Exception: errtxt = ""
+if errtxt: reasons.append(f"errors.log is not empty ({errtxt.count(chr(10) + '=== ') + 1} entries): " + errtxt.splitlines()[0][:120])
+try: bot = open(sys.argv[7]).read().strip()
+except Exception: bot = ""
+if "failed:" in bot or bot in ("bot did not report",): reasons.append(f"UI bot {bot}")
 print("PASS" if not reasons else "FAIL: " + "; ".join(reasons))
 EOF
 )
   docker rm -f media-audit-staging >/dev/null 2>&1; rm -rf "$S" /mnt/user/media/media/.media-audit-trash-staging
-  log "${mode:-staging} $img -> $verdict (prod: $prod | staged: $stag)"; echo "$verdict" | grep -q '^PASS'
+  log "${mode:-staging} $img -> $verdict (prod: $prod | staged: $stag | UI bot: $bot)"; echo "$verdict" | grep -q '^PASS'
 }
 current_image(){ docker inspect media-audit --format '{{.Config.Image}}@{{.Image}}' 2>/dev/null; }
 # one deploy at a time: two watchers/crons calling update together must not race each other through rm/run

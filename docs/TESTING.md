@@ -40,6 +40,7 @@ Only after all of that does CI publish the image.
 - `tests/watch_priority.py`: what someone is watching in Plex gets its subtitles first (Bazarr now, AI later, both at the head of the queue).
 - The jsdom bot against the live page (the `auditarr-uibot` image; it fetches the page from the running app unless one is mounted at `/app/ui.html`), result shown in the header chip and the History tab.
 - Backup proof: the nightly SQLite backup is reopened and integrity-checked.
+- Before any promotion, `auditarr-deploy.sh update` stages the new image read-only on a copy of the real database: its run must finish, the self-test and the UI bot must pass against the staged page, errors.log must be empty, nothing may be written, and no kind of problem may appear from nowhere or vanish compared with production.
 - Every Sunday a **fault drill**: the production image is staged with Bazarr, Plex or Whisparr pointed at a dead port (rotating); the run must finish, report the outage as degraded, and write nothing.
 
 ## 4. Rules that made the difference

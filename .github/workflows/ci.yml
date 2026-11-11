@@ -22,7 +22,7 @@ jobs:
         with: { node-version: "24" }
       - run: cd uibot && npm install --silent && node ui_bot.js ../ui.html fixtures
       - run: cd uibot && python3 edge_fixtures.py && for c in empty huge down errors; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
-      - run: cd uibot && npx playwright install --with-deps chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
+      - run: cd uibot && npx playwright install chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
       - run: sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py
       - run: python tests/e2e_chaos.py
       - run: docker build -q -t auditarr:ci . && docker build -q -t auditarr-uibot:ci uibot

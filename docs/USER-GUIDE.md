@@ -69,6 +69,7 @@ Three steps. **1 Connect your apps**: paste each app's address and API key (Sona
 | 🤖 **Make AI subtitles** | Whisper listens to the audio and writes English subtitles. About a minute on the GPU; progress shows in the header | delete the `.en.srt` next to the file |
 | ⏱️ **Fix the time bar** | the file claims the wrong length, so players show a wrong time bar. Rewrites the container losslessly | Undo, or Trash → Put back |
 | 🎚️ **Fix audio delay** | audio starts late: removes the delay losslessly. Hidden when the delay is intentional | Undo, or Trash → Put back |
+| ⏳ *(any row showing* **working**) | a job is running for that file (AI subtitles, a content check). It leaves Needs you at once, its buttons are hidden, and it clears by itself when the job lands. If the job gives up, the row comes back. | — |
 | 🧐 **Check the episode** / **Check the movie** | compares the dialogue with the neighbouring episodes and the TVDB descriptions (for a movie: with its synopsis) and says whether this really is what it claims to be. The result replaces the sentence on the row | **Check again** runs it again |
 | 🔍 **Search now** | for a missing episode or movie: asks the arr to search right now | — |
 | 📺 **Refresh in Plex** | asks Plex to rescan that folder | — |
@@ -133,6 +134,8 @@ Every section has a **?** button that explains it in a few sentences and links h
 **How do I know AI subtitles are working?** The header chip shows the current episode and percent. The Actions tab shows the queue under Background jobs and the result ("subtitle landed after 1.8 min") when it finishes.
 
 **A re-grab came back the same.** The tracker says "same defect". Two releases agree, so the finding drops to low and the re-grab button disappears. Ignore it, or block that release group in the arr.
+
+**How long before AI subtitles are made?** By default a file must sit without subtitles for 3 days (Settings → "days a no-subtitles finding must stay open"). Set it to 1 for the night after. For the same day, turn on the import hook (Setup step 3) and set "after a new download … this many minutes" to, say, 120: Bazarr gets two hours, then Whisper runs.
 
 **Can my family open the page without breaking anything?** Yes. Once sign-in is on, Setup → Protect the page has a **read-only account**: give them that user and password. They see everything, every button is hidden, and even a hand-written request to change something is refused by the server.
 

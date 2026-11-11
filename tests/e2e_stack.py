@@ -109,16 +109,7 @@ if fr:
     check("Download a better copy: file to trash + RescanSeries + EpisodeSearch sent to Sonarr", s == 200 and not os.path.exists(W["files"][1]["path"]) and "RescanSeries" in cmds and "EpisodeSearch" in cmds, (s, cmds, j.get("error")))
     s, st = api("/api/state"); check("re-grab is tracked as pending", any(r["status"] == "pending" and "S01E02" in r["label"] for r in st.get("regrabs", [])), [(r["label"], r["status"]) for r in st.get("regrabs", [])])
     s, rj = api("/api/restore", {"dest": j.get("dest", "")}); check("restoring the re-grabbed file works", s == 200 and os.path.exists(W["files"][1]["path"]), (s, rj))
-ns = next((f for f in byt.get("NO_SUBS", []) if "S01E03" in f["title"]), None)
-if ns:
-    s, j = api("/api/act", {"id": ns["id"], "action": "whisper"}); check("Make AI subtitles queues a job", s == 200 and j.get("queued"), (s, j))
-    mock.calls.clear(); s, j = api("/api/act", {"id": ns["id"], "action": "subsearch"}); time.sleep(3)
-    check("Find subtitles reaches Bazarr (PATCH subtitles)", s == 200 and any(c["app"] == "bazarr" and c["method"] == "PATCH" for c in mock.calls), [(c["app"], c["method"], c["path"]) for c in mock.calls][:5])
-mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
-check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
-s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)
-s, st = api("/api/state"); sc = st.get("scores") or {}
-check("library scores computed per library after a run", any(k in sc for k in ("TV", "Movies", "Other")) and all(0 <= v["score"] <= 100 for v in sc.values()), sc)
+# ---- import hook + F14 (moved ahead of the AI-subtitle button so the one-try-a-week guard does not hide the follow-up)
 mock.calls.clear(); s, j = api("/api/hook_setup", {"app": "sonarr"})
 hooks_posted = [c for c in mock.calls if c["path"] == "/api/v3/notification" and c["method"] == "POST"]
 check("import hook: Auditarr registers its webhook in Sonarr", s == 200 and hooks_posted and "/webhook/sonarr" in json.dumps(hooks_posted[0]["body"]), (s, j))
@@ -129,12 +120,37 @@ s, j = api(f"/webhook/sonarr?token={tok}", {"eventType": "Test"}); check("webhoo
 make(W["files"][0]["path"], alang="fre")   # S01E01 just got 'upgraded' to a French release
 s, j = api(f"/webhook/sonarr?token={tok}", {"eventType": "Download", "series": {"id": 1}, "episodes": [{"id": 101}], "episodeFile": {"id": 11, "path": W["files"][0]["path"]}})
 check("webhook accepts an import event", s == 202, (s, j))
+# ---- F14: a new download without subtitles gets AI subtitles the same day once Bazarr has had its head start (1 minute here)
+api("/api/settings", {"set": {"AUTO_WHISPER": "on", "AUTO_WHISPER_IMPORT_MINUTES": "1"}})
+s, j = api(f"/webhook/sonarr?token={tok}", {"eventType": "Download", "series": {"id": 1}, "episodes": [{"id": 103}], "episodeFile": {"id": 13, "path": W["files"][2]["path"]}})
+deadline = time.time() + 150; queued = None
+while time.time() < deadline and not queued:
+    time.sleep(5); s, st_ = api("/api/state"); queued = next((a for a in st_.get("actions", []) if a.get("detail") == "AI subtitles queued after import"), None)
+check("import follow-up: AI subtitles are queued when Bazarr still has nothing after the head start", bool(queued), tail(8))
+api("/api/settings", {"set": {"AUTO_WHISPER": "off", "AUTO_WHISPER_IMPORT_MINUTES": "0"}})
 t3 = time.time(); hit = None
 while time.time() - t3 < 60:
     s, st = api("/api/state"); hit = next((f for f in st.get("findings", []) if f["check"] == "WRONG_LANGUAGE" and "S01E01" in f["title"]), None)
     if hit: break
     time.sleep(3)
 check("the imported file is checked within a minute and the problem shows up", hit is not None and hit["severity"] == "high", hit)
+ns = next((f for f in byt.get("NO_SUBS", []) if "S01E03" in f["title"]), None)
+if ns:
+    s, j = api("/api/act", {"id": ns["id"], "action": "whisper"}); check("Make AI subtitles queues a job", s == 200 and j.get("queued"), (s, j))
+    s, st = api("/api/state"); wf = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None); t_click = time.time()
+    done_fast = any(a.get("kind") == "whisper" and "S01E03" in a.get("title", "") and a.get("ts", "") >= time.strftime("%Y-%m-%d %H:%M", time.localtime(t_click - 60)) for a in st.get("actions", []))
+    check("the row is flagged 'working' right away and leaves Needs you", (wf and wf["detail"].startswith("[working:") and not any(n.get("id") == ns["id"] for n in (st.get("today") or {}).get("needs", []))) or done_fast, (wf or {}).get("detail"))
+    t4 = time.time(); wf2 = wf
+    while time.time() - t4 < 90 and wf2 and wf2["detail"].startswith("[working:"):
+        time.sleep(5); s, st = api("/api/state"); wf2 = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None)
+    check("when the job gives up (fake Bazarr offers no Whisper) the flag is removed and the row is back", wf2 and not wf2["detail"].startswith("[working:"), (wf2 or {}).get("detail"))
+    mock.calls.clear(); s, j = api("/api/act", {"id": ns["id"], "action": "subsearch"}); time.sleep(3)
+    check("Find subtitles reaches Bazarr (PATCH subtitles)", s == 200 and any(c["app"] == "bazarr" and c["method"] == "PATCH" for c in mock.calls), [(c["app"], c["method"], c["path"]) for c in mock.calls][:5])
+mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
+check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
+s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)
+s, st = api("/api/state"); sc = st.get("scores") or {}
+check("library scores computed per library after a run", any(k in sc for k in ("TV", "Movies", "Other")) and all(0 <= v["score"] <= 100 for v in sc.values()), sc)
 s, st = api("/api/state"); check("the import check is recorded in Actions", any(a["kind"] == "import-check" for a in st.get("actions", [])), [a["kind"] for a in st.get("actions", [])][:6])
 make(W["files"][0]["path"], alang="eng")   # back to clean for the rest of the run
 s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "test"}); check("setup: connection test to the (fake) Sonarr succeeds and lists its root folder as visible", s == 200 and j.get("ok") and any(r["visible"] for r in j.get("roots", [])), j)

@@ -89,7 +89,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
 - [ ] **F11** More than one instance per arr kind (two Sonarrs).
 - [ ] **F12** Translations: one JSON per language for names, sentences, buttons and help.
-- [ ] **F14** Smarter AI-subtitle trigger: queue Whisper once Bazarr has already searched an item a few times with nothing found (read its search history), instead of only waiting `AUTO_WHISPER_DAYS`. Owner request 2026-11-11.
+- [x] **F14** (2026-11-11) Same-day AI subtitles: after a new download with no subtitles, if Bazarr still has nothing `AUTO_WHISPER_IMPORT_MINUTES` later, Whisper runs right away (Bazarr's API does not expose per-item search attempts, so the import hook plus a head start is the signal). Nightly `AUTO_WHISPER_DAYS` stays as the catch-all. Owner request.
 
 ## 🔧 Later: smaller improvements
 

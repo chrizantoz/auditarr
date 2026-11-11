@@ -184,6 +184,7 @@ SETTABLE = {   # env name: (kind, default, help)
  "AUTO_VERIFY_MAX": ("int", "10", "max content checks queued per night"),
  "AUTO_WHISPER": ("mode", "on", "nightly: queue AI subtitles for files Bazarr has found nothing for in AUTO_WHISPER_DAYS days (NO_SUBS / UND_AUDIO_NO_SUBS; max AUTO_WHISPER_MAX per night)"),
  "AUTO_WHISPER_MAX": ("int", "10", "max AI-subtitle jobs queued per night"), "AUTO_WHISPER_DAYS": ("int", "3", "days a no-subtitles finding must stay open before AI subtitles are queued"),
+ "AUTO_WHISPER_IMPORT_MINUTES": ("int", "0", "after a new download (import hook): if Bazarr still has no subtitles this many minutes later, make AI subtitles right away (0 = only the nightly AUTO_WHISPER_DAYS rule)"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
@@ -320,6 +321,9 @@ def plain_sentence(code, sev, label, detail, app=None):
     au = ", ".join(langs("audio")); orig = (re.search(r"original=(\w{3})", d) or [None, None])[1]; want = lang_word(orig) if orig and orig != "eng" else "English"
     mins = re.search(r"file (\d+) min vs expected (\d+) min", d)
     if "two releases agree" in d: return "Two different downloads look the same here, so this is how the show is, not a broken file. Safe to ignore."
+    if d.startswith("[working:"):
+        what = d[9:d.find("]")].strip() if "]" in d else "work"
+        return f"{what[0].upper()}{what[1:]}. This row clears by itself when it is done; nothing to do."
     if d.startswith("[verified"):
         v = d.split("]")[0][1:]; verdicts = (("CONTENT MATCHES", "Checked: the dialogue matches this episode. Safe to ignore."), ("CONSISTENT", "Checked: the dialogue fits this episode."),
             ("NOT A COPY", "Checked: this is not a copy of another episode."), ("PROBABLY CORRECT", "Checked: probably the right episode."), ("DUPLICATE CONTENT", "Checked: this file has the same dialogue as another episode. One of them is the wrong file."),
@@ -1788,6 +1792,23 @@ def rescan_for_path(apps, path):
 def finding_row(conn, fid):
     r = conn.execute("SELECT id,app,fid,check_code,severity,label,path,detail FROM finding WHERE id=?", (fid,)).fetchone()
     return dict(zip(("id", "app", "fid", "check", "severity", "label", "path", "detail"), r)) if r else None
+def mark_working(conn, what, path=None, app=None, afid=None, codes=("NO_SUBS", "UND_AUDIO_NO_SUBS")):
+    """Flag open findings as 'being worked on' (prefix in detail): they leave Needs-you and lose their buttons until the job reports back."""
+    pre = f"[working: {what} {datetime.datetime.now():%H:%M}] || "; q = f"UPDATE finding SET detail = ? || detail WHERE resolved_at IS NULL AND detail NOT LIKE '[working:%' AND check_code IN ({','.join('?' * len(codes))})"; args = [pre, *codes]
+    if path: q += " AND path=?"; args.append(path)
+    if app is not None: q += " AND app=?"; args.append(app)
+    if afid is not None: q += " AND fid=?"; args.append(afid)
+    n = conn.execute(q, args).rowcount; conn.commit(); return n
+def clear_working(conn, path=None, app=None, afid=None):
+    """Remove the 'being worked on' flag (the job failed or gave up); the row returns to normal."""
+    q = "SELECT id, detail FROM finding WHERE resolved_at IS NULL AND detail LIKE '[working:%'"; args = []
+    if path: q += " AND path=?"; args.append(path)
+    if app is not None: q += " AND app=?"; args.append(app)
+    if afid is not None: q += " AND fid=?"; args.append(afid)
+    rows = conn.execute(q, args).fetchall()
+    for fid_, d_ in rows: conn.execute("UPDATE finding SET detail=? WHERE id=?", (d_.split("] || ", 1)[1] if "] || " in d_ else d_, fid_))
+    if rows: conn.commit()
+    return len(rows)
 def resolve_finding(conn, fid, note=None):
     conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); conn.commit()
 def add_ignore_rule(line):
@@ -1954,6 +1975,31 @@ def ensure_hook(conn, app):
     else: r = api(base, key, "notification", "POST", body); what = "created"
     record_action(conn, "on", "hook", app, (r or {}).get("id"), app, f"import hook {what}", url.split("?")[0])
     return 200, {"ok": True, "what": what, "url": url.split("?")[0], "note": f"{app.capitalize()} now tells Auditarr about every import and upgrade; the new file is checked within a minute"}
+def whisper_followup(app, afid, path, label, minutes, since=0):
+    """F14: a new download had no subtitles; Bazarr has had `minutes` to find some. If it still lists the item as wanted, make AI subtitles now instead of waiting for the nightly rule."""
+    conn = db()
+    try:
+        load_settings(conn)
+        if gate(setting("AUTO_WHISPER"), "AUTO_WHISPER") != "on" or READ_ONLY: return
+        apps = arr_apps()
+        if app not in apps: return
+        open_ = conn.execute("SELECT 1 FROM finding WHERE resolved_at IS NULL AND app=? AND fid=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (app, afid)).fetchone()
+        if not open_: log(f"import follow-up: {label} has subtitles now, nothing to do"); return
+        if conn.execute("SELECT 1 FROM action WHERE kind='whisper' AND label=? AND ts > ?", (label, since)).fetchone(): log(f"import follow-up: AI subtitles were already tried for {label} since it arrived"); return
+        try: info = arr_file_info(apps, app, afid, path)
+        except Exception as e: log("import follow-up:", repr(e)); return
+        bz_eps, bz_movs = bazarr_wanted()
+        wanted = (info["kind"] == "series" and any(e in bz_eps for e in info["ep_ids"])) or (info["kind"] == "movie" and info["parent_id"] in bz_movs)
+        if not wanted: log(f"import follow-up: Bazarr does not want subtitles for {label} (language profile) - leaving it"); return
+        job = dict(type="whisper", kind=info["kind"], app=app, label=label, path=info["path"], actor="import follow-up")
+        if info["kind"] == "series":
+            if not info["ep_ids"]: return
+            job.update(seriesid=info["parent_id"], episodeid=info["ep_ids"][0])
+        else: job.update(radarrid=info["parent_id"])
+        enqueue(job); record_action(conn, "on", "import-check", app, afid, label, "AI subtitles queued after import", f"Bazarr still had nothing {minutes} min after the download")
+        log(f"import follow-up: AI subtitles queued for {label} (Bazarr found nothing in {minutes} min)")
+    except Exception as e: log("import follow-up failed:", repr(e))
+    finally: conn.close()
 def audit_one(app, parent_id, path, reason):
     """The import hook: list that one title, probe its new file, run the checks, store findings, push if something is seriously wrong."""
     time.sleep(8)   # let the arr finish renaming / Plex start scanning
@@ -1982,6 +2028,10 @@ def audit_one(app, parent_id, path, reason):
         refresh_reports(conn)
         if bad: ntfy("Auditarr: a new download has a problem", "\n".join(f"{l}: {plain_sentence(c, sv, l, d, app)}" for sv, c, l, d in bad[:4]), "high", "warning", click=page_url("findings"))
         log(f"import hook: {label} -> {len(out)} finding(s), {len(bad)} serious")
+        mins = int(setting("AUTO_WHISPER_IMPORT_MINUTES") or 0)   # F14: give Bazarr a short head start, then make AI subtitles the same day
+        if mins > 0 and gate(setting("AUTO_WHISPER"), "AUTO_WHISPER") == "on" and any(c in ("NO_SUBS", "UND_AUDIO_NO_SUBS") for _, c, _, _ in out):
+            it0 = targets[0]; t_ = threading.Timer(mins * 60, whisper_followup, (app, it0["fid"], it0["path"], it0["label"], mins, time.time())); t_.daemon = True; t_.start()
+            log(f"import hook: {label} has no subtitles - AI subtitles in {mins} min unless Bazarr finds some")
     except Exception as e: log("import hook failed:", repr(e))
     finally: conn.close()
 def ui_search_show(conn, body, actor):
@@ -2329,7 +2379,12 @@ def _whisper_job(job):
     conn = db()
     try:
         record_action(conn, "on", "whisper", job["app"], job.get("episodeid") or job.get("radarrid"), job["label"], f"Whisper subtitles via Bazarr by {job['actor']}", result[:200])
-        if job.get("path"): plex_refresh(job["path"])
+        if job.get("path"):
+            if result.startswith("whisper subtitle") or result.startswith("skipped - a Whisper subtitle was already made"):
+                for (fid_,) in conn.execute("SELECT id FROM finding WHERE resolved_at IS NULL AND path=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (job["path"],)).fetchall(): resolve_finding(conn, fid_, "AI subtitles made")
+                conn.execute("DELETE FROM probe WHERE path=?", (job["path"],)); conn.commit(); refresh_reports(conn)
+            elif not result.startswith("submitted to Bazarr"): clear_working(conn, path=job["path"]); refresh_reports(conn)
+            plex_refresh(job["path"])
     finally: conn.close()
 def ui_whisper(conn, body, actor):
     """{show, season?} -> queue a Whisper subtitle for every episode of that show (or season); {movie} for a Radarr title."""
@@ -2355,6 +2410,12 @@ def ui_whisper(conn, body, actor):
     record_action(conn, "on", "whisper", jobs[0]["app"], len(jobs), jobs[0]["label"].rsplit(" S", 1)[0] if jobs[0]["kind"] == "series" else jobs[0]["label"], f"queued by {actor}", f"{len(jobs)} episode(s)/movie(s) queued; ~12 min each on CPU"); refresh_reports(conn)
     return 200, {"ok": True, "queued": len(jobs), "note": f"{len(jobs)} queued" + (f" behind {ahead} other job(s)" if ahead else "") + "; results appear in Actions as 'whisper'"}
 def enqueue(job):
+    if job.get("type") == "whisper" and job.get("path"):
+        try:
+            c_ = db()
+            if mark_working(c_, "AI subtitles queued", path=job["path"]): refresh_reports(c_)
+            c_.close()
+        except Exception as e: log("mark working:", repr(e))
     """Persist then queue. Jobs survive restarts (re-queued by requeue_jobs at startup)."""
     conn = db()
     try: cur = conn.execute("INSERT INTO jobs(ts, job, status) VALUES(?,?,'queued')", (time.time(), json.dumps(job))); conn.commit(); job["_id"] = cur.lastrowid
@@ -2700,9 +2761,9 @@ def today_summary(conn, since=None):
     errors = [f"{k}: {l[:40]} - {str(r)[:80]}" for k, m, r, l in acts if str(r).startswith("ERROR")][:5]
     needs = []; up = upcoming_set(conn); seen_ids = set()
     if up:   # F2: what someone is about to watch comes first, down to medium
-        for sev, code, label, detail, fid, app_, afid_ in conn.execute("SELECT severity, check_code, label, detail, id, app, fid FROM finding WHERE resolved_at IS NULL AND severity IN ('medium','high','critical') ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END LIMIT 400"):
+        for sev, code, label, detail, fid, app_, afid_ in conn.execute("SELECT severity, check_code, label, detail, id, app, fid FROM finding WHERE resolved_at IS NULL AND severity IN ('medium','high','critical') AND detail NOT LIKE '[working:%' ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 ELSE 2 END LIMIT 400"):
             if (app_, afid_) in up and len([n for n in needs if n.get("upcoming")]) < 8: needs.append(dict(kind="finding", sev=sev, check=code, name=check_name(code), title=label, why="Up next in Plex. " + plain_sentence(code, sev, label, detail), id=fid, upcoming=True)); seen_ids.add(fid)
-    for sev, code, label, detail, fid in conn.execute("SELECT severity, check_code, label, detail, id FROM finding WHERE resolved_at IS NULL AND severity IN ('high','critical') ORDER BY first_seen DESC LIMIT 20"):
+    for sev, code, label, detail, fid in conn.execute("SELECT severity, check_code, label, detail, id FROM finding WHERE resolved_at IS NULL AND severity IN ('high','critical') AND detail NOT LIKE '[working:%' ORDER BY first_seen DESC LIMIT 20"):
         if fid not in seen_ids: needs.append(dict(kind="finding", sev=sev, check=code, name=check_name(code), title=label, why=plain_sentence(code, sev, label, detail), id=fid))
     for label, code, note in conn.execute("SELECT label, code, note FROM regrab WHERE status='pending' AND ts < ?", (now - (float(cfg("REGRAB_WAIT_DAYS", REGRAB_WAIT_DAYS)) - 1) * 86400,)):
         needs.append(dict(kind="regrab", sev="medium", check=code, title=label, why="re-grab has not produced a file; the original comes back automatically within a day"))

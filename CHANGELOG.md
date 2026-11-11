@@ -8,7 +8,9 @@ All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizan
 - 👁️ **Read-only login** (F9): Setup → Protect the page → read-only account. A viewer sees the whole page without buttons, and the server answers 403 to any change from that session; the role travels in the signed session cookie.
 - 🎬 **Content check for movies** (S1): the dialogue is compared with the movie's synopsis against two dozen decoy synopses from the same Radarr library (matches / mislabeled / inconclusive). Nightly auto-verify and Tonight's plan include movies.
 - 📲 **Pushes open the page** (S3): every ntfy notification carries a link to the Findings tab (Trash when files were moved); the page reads `#findings`, `#trash` and the other tab names from the address. `PUBLIC_URL` sets the address used in links.
-- Tests: viewer role in `authz.py` and the end-to-end stack (52 checks), regression cases for the movie check and the cookie-before-localhost order.
+- ⏳ Rows with a running job (AI subtitles) show **working**, leave Needs you immediately and resolve by themselves when the subtitles land; if the job gives up the row returns. (Owner: "if I trigger Make AI subtitles it should leave the row and Needs you.")
+- ⚡ **Same-day AI subtitles** (F14): with the import hook connected, a new download that has no subtitles gets Whisper subtitles `AUTO_WHISPER_IMPORT_MINUTES` after it lands if Bazarr has not found any by then (default 0 = off; the nightly `AUTO_WHISPER_DAYS` rule stays).
+- Tests: viewer role in `authz.py` and the end-to-end stack (53 checks), regression cases for the movie check and the cookie-before-localhost order.
 
 ## 2026-11-11 — v2.8 "for humans"
 

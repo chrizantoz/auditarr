@@ -46,6 +46,7 @@ GOLDEN = [
  ("PLEX_MISSING", "medium", "Show S01E01", "file exists on disk, Plex has not indexed it", "sonarr", "The file is on disk but Plex has not picked it up. 'Refresh in Plex' makes it rescan the folder."),
  ("TITLE_MISMATCH", "low", "Show S01E02", "[verified 14:24: CONTENT MATCHES S01E02 (3/3 samples)] || embedded title 'x'", "sonarr", "Checked: the dialogue matches this episode. Safe to ignore."),
  ("AV1", "low", "Show S01E01", "AV1 video - PS5 / older Shield / older TVs need a transcode | affects: PlayStation 5", "sonarr", "AV1 video: your PlayStation 5 cannot play it directly, so Plex transcodes for it."),
+ ("NO_SUBS", "medium", "Anime S01E03", "[working: AI subtitles queued 14:02] || audio=['jpn'] embedded_subs=[] external=[]", "sonarr", "AI subtitles queued 14:02. This row clears by itself when it is done; nothing to do."),
 ]
 for code, sev, label, detail, app, want in GOLDEN:
     got = audit.plain_sentence(code, sev, label, detail, app); check(f"golden {code}/{sev}", got == want, f"got: {got}")

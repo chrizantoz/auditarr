@@ -65,6 +65,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 
 - 🧹 Duplicates quarantined, untagged subtitle tracks labelled, lying headers repaired, stale arr media info rescanned, Plex folders refreshed.
 - 🧐 New runtime/title findings get a content check; verified-correct extended cuts silence themselves; confirmed mislabels are raised to high.
+- ⚡ With the import hook on, a new download without subtitles can get AI subtitles the same day: Bazarr gets a head start of N minutes, then Whisper runs (off by default).
 - 🗣️ **Original-language audio by default:** every title is set to play in its original language with English subtitles (Korean drama in Korean, anime in Japanese, Chinese donghua in Chinese), and English-made titles in English — written both into the MKVs and into Plex's remembered per-episode choice.
 - 📈 **Watch stats:** Tautulli plays + Plex watched counts + file sizes feed the **Space** tab, listing watched-and-cold and never-watched seasons/movies.
 - 💾 A consistent SQLite backup is written to `/config/backups`.

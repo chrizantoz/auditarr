@@ -177,6 +177,24 @@ t5 = time.time(); still = True
 while time.time() - t5 < 60 and still:
     time.sleep(3); s, st = api("/api/state"); still = any(f["check"] in ("WRONG_LANGUAGE", "NO_SUBS") and "S01E01" in f["title"] for f in st.get("findings", []))
 check("a fixed file re-imported clears its old findings on the import check", not still, [f["check"] for f in st.get("findings", []) if "S01E01" in f["title"]])
+# F33: an untagged English file shows up as Unknown language; Detect the language labels it and the row clears
+make(W["files"][0]["path"], alang="")   # S01E01 re-imported with no language label on the audio
+s, j = api(f"/webhook/sonarr?token={tok}", {"eventType": "Download", "series": {"id": 1}, "episodes": [{"id": 101}], "episodeFile": {"id": 11, "path": W["files"][0]["path"]}})
+und = None
+for _ in range(40):
+    time.sleep(3); s, st = api("/api/state"); und = next((f for f in st.get("findings", []) if f["check"] == "UND_AUDIO_NO_SUBS" and "S01E01" in f["title"]), None)
+    if und: break
+check("an untagged file is reported as Unknown language after import", und is not None, [f["check"] for f in st.get("findings", []) if "S01E01" in f["title"]])
+if und:
+    s, j = api("/api/act", {"id": und["id"], "action": "langdetect"}); check("Detect the language queues a listen", s == 200 and j.get("queued"), (s, j))
+    la = []; still = und
+    for _ in range(40):
+        time.sleep(3); s, st = api("/api/state"); still = next((f for f in st.get("findings", []) if f["id"] == und["id"]), None)
+        la = [a for a in st.get("actions", []) if a.get("kind") == "langdetect" and "S01E01" in a.get("title", "")]
+        if la and not still: break
+    check("Whisper heard English, the audio got its label and the Unknown-language row cleared", bool(la) and not still and "eng" in json.dumps(la), (la[-1].get("result") if la else "no langdetect action", (still or {}).get("detail")))
+    pr_ = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream_tags=language", "-select_streams", "a:0", "-of", "json", W["files"][0]["path"]], capture_output=True, text=True)
+    check("the file's audio track now carries the eng label", '"language": "eng"' in pr_.stdout, pr_.stdout[-120:])
 s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "test"}); check("setup: connection test to the (fake) Sonarr succeeds and lists its root folder as visible", s == 200 and j.get("ok") and any(r["visible"] for r in j.get("roots", [])), j)
 s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "wrong"}); check("setup: a wrong key is reported as such", s == 200 and not j.get("ok") and "key" in (j.get("error") or ""), j)
 s, j = api("/api/setup"); check("setup page: both arrs connected, media visible, first run done", s == 200 and j.get("complete") and j.get("first_run_done") and j.get("media_visible"), {k: j.get(k) for k in ("complete", "first_run_done", "media_visible")})

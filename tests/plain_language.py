@@ -23,7 +23,7 @@ GOLDEN = [
  ("NO_SUBS", "medium", "Anime S01E03", "audio=['jpn'] embedded_subs=[] external=[] | Bazarr still searching", "sonarr",
   "No subtitles yet. Bazarr is still searching; if it finds nothing for a few days, AI subtitles are made automatically."),
  ("UND_AUDIO_NO_SUBS", "low", "Jersey Shore S01E01", "audio language untagged, no subtitles anywhere | Bazarr searching", "sonarr",
-  "The audio has no language label and there are no subtitles, so players cannot tell what it is. Usually just a missing label."),
+  "The audio has no language label and there are no subtitles, so players cannot tell what it is. 'Detect the language' listens and labels it; English needs no subtitles."),
  ("MISSING_EPISODE", "medium", "Show S01E04", "released 2026-10-12 (30 days ago), monitored, no file | not in queue - press 'search' to look again", "sonarr",
   "Released 30 days ago and not downloaded yet. Nothing found on your indexers so far. 'Search now' tries again."),
  ("NO_AUDIO", "critical", "Beta Movie (2021)", "no audio stream", "radarr", "There is no audio track in this file. It needs re-downloading."),

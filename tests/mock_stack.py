@@ -101,6 +101,8 @@ class Handler(BaseHTTPRequestHandler):
     SPEECH = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5, 31.0, 33.4, 35.2, 37.7, 38.9, 41.3, 43.0, 45.6, 47.2, 49.9, 51.4, 53.8, 55.1, 57.6, 59.0]
     def _asr(self, parts, q):
         n = int(self.headers.get("Content-Length") or 0); self.rfile.read(n) if n else b""
+        if parts == ["detect-language"]:   # which language is spoken: the world decides (default English)
+            W = self.server.world; return self._send(200, {"detected_language": W.get("whisper_lang_name", "english"), "language_code": W.get("whisper_lang", "en")})
         if parts != ["asr"] or (q.get("output") or [""])[0] != "json": return self._send(503, {"error": "mock whisper only answers json timing requests"})
         secs = max(0.0, (n - 300) / 32000.0)   # 16 kHz mono 16-bit wav -> seconds in the window
         self.server.calls.append(dict(app="whisper", method="POST", path="/asr", query=q, body={"seconds": round(secs, 1)}))

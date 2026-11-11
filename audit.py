@@ -205,7 +205,9 @@ SETTABLE = {   # env name: (kind, default, help)
  "WATCH_PRIORITY": ("mode", "on", "every 5 minutes: whatever someone is watching in Plex right now, or has next up on their Home, gets its missing subtitles first - a Bazarr search straight away, then AI subtitles if Bazarr still has nothing WATCH_PRIORITY_MINUTES later, both ahead of every other job"),
  "WATCH_PRIORITY_MINUTES": ("int", "20", "how long Bazarr gets to find subtitles for something being watched before AI subtitles are made"),
  "AUTO_SUBSYNC": ("mode", "on", "nightly: check subtitle timing on files whose external subtitles changed in the last AUTO_SUBSYNC_DAYS days and on what people are watching - Whisper listens to three short samples and compares them with the subtitle times; out-of-sync files become findings with a Re-time button"),
- "AUTO_SUBSYNC_MAX": ("int", "6", "max subtitle timing checks per night (about a minute each on the GPU)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
+ "AUTO_SUBSYNC_MAX": ("int", "6", "max subtitle timing checks per night (about a minute each on the GPU)"),
+ "AUTO_AUDIO_LANG": ("mode", "on", "nightly: for files whose audio carries no language label (Unknown language rows), Whisper listens to a short sample and the audio is labelled with the language it hears - English means no subtitles are needed and the row clears; other languages get subtitles the usual way"),
+ "AUTO_AUDIO_LANG_MAX": ("int", "10", "max spoken-language detections per night (about 20 seconds each on the GPU)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
@@ -360,7 +362,7 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "DUB_ONLY": return f"This anime only has {au or 'an English'} audio, no Japanese track. A re-download fetches a dual-audio release."
     if code == "NO_SUBS": return ("No subtitles yet. Bazarr is still searching; if it finds nothing for a few days, AI subtitles are made automatically." if "still searching" in d
                                   else "No subtitles and Bazarr is not looking for any. 'Find subtitles' asks it to.") + (" There is an unlabelled subtitle track inside - 'Label subtitle tracks' may be all it needs." if "untagged text" in d else "")
-    if code == "UND_AUDIO_NO_SUBS": return "The audio has no language label and there are no subtitles, so players cannot tell what it is. Usually just a missing label."
+    if code == "UND_AUDIO_NO_SUBS": return "The audio has no language label and there are no subtitles, so players cannot tell what it is. 'Detect the language' listens and labels it; English needs no subtitles."
     if code in ("MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE"):
         rel = re.search(r"released (\S+) \((\d+) days ago\)", d); q = "queued" in d.lower() or "downloading" in d.lower()
         return (f"Released {rel.group(2)} days ago and not downloaded yet. " if rel else "Released but not downloaded yet. ") + ("It is in the download queue now." if q else "Nothing found on your indexers so far. 'Search now' tries again.")
@@ -1761,6 +1763,8 @@ def run_once():
     if auto_fixed or auto_verified: log(f"night automation: {auto_fixed} headers repaired, {auto_verified} content checks queued")
     try: auto_sync = do_auto_subsync(conn, apps, items); auto_sync and log(f"night automation: {auto_sync} subtitle timing check(s) queued")
     except Exception as e: note_error("nightly auto (subsync) failed:", repr(e))
+    try: auto_al = do_auto_audiolang(conn); auto_al and log(f"night automation: {auto_al} spoken-language detection(s) queued")
+    except Exception as e: note_error("nightly auto (audio language) failed:", repr(e))
     try: auto_lang = do_auto_acceptlang(conn, apps); auto_ai = do_auto_whisper(conn, apps); (auto_lang or auto_ai) and log(f"night automation: {auto_lang} language(s) accepted, {auto_ai} AI-subtitle job(s) queued")
     except Exception as e: log("nightly auto (acceptlang/whisper) failed:", repr(e))
     try: progress("tracks", "default audio/subtitle flags + Plex selection"); do_track_prefs(conn, items); do_plex_select(conn, items)
@@ -1972,6 +1976,7 @@ def plan_tonight(conn):
     apps = arr_apps(); now = time.time(); out = {"gates": {k: setting(k) for k in ("REMEDIATE", "AUTO_WHISPER", "AUTO_ACCEPTLANG", "AUTO_FIXHEADER", "AUTO_VERIFY", "DEDUPE")}}
     w = []; do_auto_whisper(conn, apps, plan=w); out["ai_subtitles"] = w
     sc = []; do_auto_subsync(conn, apps, None, plan=sc); out["sync_checks"] = sc
+    al = []; do_auto_audiolang(conn, plan=al); out["audio_lang"] = al
     a = []; do_auto_acceptlang(conn, apps, plan=a); out["accept_language"] = a
     out["fix_headers"] = [dict(label=l, why="repair the wrong time bar") for (l,) in conn.execute("SELECT label FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen LIMIT 10")] if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off" else []
     out["verify"] = [dict(label=l, why=f"check it is the right {'movie' if a_ == 'radarr' else 'episode'} ({check_name(c)})") for l, c, a_ in conn.execute("SELECT label, check_code, app FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr','radarr') ORDER BY first_seen DESC LIMIT ?", (int(setting("AUTO_VERIFY_MAX")),))] if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" else []
@@ -2500,6 +2505,11 @@ def ui_act(conn, body, actor):
         what = ("repaired/dropped " + ", ".join(dropped)) if dropped else "trimmed container at the real end"
         record_action(conn, "on", "fixheader", f["app"], f["fid"], f["label"], f"mkvmerge remux: header {hdr/60:.1f} -> {rd/60:.1f} min via UI by {actor} ({what})", f"original -> {dest}; {resc}; {plx}")
         refresh_reports(conn); return 200, {"ok": True, "header_min": round(hdr / 60, 1), "real_min": round(rd / 60, 1), "note": f"header rewritten ({hdr/60:.0f} -> {rd/60:.0f} min, {what}); original in the trash for {TRASH_DAYS} days"}
+    if action == "langdetect":
+        if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
+        if not SUBGEN_URLS: return 400, {"error": "no Whisper endpoint configured (SUBGEN_URLS)"}
+        enqueue(dict(type="langdetect", finding=fid, app=f["app"], fid=f["fid"], path=path, label=f["label"], actor=actor, prio=3))
+        return 200, {"ok": True, "queued": True, "note": "listening to a short sample (about 20 seconds on the GPU); the audio is labelled with the language heard, and the row clears if it is English"}
     if action == "subsync":
         if f["app"] not in ("sonarr", "radarr", "whisparr"): return 400, {"error": "subtitle timing checks work on arr-managed files"}
         if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
@@ -2554,7 +2564,7 @@ def ui_act(conn, body, actor):
 # ---------- Bazarr subtitle search (sequential background queue so a bulk click does not hammer Bazarr) ----------
 import queue
 SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue()
-def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
+def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q, "langdetect": VERIFY_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
 import itertools; _SEQ = itertools.count()
 def _put(job): _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job))   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
 def _subsearch(job):
@@ -3140,6 +3150,70 @@ def ui_subsync(conn, body, actor):
     for j in jobs: enqueue(j)
     record_action(conn, "on", "subsync", jobs[0]["app"], len(jobs), jobs[0]["label"].rsplit(" S", 1)[0] if body.get("show") else jobs[0]["label"], f"timing checks queued by {actor}", f"{len(jobs)} file(s) queued; about a minute each"); refresh_reports(conn)
     return 200, {"ok": True, "queued": len(jobs), "note": f"{len(jobs)} timing check(s) queued, about a minute each - files that are out of step show up as findings with a Re-time button"}
+# ---------- F33: which language is spoken? (untagged audio) ----------
+CODE3 = {v: k for k, v in TWO_LETTER.items()}
+LANG_NAMES = {"english": "eng", "japanese": "jpn", "french": "fre", "german": "ger", "spanish": "spa", "korean": "kor", "chinese": "chi", "mandarin": "chi", "portuguese": "por", "italian": "ita", "russian": "rus", "arabic": "ara", "hindi": "hin", "dutch": "dut"}
+LANG_WORDS = {"eng": "English", "jpn": "Japanese", "fre": "French", "ger": "German", "spa": "Spanish", "kor": "Korean", "chi": "Chinese", "por": "Portuguese", "ita": "Italian", "rus": "Russian", "ara": "Arabic", "hin": "Hindi", "dut": "Dutch"}
+def detect_reply_to_code3(j):
+    """Whisper's answer to /detect-language (or an /asr json with a language) -> 3-letter code, or None when it is not a language this app knows."""
+    if not isinstance(j, dict): return None
+    code = str(j.get("language_code") or j.get("language") or "").lower().split("-")[0]
+    if code in CODE3: return CODE3[code]
+    name = str(j.get("detected_language") or j.get("language") or "").lower().strip()
+    return LANG_NAMES.get(name)
+def detect_audio_language(path, audio_stream=None):
+    """Listen to about 45 s from a fifth of the way in and ask Whisper which language it hears. -> (code3 or None, note)."""
+    ok, pr = ffprobe(path)
+    if not ok: return None, f"ffprobe failed: {pr}"
+    dur = float((pr.get("format") or {}).get("duration") or 0); start = max(0.0, min(dur * 0.2, max(0.0, dur - 50))) if dur else 0.0
+    wav = os.path.join(CONFIG_DIR, f"lang-{os.getpid()}-{int(start)}.wav")
+    try:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(start), "-t", "45", "-i", path] + (["-map", f"0:{audio_stream}"] if audio_stream is not None else []) + ["-vn", "-ac", "1", "-ar", "16000", wav], capture_output=True, timeout=300, check=True)
+        import uuid; bnd = uuid.uuid4().hex; body = (f"--{bnd}\r\nContent-Disposition: form-data; name=\"audio_file\"; filename=\"a.wav\"\r\nContent-Type: audio/wav\r\n\r\n").encode() + open(wav, "rb").read() + f"\r\n--{bnd}--\r\n".encode()
+        last = None
+        for base_url in SUBGEN_URLS:
+            for q in ("detect-language?encode=false", "asr?task=transcribe&output=json&encode=false"):
+                try:
+                    req = urllib.request.Request(f"{base_url.rstrip('/')}/{q}", data=body, method="POST", headers={"Content-Type": f"multipart/form-data; boundary={bnd}"})
+                    with urllib.request.urlopen(req, timeout=600) as r: raw = r.read().decode("utf-8", "replace")
+                    try: j = json.loads(raw)
+                    except ValueError: continue   # srt text carries no language
+                    code = detect_reply_to_code3(j)
+                    if code: return code, f"Whisper heard {LANG_WORDS.get(code, code)}"
+                    return None, f"Whisper heard a language this app does not label ({j.get('detected_language') or j.get('language_code') or j.get('language')})"
+                except Exception as e: last = e
+        return None, f"no Whisper endpoint answered ({last!r})"
+    finally:
+        try: os.remove(wav)
+        except OSError: pass
+def _langdetect_job(job):
+    """Background job: detect the spoken language of an untagged file, write the label (the same lossless path as 'Set audio language'), say what that means."""
+    t0 = time.time(); conn = db()
+    try:
+        f = finding_row(conn, job["finding"])
+        code, note = detect_audio_language(job["path"])
+        if not code or not f: record_action(conn, "on", "langdetect", job["app"], job["fid"], job["label"], f"spoken language check by {job['actor']} ({time.time() - t0:.0f}s)", f"could not label it: {note}"); conn.commit(); refresh_reports(conn); return
+        st, res = ui_act(conn, {"id": job["finding"], "action": "fixtag", "lang": code}, f"{job['actor']} (Whisper heard {LANG_WORDS.get(code, code)})")
+        if st != 200: record_action(conn, "on", "langdetect", job["app"], job["fid"], job["label"], f"spoken language check by {job['actor']}: {note}", f"label not written: {res.get('error', res)}"[:300]); conn.commit(); refresh_reports(conn); return
+        why = "English audio needs no subtitles - this row clears on the next check" if code in PREF_AUDIO else f"{LANG_WORDS.get(code, code)} audio - subtitles are searched the usual way"
+        record_action(conn, "on", "langdetect", job["app"], job["fid"], job["label"], f"spoken language check by {job['actor']} ({time.time() - t0:.0f}s)", f"{note}; audio labelled {code}; {why}")
+        conn.commit(); refresh_reports(conn)
+    except Exception as e: note_error("language detection job:", repr(e))
+    finally: conn.close()
+def do_auto_audiolang(conn, plan=None):
+    """Nightly: queue spoken-language detection for Unknown-language rows (untagged audio, no subtitles). Returns the number queued."""
+    mode = gate(setting("AUTO_AUDIO_LANG"), "AUTO_AUDIO_LANG")
+    if mode == "off" or not SUBGEN_URLS: return 0
+    mx = int(setting("AUTO_AUDIO_LANG_MAX")); tried = {l for (l,) in conn.execute("SELECT label FROM action WHERE kind='langdetect' AND ts > ?", (time.time() - 30 * 86400,))}
+    rows = conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code='UND_AUDIO_NO_SUBS' AND app IN ('sonarr','radarr','whisparr') AND detail NOT LIKE '[working:%' ORDER BY first_seen").fetchall()
+    n = 0
+    for fid_, app_, afid_, label_, path_ in rows:
+        if n >= mx: break
+        if label_ in tried or not path_ or not os.path.exists(path_): continue
+        if plan is not None: plan.append(dict(label=label_, why="the audio has no language label - listen and label it")); n += 1; continue
+        if mode == "dryrun": record_action(conn, "dryrun", "langdetect", app_, afid_, label_, "would detect the spoken language", "dryrun"); n += 1; continue
+        enqueue(dict(type="langdetect", finding=fid_, app=app_, fid=afid_, path=path_, label=label_, actor="nightly")); n += 1
+    return n
 def _verify_job(job):
     t0 = time.time()
     try: concl, det = verify_content(job["app"], job["fid"], job["path"], job["parent_id"], job["ep_ids"], arr_apps())
@@ -3171,7 +3245,7 @@ def sub_worker(q=None):
         finally: conn.close()
         try:
             if E("JOBS", "on") == "off": st = "skipped"   # staging copy: record, never run (would hit the real Bazarr/Whisper)
-            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job}.get(job.get("type"), _subsearch))(job); st = "done"
+            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job, "langdetect": _langdetect_job}.get(job.get("type"), _subsearch))(job); st = "done"
         except Exception as e: note_error("sub worker:", repr(e)); st = "failed"
         finally:
             conn = db()
@@ -3293,7 +3367,7 @@ def today_summary(conn, since=None):
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
         key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
-               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
+               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "langdetect": "spoken languages detected", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
         if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1

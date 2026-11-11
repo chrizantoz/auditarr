@@ -86,12 +86,13 @@ def auth_conf(conn=None):
     c = conn or db()
     try:
         r = c.execute("SELECT v FROM kv WHERE k='auth'").fetchone(); conf = json.loads(r[0]) if r else None
-        if conf is None and E("AUTH_USER") and E("AUTH_PASSWORD"): conf = set_password(c, E("AUTH_USER"), E("AUTH_PASSWORD"), persist=True)
+        if conf is None and E("AUTH_USER") and E("AUTH_PASSWORD"): conf = save_account(c, E("AUTH_USER"), E("AUTH_PASSWORD"), persist=True)
     finally:
         if conn is None: c.close()
     AUTH["loaded"] = True; AUTH["conf"] = conf; return conf
-def set_password(conn, user, password, persist=True, role="admin"):
-    """role 'admin' sets the main account; role 'viewer' sets (or with an empty password removes) a read-only account (F9)."""
+def save_account(conn, user, password, persist=True, role="admin"):
+    """Store an account (name, salt, password hash) and return the auth record. Named for what it returns: the record, never the password.
+    role 'admin' sets the main account; role 'viewer' sets (or with an empty password removes) a read-only account (F9)."""
     import secrets
     old = AUTH.get("conf") or {}
     if role == "viewer":
@@ -3224,7 +3225,7 @@ class Handler(SimpleHTTPRequestHandler):
                 else:
                     role_set = "viewer" if body.get("role") == "viewer" else "admin"
                     try:
-                        set_password(conn, str(body.get("user") or ("viewer" if role_set == "viewer" else "admin")), str(body.get("password") or ""), role=role_set)
+                        save_account(conn, str(body.get("user") or ("viewer" if role_set == "viewer" else "admin")), str(body.get("password") or ""), role=role_set)
                         record_action(conn, "on", "settings", "ui", "auth", "login", f"{role_set} password set by {actor}", "page requires sign-in" if role_set == "admin" else ("viewer account set" if body.get("password") else "viewer account removed"))
                         code, obj = 200, {"ok": True, "note": "From now on the page asks for a sign-in. You are signed in on this browser after the next page load." if role_set == "admin" else ("Viewer account ready: that login sees everything and can change nothing." if body.get("password") else "Viewer account removed.")}
                     except ValueError as e: code, obj = 400, {"error": str(e)}
@@ -3272,7 +3273,7 @@ def daemon():
     except Exception as e: log("startup:", repr(e))
     if SETTINGS: log("UI-saved settings:", SETTINGS)
     if E("AUTH_RESET") == "1" and E("AUTH_USER") and E("AUTH_PASSWORD"):
-        c1 = db(); set_password(c1, E("AUTH_USER"), E("AUTH_PASSWORD")); c1.close(); log("AUTH_RESET: password replaced from env - remove AUTH_RESET now")
+        c1 = db(); save_account(c1, E("AUTH_USER"), E("AUTH_PASSWORD")); c1.close(); log("AUTH_RESET: password replaced from env - remove AUTH_RESET now")
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()

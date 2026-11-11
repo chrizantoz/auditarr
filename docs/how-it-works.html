@@ -23,7 +23,7 @@ p,li{max-width:68ch}
 .lead{font-size:18px;color:var(--mut);margin:10px 0 0}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin:0 0 8px}
 figure{margin:18px 0 0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 14px 10px;overflow-x:auto}
-figure svg{display:block;width:100%;height:auto;max-width:100%;font-family:var(--body)}
+figure svg{display:block;width:100%;height:auto;max-width:100%;min-width:720px;font-family:var(--body)}
 figcaption{font-size:14px;color:var(--mut);margin-top:8px;max-width:none}
 code{font-family:var(--mono);font-size:13.5px;background:var(--acc-soft);color:var(--fg);padding:1px 5px;border-radius:5px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:16px}
@@ -46,62 +46,48 @@ a{color:var(--acc)}
 
   <h2>The nightly loop</h2>
   <figure>
-    <svg viewBox="0 0 940 430" role="img" aria-label="Auditarr reads the library from Sonarr, Radarr and Bazarr, probes the real files, runs its checks, stores findings, fixes the safe ones, and reports to the page and the phone.">
+    <svg viewBox="0 0 1400 880" role="img" aria-label="Auditarr reads the library from Sonarr, Radarr, Bazarr, Plex and the files, then lists, probes, checks, fixes what is safe and reports to the page and your phone.">
       <defs>
-        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
-        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--acc)"/></marker>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--acc)"/></marker>
       </defs>
-      <g font-size="13" fill="currentColor" stroke="currentColor">
-        <!-- sources -->
-        <text x="20" y="30" font-weight="600" stroke="none">What it reads</text>
-        <g fill="var(--panel)" stroke-width="1.5">
-          <rect x="20" y="44" width="160" height="40" rx="9"/><rect x="20" y="94" width="160" height="40" rx="9"/><rect x="20" y="144" width="160" height="40" rx="9"/><rect x="20" y="194" width="160" height="40" rx="9"/><rect x="20" y="244" width="160" height="40" rx="9"/>
+      <g font-size="16" fill="currentColor" stroke="currentColor">
+        <text x="40" y="70" font-size="20" font-weight="600" stroke="none">What it reads</text>
+        <g fill="var(--panel)" stroke-width="1.6">
+          <rect x="40" y="100" width="360" height="100" rx="12"/><rect x="40" y="220" width="360" height="100" rx="12"/><rect x="40" y="340" width="360" height="100" rx="12"/><rect x="40" y="460" width="360" height="100" rx="12"/><rect x="40" y="580" width="360" height="100" rx="12"/>
         </g>
         <g stroke="none">
-          <text x="100" y="69" text-anchor="middle">Sonarr · Radarr</text>
-          <text x="100" y="119" text-anchor="middle">Bazarr</text>
-          <text x="100" y="169" text-anchor="middle">Plex</text>
-          <text x="100" y="219" text-anchor="middle">Tautulli <tspan fill="var(--mut)">(optional)</tspan></text>
-          <text x="100" y="269" text-anchor="middle">the media files</text>
+          <text x="64" y="140" font-size="20" font-weight="600">Sonarr · Radarr</text><text x="64" y="172" fill="var(--mut)">which files exist, what language they should be</text>
+          <text x="64" y="260" font-size="20" font-weight="600">Bazarr</text><text x="64" y="292" fill="var(--mut)">which files still want subtitles</text>
+          <text x="64" y="380" font-size="20" font-weight="600">Plex</text><text x="64" y="412" fill="var(--mut)">what is indexed, what is up next, which player</text>
+          <text x="64" y="500" font-size="20" font-weight="600">Tautulli <tspan font-size="15" font-weight="400" fill="var(--mut)">optional</tspan></text><text x="64" y="532" fill="var(--mut)">who watched what, and when</text>
+          <text x="64" y="620" font-size="20" font-weight="600">The media files</text><text x="64" y="652" fill="var(--mut)">ffprobe: streams, languages, length, header</text>
         </g>
-        <g fill="var(--mut)" stroke="none" font-size="11.5" text-anchor="end">
-          <text x="300" y="58">which files exist, what language they should be</text>
-          <text x="300" y="108">which files still want subtitles</text>
-          <text x="300" y="158">what is indexed, what is up next, which player</text>
-          <text x="300" y="208">who watched what, and when</text>
-          <text x="300" y="258">ffprobe: streams, languages, length, header</text>
+        <g stroke-width="1.6"><line x1="400" y1="150" x2="498" y2="330" marker-end="url(#a1)"/><line x1="400" y1="270" x2="498" y2="370" marker-end="url(#a1)"/><line x1="400" y1="390" x2="498" y2="410" marker-end="url(#a1)"/><line x1="400" y1="510" x2="498" y2="450" marker-end="url(#a1)"/><line x1="400" y1="630" x2="498" y2="490" marker-end="url(#a1)"/></g>
+        <rect x="500" y="60" width="440" height="740" rx="18" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="2.2"/>
+        <text x="720" y="108" text-anchor="middle" font-size="26" font-weight="600" fill="var(--acc)" stroke="none">Auditarr</text>
+        <text x="720" y="136" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="15">one container · runs at 05:00 · about 25 min per 10,000 files</text>
+        <g fill="var(--panel)" stroke="var(--acc)" stroke-width="1.4">
+          <rect x="528" y="166" width="384" height="98" rx="12"/><rect x="528" y="290" width="384" height="98" rx="12"/><rect x="528" y="414" width="384" height="98" rx="12"/><rect x="528" y="538" width="384" height="98" rx="12"/><rect x="528" y="662" width="384" height="98" rx="12"/>
         </g>
-        <g stroke-width="1.5">
-          <line x1="180" y1="64" x2="330" y2="110" marker-end="url(#a1)"/><line x1="180" y1="114" x2="330" y2="125" marker-end="url(#a1)"/><line x1="180" y1="164" x2="330" y2="140" marker-end="url(#a1)"/><line x1="180" y1="214" x2="330" y2="155" marker-end="url(#a1)"/><line x1="180" y1="264" x2="330" y2="170" marker-end="url(#a1)"/>
+        <g stroke="var(--acc)" stroke-width="1.6"><line x1="720" y1="264" x2="720" y2="288" marker-end="url(#a2)"/><line x1="720" y1="388" x2="720" y2="412" marker-end="url(#a2)"/><line x1="720" y1="512" x2="720" y2="536" marker-end="url(#a2)"/><line x1="720" y1="636" x2="720" y2="660" marker-end="url(#a2)"/></g>
+        <g stroke="none" text-anchor="middle">
+          <text x="720" y="206" font-size="20" font-weight="600">1 · List</text><text x="720" y="236" fill="var(--mut)">every file the arrs know, plus strays on disk</text>
+          <text x="720" y="330" font-size="20" font-weight="600">2 · Probe</text><text x="720" y="360" fill="var(--mut)">only new or changed files, cached by size and date</text>
+          <text x="720" y="454" font-size="20" font-weight="600">3 · Check</text><text x="720" y="484" fill="var(--mut)">about 30 checks, each finding gets a plain sentence</text>
+          <text x="720" y="578" font-size="20" font-weight="600">4 · Fix what is safe</text><text x="720" y="608" fill="var(--mut)">only the switches you turned On, all reversible</text>
+          <text x="720" y="702" font-size="20" font-weight="600">5 · Report</text><text x="720" y="732" fill="var(--mut)">page, morning push, self-test, state backup</text>
         </g>
-        <!-- auditarr pipeline -->
-        <rect x="332" y="44" width="300" height="340" rx="14" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="2"/>
-        <text x="482" y="72" text-anchor="middle" font-size="16" font-weight="600" fill="var(--acc)" stroke="none">Auditarr</text>
-        <text x="482" y="90" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">one container · runs at 05:00 · about 25 min per 10,000 files</text>
-        <g fill="var(--panel)" stroke="var(--acc)" stroke-width="1.2">
-          <rect x="352" y="104" width="260" height="40" rx="8"/><rect x="352" y="160" width="260" height="40" rx="8"/><rect x="352" y="216" width="260" height="40" rx="8"/><rect x="352" y="272" width="260" height="40" rx="8"/><rect x="352" y="328" width="260" height="40" rx="8"/>
-        </g>
-        <g stroke="var(--acc)" stroke-width="1.2"><line x1="482" y1="144" x2="482" y2="158" marker-end="url(#a2)"/><line x1="482" y1="200" x2="482" y2="214" marker-end="url(#a2)"/><line x1="482" y1="256" x2="482" y2="270" marker-end="url(#a2)"/><line x1="482" y1="312" x2="482" y2="326" marker-end="url(#a2)"/></g>
+        <text x="1020" y="70" font-size="20" font-weight="600" stroke="none">What you get</text>
+        <g fill="var(--panel)" stroke-width="1.6"><rect x="1020" y="100" width="340" height="110" rx="12"/><rect x="1020" y="250" width="340" height="110" rx="12"/><rect x="1020" y="400" width="340" height="110" rx="12"/><rect x="1020" y="550" width="340" height="110" rx="12"/></g>
         <g stroke="none">
-          <text x="482" y="121" text-anchor="middle" font-weight="600">1 · list</text><text x="482" y="136" text-anchor="middle" fill="var(--mut)" font-size="11.5">every file the arrs know, plus strays on disk</text>
-          <text x="482" y="177" text-anchor="middle" font-weight="600">2 · probe</text><text x="482" y="192" text-anchor="middle" fill="var(--mut)" font-size="11.5">only new or changed files, cached by size and date</text>
-          <text x="482" y="233" text-anchor="middle" font-weight="600">3 · check</text><text x="482" y="248" text-anchor="middle" fill="var(--mut)" font-size="11.5">about 30 checks → findings with a plain sentence each</text>
-          <text x="482" y="289" text-anchor="middle" font-weight="600">4 · fix what is safe</text><text x="482" y="304" text-anchor="middle" fill="var(--mut)" font-size="11.5">only the switches you turned On; everything reversible</text>
-          <text x="482" y="345" text-anchor="middle" font-weight="600">5 · report</text><text x="482" y="360" text-anchor="middle" fill="var(--mut)" font-size="11.5">page, morning push, self-test, state backup</text>
+          <text x="1044" y="142" font-size="20" font-weight="600">The page</text><text x="1044" y="174" fill="var(--mut)">Today · Findings · Trash · History</text>
+          <text x="1044" y="292" font-size="20" font-weight="600">One morning push</text><text x="1044" y="324" fill="var(--mut)">"3 need you · 41 fixes overnight"</text>
+          <text x="1044" y="442" font-size="20" font-weight="600">Commands to the arrs</text><text x="1044" y="474" fill="var(--mut)">rescan, search, re-download, tag</text>
+          <text x="1044" y="592" font-size="20" font-weight="600">Subtitles via Bazarr</text><text x="1044" y="624" fill="var(--mut)">searches, and AI (Whisper) when none exist</text>
         </g>
-        <!-- outputs -->
-        <text x="700" y="30" font-weight="600" stroke="none">What you get</text>
-        <g fill="var(--panel)" stroke-width="1.5">
-          <rect x="700" y="44" width="220" height="60" rx="9"/><rect x="700" y="124" width="220" height="60" rx="9"/><rect x="700" y="204" width="220" height="60" rx="9"/><rect x="700" y="284" width="220" height="60" rx="9"/>
-        </g>
-        <g stroke="none">
-          <text x="810" y="68" text-anchor="middle" font-weight="600">The page</text><text x="810" y="88" text-anchor="middle" fill="var(--mut)" font-size="11.5">Today · Findings · Trash · History</text>
-          <text x="810" y="148" text-anchor="middle" font-weight="600">One morning push</text><text x="810" y="168" text-anchor="middle" fill="var(--mut)" font-size="11.5">"3 need you · 41 fixes overnight"</text>
-          <text x="810" y="228" text-anchor="middle" font-weight="600">Commands to the arrs</text><text x="810" y="248" text-anchor="middle" fill="var(--mut)" font-size="11.5">rescan, search, re-download, tag</text>
-          <text x="810" y="308" text-anchor="middle" font-weight="600">Subtitles via Bazarr</text><text x="810" y="328" text-anchor="middle" fill="var(--mut)" font-size="11.5">searches, and AI (Whisper) when none exist</text>
-        </g>
-        <g stroke-width="1.5"><line x1="632" y1="348" x2="698" y2="74" marker-end="url(#a1)"/><line x1="632" y1="348" x2="698" y2="154" marker-end="url(#a1)"/><line x1="632" y1="292" x2="698" y2="234" marker-end="url(#a1)"/><line x1="632" y1="292" x2="698" y2="314" marker-end="url(#a1)"/></g>
-        <text x="470" y="412" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">a new download does not wait for the night: Sonarr and Radarr call Auditarr the moment a file lands, and it is checked within a minute</text>
+        <g stroke-width="1.6"><line x1="940" y1="700" x2="1018" y2="170" marker-end="url(#a1)"/><line x1="940" y1="710" x2="1018" y2="310" marker-end="url(#a1)"/><line x1="940" y1="590" x2="1018" y2="455" marker-end="url(#a1)"/><line x1="940" y1="600" x2="1018" y2="600" marker-end="url(#a1)"/></g>
+        <text x="700" y="852" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="16">A new download does not wait for the night: Sonarr and Radarr call Auditarr the moment a file lands, and it is checked within a minute.</text>
       </g>
     </svg>
     <figcaption>The arrs say what the library should be, the files say what it is, and a finding is the gap between the two. Auditarr never scans your whole disk from scratch: it probes only what is new or changed, so a 10,000-file library takes about 25 minutes the first night and minutes after that.</figcaption>
@@ -119,32 +105,32 @@ a{color:var(--acc)}
 
   <h2>Every button is reversible</h2>
   <figure>
-    <svg viewBox="0 0 940 240" role="img" aria-label="A file moved by Auditarr goes to a trash folder with a countdown; from there it can be restored with one click or, for re-downloads, replaced by the arr; only after the countdown is it purged.">
-      <g font-size="13" fill="currentColor" stroke="currentColor">
-        <rect x="20" y="70" width="200" height="90" rx="12" fill="var(--panel)" stroke-width="1.5"/>
-        <text x="120" y="104" text-anchor="middle" font-weight="600" stroke="none">the file in your library</text>
-        <text x="120" y="126" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">duplicate · bad copy · lying header</text>
-        <line x1="220" y1="100" x2="368" y2="100" stroke-width="1.5" marker-end="url(#a1)"/>
-        <text x="294" y="90" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">Move to trash · Re-download</text>
-        <text x="294" y="122" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">Fix header · Fix sync (lossless remux)</text>
-        <rect x="370" y="40" width="220" height="150" rx="12" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="2"/>
-        <text x="480" y="70" text-anchor="middle" font-weight="600" fill="var(--acc)" stroke="none">.media-audit-trash</text>
-        <text x="480" y="92" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">on the same disk, no copy, instant</text>
-        <g fill="var(--panel)" stroke="var(--acc)" stroke-width="1.2"><rect x="386" y="108" width="188" height="24" rx="6"/><rect x="386" y="138" width="188" height="24" rx="6"/></g>
-        <text x="480" y="125" text-anchor="middle" stroke="none" font-size="12">duplicates 3 d · re-downloads 14 d</text>
-        <text x="480" y="155" text-anchor="middle" stroke="none" font-size="12">archives 30 d · countdown on the Trash tab</text>
-        <path d="M370 150 C300 190, 200 190, 120 162" fill="none" stroke="var(--acc)" stroke-width="1.5" marker-end="url(#a2)"/>
-        <text x="245" y="196" text-anchor="middle" fill="var(--acc)" stroke="none" font-size="12">Undo / Put back · one click, any time before the countdown ends</text>
-        <line x1="590" y1="80" x2="738" y2="80" stroke-width="1.5" marker-end="url(#a1)"/>
-        <text x="664" y="70" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">countdown over</text>
-        <rect x="740" y="55" width="180" height="50" rx="10" fill="var(--panel)" stroke-width="1.5"/>
-        <text x="830" y="85" text-anchor="middle" stroke="none">purged for good</text>
-        <line x1="590" y1="150" x2="738" y2="150" stroke-width="1.5" marker-end="url(#a1)"/>
-        <text x="664" y="140" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">re-download tracked</text>
-        <rect x="740" y="125" width="180" height="60" rx="10" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.5"/>
-        <text x="830" y="150" text-anchor="middle" stroke="none" fill="var(--ok)" font-weight="600">better copy arrives</text>
-        <text x="830" y="170" text-anchor="middle" stroke="none" fill="var(--mut)" font-size="11.5">or the original comes back by itself</text>
-        <text x="470" y="226" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="12">a re-download that comes back with the same defect twice is treated as "that is how the show is", not as a broken file</text>
+    <svg viewBox="0 0 1400 560" role="img" aria-label="A file moved by Auditarr goes to a trash folder with a countdown; from there it can be put back with one click or, for re-downloads, replaced by the arr; only after the countdown is it purged.">
+      <g font-size="16" fill="currentColor" stroke="currentColor">
+        <rect x="40" y="150" width="340" height="140" rx="14" fill="var(--panel)" stroke-width="1.6"/>
+        <text x="210" y="205" text-anchor="middle" font-size="20" font-weight="600" stroke="none">A file in your library</text>
+        <text x="210" y="238" text-anchor="middle" fill="var(--mut)" stroke="none">duplicate · bad copy · lying header</text>
+        <line x1="380" y1="220" x2="518" y2="220" stroke-width="1.6" marker-end="url(#a1)"/>
+        <text x="449" y="196" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="15">Move to trash · Re-download</text>
+        <text x="449" y="250" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="15">Fix header · Fix sync</text>
+        <rect x="520" y="90" width="380" height="260" rx="16" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="2.2"/>
+        <text x="710" y="136" text-anchor="middle" font-size="22" font-weight="600" fill="var(--acc)" stroke="none">.media-audit-trash</text>
+        <text x="710" y="166" text-anchor="middle" fill="var(--mut)" stroke="none">on the same disk · no copy · instant</text>
+        <g fill="var(--panel)" stroke="var(--acc)" stroke-width="1.4"><rect x="548" y="196" width="324" height="52" rx="10"/><rect x="548" y="264" width="324" height="52" rx="10"/></g>
+        <text x="710" y="229" text-anchor="middle" stroke="none">duplicates 3 days · re-downloads 14 days</text>
+        <text x="710" y="297" text-anchor="middle" stroke="none">archives 30 days · countdown on the Trash tab</text>
+        <path d="M520 320 C420 420, 300 420, 210 292" fill="none" stroke="var(--acc)" stroke-width="1.8" marker-end="url(#a2)"/>
+        <text x="330" y="438" text-anchor="middle" fill="var(--acc)" stroke="none" font-size="16" font-weight="600">Undo · one click, any time before the countdown ends</text>
+        <line x1="900" y1="150" x2="1038" y2="150" stroke-width="1.6" marker-end="url(#a1)"/>
+        <text x="969" y="128" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="15">countdown over</text>
+        <rect x="1040" y="110" width="320" height="80" rx="12" fill="var(--panel)" stroke-width="1.6"/>
+        <text x="1200" y="158" text-anchor="middle" font-size="19" stroke="none">purged for good</text>
+        <line x1="900" y1="290" x2="1038" y2="290" stroke-width="1.6" marker-end="url(#a1)"/>
+        <text x="969" y="268" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="15">re-download tracked</text>
+        <rect x="1040" y="240" width="320" height="100" rx="12" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.8"/>
+        <text x="1200" y="280" text-anchor="middle" stroke="none" fill="var(--ok)" font-size="19" font-weight="600">a better copy arrives</text>
+        <text x="1200" y="312" text-anchor="middle" stroke="none" fill="var(--mut)" font-size="15">or the original comes back by itself</text>
+        <text x="700" y="520" text-anchor="middle" fill="var(--mut)" stroke="none" font-size="16">A re-download that comes back with the same defect twice is treated as "that is how the show is", not as a broken file.</text>
       </g>
     </svg>
     <figcaption>Nothing is deleted outright. Moves go to a trash folder on the same disk with a countdown, repairs are lossless remuxes that keep the original in the trash, and re-downloads are watched: if nothing better arrives, the original is put back automatically.</figcaption>
@@ -152,21 +138,22 @@ a{color:var(--acc)}
 
   <h2>What it does on its own</h2>
   <figure>
-    <svg viewBox="0 0 940 200" role="img" aria-label="Each automatic action sits behind a three-position switch, Off, Only report, On, and the page shows tonight's plan before the night runs it.">
-      <g font-size="13" fill="currentColor" stroke="currentColor">
-        <g fill="var(--panel)" stroke-width="1.5"><rect x="20" y="30" width="160" height="56" rx="10"/><rect x="200" y="30" width="160" height="56" rx="10"/><rect x="380" y="30" width="160" height="56" rx="10"/></g>
+    <svg viewBox="0 0 1400 400" role="img" aria-label="Each automatic action sits behind a three-position switch, Off, Only report, On, and the page shows tonight's plan before the night runs it.">
+      <g font-size="16" fill="currentColor" stroke="currentColor">
+        <g fill="var(--panel)" stroke-width="1.6"><rect x="40" y="50" width="260" height="100" rx="14"/><rect x="330" y="50" width="260" height="100" rx="14"/><rect x="620" y="50" width="260" height="100" rx="14"/></g>
+        <rect x="620" y="50" width="260" height="100" rx="14" fill="none" stroke="var(--acc)" stroke-width="2.4"/>
         <g stroke="none" text-anchor="middle">
-          <text x="100" y="54" font-weight="600">Off</text><text x="100" y="72" fill="var(--mut)" font-size="11.5">never acts</text>
-          <text x="280" y="54" font-weight="600">Only report</text><text x="280" y="72" fill="var(--mut)" font-size="11.5">writes down what it would do</text>
-          <text x="460" y="54" font-weight="600" fill="var(--acc)">On</text><text x="460" y="72" fill="var(--mut)" font-size="11.5">acts, reversibly</text>
+          <text x="170" y="94" font-size="22" font-weight="600">Off</text><text x="170" y="126" fill="var(--mut)">never acts</text>
+          <text x="460" y="94" font-size="22" font-weight="600">Only report</text><text x="460" y="126" fill="var(--mut)">writes down what it would do</text>
+          <text x="750" y="94" font-size="22" font-weight="600" fill="var(--acc)">On</text><text x="750" y="126" fill="var(--mut)">acts, reversibly</text>
         </g>
-        <rect x="380" y="30" width="160" height="56" rx="10" fill="none" stroke="var(--acc)" stroke-width="2"/>
-        <text x="580" y="50" stroke="none" font-weight="600">one switch per job:</text>
-        <text x="580" y="70" stroke="none" fill="var(--mut)" font-size="12">duplicates · re-downloads · AI subtitles · accept a language</text>
-        <text x="580" y="86" stroke="none" fill="var(--mut)" font-size="12">fix lying headers · content checks · subtitle labels · Plex tracks</text>
-        <rect x="20" y="112" width="900" height="66" rx="10" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="1.5"/>
-        <text x="36" y="138" stroke="none" font-weight="600" fill="var(--acc)">Tonight's plan</text>
-        <text x="36" y="158" stroke="none" fill="var(--mut)" font-size="12.5">the Today panel lists exactly what the next run will do by itself, from the current findings, before it does it: "download a better copy of 3 · make AI subtitles for 10 · fix the time bar of 2"</text>
+        <text x="920" y="80" stroke="none" font-size="18" font-weight="600">One switch per job</text>
+        <text x="920" y="110" stroke="none" fill="var(--mut)">duplicates · re-downloads · AI subtitles</text>
+        <text x="920" y="138" stroke="none" fill="var(--mut)">accept a language · fix headers · content checks</text>
+        <rect x="40" y="200" width="1320" height="150" rx="14" fill="var(--acc-soft)" stroke="var(--acc)" stroke-width="1.8"/>
+        <text x="64" y="244" stroke="none" font-size="20" font-weight="600" fill="var(--acc)">Tonight's plan</text>
+        <text x="64" y="282" stroke="none" fill="var(--mut)">The Today panel lists exactly what the next run will do on its own, from the current findings, before it does it:</text>
+        <text x="64" y="316" stroke="none" font-size="18">"download a better copy of 3 · make AI subtitles for 10 · fix the time bar of 2"</text>
       </g>
     </svg>
     <figcaption>Out of the box every switch that removes a file is Off. You turn things On one at a time, watch Only report for a few nights if you like, and the plan is always visible before the night runs it.</figcaption>

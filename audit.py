@@ -3398,7 +3398,9 @@ def today_summary(conn, since=None):
     if t_soon: needs.append(dict(kind="trash", sev="low", check="TRASH", title=f"{len(t_soon)} file(s) purge within 24 h ({sum(t['size'] for t in t_soon)/1e9:.1f} GB)", why="restore anything you still want from the Trash tab"))
     ts_ = tests_status()
     for fj in failed_jobs(conn)[:5]: needs.append(dict(kind="job", sev="medium", check="JOBFAIL", name="A job failed", title=fj["title"], why=fj["why"], job_id=fj["job_id"]))
-    if not ts_["ok"]: needs.append(dict(kind="tests", sev="high", check="SELFTEST", title="a self-test is failing", why=str((ts_["selftest"].get("failed") or ts_["uibot"].get("failed") or ""))[:140]))
+    if not ts_["ok"]:
+        fails = [(f.get("name", "") + (f" ({f['info']})" if f.get("info") else "")) if isinstance(f, dict) else str(f) for f in (ts_["selftest"].get("failed") or []) + (ts_["uibot"].get("failed") or [])]
+        needs.append(dict(kind="tests", sev="high", check="SELFTEST", title="a self-test is failing", why=("; ".join(fails)[:160] + ". It reruns after the next audit; if it keeps failing, About → Recent errors has the details.") if fails else "see the History tab"))
     h = health_info()
     if h["status"] not in ("ok", "running"): needs.append(dict(kind="health", sev="high", check="HEALTH", title=f"audit is {h['status']}", why=f"last run {h.get('last_run')}"))
     if h.get("degraded"): needs.append(dict(kind="health", sev="high", check="HEALTH", name="Service unreachable", title=f"{', '.join(h['degraded'])} could not be reached during the last run", why="the checks that need it were skipped, everything else ran. Check that the service is up and that its address in the container settings is right."))

@@ -32,6 +32,16 @@ Taken by the test bot in CI from real (sanitised) data, so they are always curre
 |---|---|
 | ![End-to-end test library](docs/screenshots/live-demo-dark.png) | ![Phone layout](docs/screenshots/phone-dark.png) |
 
+## 🧭 How it works
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/how-it-works-1-dark.svg"><img src="docs/how-it-works-1.svg" alt="The nightly loop: Sonarr, Radarr, Bazarr, Plex and the files feed Auditarr, which lists, probes, checks, fixes what is safe and reports to the page and your phone." width="100%"></picture>
+
+Every night it reads what the library *should* be from the arrs, reads what it *is* from the files, and every gap becomes a finding with a plain sentence. Safe fixes run on their own behind switches you control; anything it moves goes to a trash folder with a countdown and one-click Undo.
+
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/how-it-works-2-dark.svg"><img src="docs/how-it-works-2.svg" alt="Every button is reversible: moved files wait in a trash folder with a countdown, can be put back any time, and re-downloads are tracked until a better copy arrives." width="100%"></picture>
+
+The full picture, with the automation switches and where it runs: **[How Auditarr works](https://chrizantoz.github.io/auditarr/how-it-works.html)**.
+
 ## 🧰 What you'll need
 
 - The arr apps and/or Plex you already run. You don't need all of them — Auditarr uses whichever it can reach.

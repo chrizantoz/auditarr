@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#ffffff" viewBox="0 0 940 240" role="img" aria-label="A file moved by Auditarr goes to a trash folder with a countdown; from there it can be restored with one click or, for re-downloads, replaced by the arr; only after the countdown is it purged."><rect width="100%" height="100%" rx="12" fill="#ffffff"/>
+      <g font-size="13" fill="#17201f" stroke="#17201f">
+        <rect x="20" y="70" width="200" height="90" rx="12" fill="#ffffff" stroke-width="1.5"/>
+        <text x="120" y="104" text-anchor="middle" font-weight="600" stroke="none">the file in your library</text>
+        <text x="120" y="126" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">duplicate · bad copy · lying header</text>
+        <line x1="220" y1="100" x2="368" y2="100" stroke-width="1.5" marker-end="url(#a1)"/>
+        <text x="294" y="90" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">Move to trash · Re-download</text>
+        <text x="294" y="122" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">Fix header · Fix sync (lossless remux)</text>
+        <rect x="370" y="40" width="220" height="150" rx="12" fill="#dff3ee" stroke="#0f8a74" stroke-width="2"/>
+        <text x="480" y="70" text-anchor="middle" font-weight="600" fill="#0f8a74" stroke="none">.media-audit-trash</text>
+        <text x="480" y="92" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">on the same disk, no copy, instant</text>
+        <g fill="#ffffff" stroke="#0f8a74" stroke-width="1.2"><rect x="386" y="108" width="188" height="24" rx="6"/><rect x="386" y="138" width="188" height="24" rx="6"/></g>
+        <text x="480" y="125" text-anchor="middle" stroke="none" font-size="12">duplicates 3 d · re-downloads 14 d</text>
+        <text x="480" y="155" text-anchor="middle" stroke="none" font-size="12">archives 30 d · countdown on the Trash tab</text>
+        <path d="M370 150 C300 190, 200 190, 120 162" fill="none" stroke="#0f8a74" stroke-width="1.5" marker-end="url(#a2)"/>
+        <text x="245" y="196" text-anchor="middle" fill="#0f8a74" stroke="none" font-size="12">Undo / Put back · one click, any time before the countdown ends</text>
+        <line x1="590" y1="80" x2="738" y2="80" stroke-width="1.5" marker-end="url(#a1)"/>
+        <text x="664" y="70" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">countdown over</text>
+        <rect x="740" y="55" width="180" height="50" rx="10" fill="#ffffff" stroke-width="1.5"/>
+        <text x="830" y="85" text-anchor="middle" stroke="none">purged for good</text>
+        <line x1="590" y1="150" x2="738" y2="150" stroke-width="1.5" marker-end="url(#a1)"/>
+        <text x="664" y="140" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">re-download tracked</text>
+        <rect x="740" y="125" width="180" height="60" rx="10" fill="#e3f2e4" stroke="#2e7d32" stroke-width="1.5"/>
+        <text x="830" y="150" text-anchor="middle" stroke="none" fill="#2e7d32" font-weight="600">better copy arrives</text>
+        <text x="830" y="170" text-anchor="middle" stroke="none" fill="#5f6f6c" font-size="11.5">or the original comes back by itself</text>
+        <text x="470" y="226" text-anchor="middle" fill="#5f6f6c" stroke="none" font-size="12">a re-download that comes back with the same defect twice is treated as "that is how the show is", not as a broken file</text>
+      </g>
+    </svg>

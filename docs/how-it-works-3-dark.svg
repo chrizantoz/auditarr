@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="font-family:Inter,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#162021" viewBox="0 0 940 200" role="img" aria-label="Each automatic action sits behind a three-position switch, Off, Only report, On, and the page shows tonight's plan before the night runs it."><rect width="100%" height="100%" rx="12" fill="#162021"/>
+      <g font-size="13" fill="#e4ecea" stroke="#e4ecea">
+        <g fill="#162021" stroke-width="1.5"><rect x="20" y="30" width="160" height="56" rx="10"/><rect x="200" y="30" width="160" height="56" rx="10"/><rect x="380" y="30" width="160" height="56" rx="10"/></g>
+        <g stroke="none" text-anchor="middle">
+          <text x="100" y="54" font-weight="600">Off</text><text x="100" y="72" fill="#93a5a1" font-size="11.5">never acts</text>
+          <text x="280" y="54" font-weight="600">Only report</text><text x="280" y="72" fill="#93a5a1" font-size="11.5">writes down what it would do</text>
+          <text x="460" y="54" font-weight="600" fill="#3dd6b4">On</text><text x="460" y="72" fill="#93a5a1" font-size="11.5">acts, reversibly</text>
+        </g>
+        <rect x="380" y="30" width="160" height="56" rx="10" fill="none" stroke="#3dd6b4" stroke-width="2"/>
+        <text x="580" y="50" stroke="none" font-weight="600">one switch per job:</text>
+        <text x="580" y="70" stroke="none" fill="#93a5a1" font-size="12">duplicates · re-downloads · AI subtitles · accept a language</text>
+        <text x="580" y="86" stroke="none" fill="#93a5a1" font-size="12">fix lying headers · content checks · subtitle labels · Plex tracks</text>
+        <rect x="20" y="112" width="900" height="66" rx="10" fill="#153832" stroke="#3dd6b4" stroke-width="1.5"/>
+        <text x="36" y="138" stroke="none" font-weight="600" fill="#3dd6b4">Tonight's plan</text>
+        <text x="36" y="158" stroke="none" fill="#93a5a1" font-size="12.5">the Today panel lists exactly what the next run will do by itself, from the current findings, before it does it: "download a better copy of 3 · make AI subtitles for 10 · fix the time bar of 2"</text>
+      </g>
+    </svg>

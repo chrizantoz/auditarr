@@ -8,6 +8,7 @@ A one-person project that moves other people's files has to be paranoid. This is
 |---|---|---|
 | compile + pyflakes | no syntax errors, no undefined names | `audit.py`, `tests/*.py` |
 | synthetic media | 26 ffmpeg-generated files, each with one known defect (French audio, no audio, 10-bit, wrong length, duplicate, orphan…), must produce exactly the expected finding and severity | `tests/synthetic_media.py` |
+| chaos in the fake stack | random 500s, slow answers and Radarr dropping connections mid-run: the audit ends degraded (not crashed), keeps the vanished app's findings open, makes no writes, and the next run is clean again | `tests/e2e_chaos.py` |
 | golden digest | the morning push pinned word for word from a fixed world, delivered to a mock ntfy with title, priority and a link into the page; a 'working' row must stay out of Needs you | `tests/golden_digest.py` (`--update` re-pins) |
 | plain-language guard | 19 pinned sentences; every check name, sentence and button label is code-free, jargon-free, short, and ends in a full stop | `tests/plain_language.py` |
 | contract | every action the page can send exists in the backend, has a confirm sentence and a label; every API path the page calls exists | `tests/contract.py` |

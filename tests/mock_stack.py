@@ -1,7 +1,7 @@
 """A fake Sonarr + Radarr + Bazarr in one HTTP server, just enough for audit.py to run end to end against synthetic media.
 Every write (POST/PUT/PATCH) is recorded in `server.calls` and visible at GET /__calls. Used by e2e_stack.py; usable by hand:
     python tests/mock_stack.py 8765   -> http://127.0.0.1:8765/sonarr , /radarr , /bazarr   (API key: test)"""
-import json, os, sys, threading, datetime
+import json, os, sys, threading, datetime, random, socket, time
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -46,6 +46,15 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/__calls": return self._send(200, self.server.calls)
         if u.path == "/__reset": self.server.calls.clear(); return self._send(200, {"ok": True})
         app = parts[0] if parts else ""; body = self._body() if method != "GET" else None
+        ch = getattr(self.server, "chaos", None)   # Q15: random 500s, slow answers, one service vanishing mid-run
+        if ch and app in ("sonarr", "radarr", "whisparr", "bazarr"):
+            ch["n"][app] = ch["n"].get(app, 0) + 1; r = ch["rnd"].random()
+            if app == ch.get("vanish_app") and ch.get("vanish_from", 0) <= ch["n"][app] < ch.get("vanish_from", 0) + ch.get("vanish_len", 0):
+                try: self.connection.shutdown(socket.SHUT_RDWR)
+                except OSError: pass
+                return
+            if r < ch.get("p500", 0.08): return self._send(500, {"error": "chaos"})
+            if r < ch.get("p500", 0.08) + ch.get("pslow", 0.04): time.sleep(ch.get("slow_s", 2))
         if method != "GET": self.server.calls.append(dict(app=app, method=method, path="/" + "/".join(parts[1:]), query=q, body=body))
         if self.headers.get("X-Api-Key") != KEY and self.headers.get("X-API-KEY") != KEY: return self._send(401, {"error": "bad key"})
         if app in ("sonarr", "radarr", "whisparr"): return self._arr(app, method, parts[1:], q, body)
@@ -100,8 +109,11 @@ class Handler(BaseHTTPRequestHandler):
         if p == "system/status": return self._send(200, {"data": {"bazarr_version": "1.4.0"}})
         return self._send(404, {})
 
+def chaos(seed=11, p500=0.08, pslow=0.04, slow_s=2, vanish_app="radarr", vanish_from=2, vanish_len=12):
+    """Settings for server.chaos: a share of requests fail with 500, a share answer slowly, and one app drops the connection for a window of requests."""
+    return dict(rnd=random.Random(seed), n={}, p500=p500, pslow=pslow, slow_s=slow_s, vanish_app=vanish_app, vanish_from=vanish_from, vanish_len=vanish_len)
 def start(world=None, port=0):
-    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler); srv.world = world or default_world(); srv.calls = []
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler); srv.world = world or default_world(); srv.calls = []; srv.chaos = None
     threading.Thread(target=srv.serve_forever, daemon=True).start(); return srv
 
 if __name__ == "__main__":

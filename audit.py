@@ -287,7 +287,7 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "UND_AUDIO_NO_SUBS": "Unknown language, no subtitles", "MISSING_EPISODE": "Episode missing", "MISSING_MOVIE": "Movie missing", "MISSING_SCENE": "Scene missing",
  "MISSING_FILE": "File vanished", "ZERO_SIZE": "Empty file", "CORRUPT_HEADER": "Unreadable file", "NO_AUDIO": "No audio", "NO_VIDEO": "No video",
  "RUNTIME_SHORT": "Too short", "RUNTIME_LONG": "Too long", "RUNTIME_DISAGREE": "Length changed", "SAMPLE_FILE": "Sample, not the episode", "TITLE_MISMATCH": "Title names another episode",
- "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "PLEX_MISSING": "Not in Plex",
+ "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "JOBFAIL": "A job failed", "PLEX_MISSING": "Not in Plex",
  "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video",
  "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "UNFOUND": "Nothing found for weeks",
  "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
@@ -2868,6 +2868,19 @@ def sync_windows(dur):
     """Three sample windows (start, length) at 15 / 50 / 85 % of the file: 60 s each on a normal file, shorter on tiny ones."""
     wlen = 60.0 if dur >= 600 else max(8.0, dur / 4)
     return [(max(0.0, dur * f - wlen / 2), wlen) for f in (0.15, 0.5, 0.85)]
+def pick_windows(dur, cue_starts, wlen=60.0, step=15.0):
+    """Three windows, one per third of the file, each where the subtitles are densest: speech-rich samples judge timing best (openings, endings and
+    fight scenes have little to compare). Short clips and files without cue information keep the fixed windows."""
+    if dur < 600 or not cue_starts: return sync_windows(dur)
+    out = []
+    for lo, hi in ((0.05 * dur, 0.35 * dur), (0.35 * dur, 0.65 * dur), (0.65 * dur, 0.95 * dur)):
+        best = None; t = lo
+        while t + wlen <= hi + 1e-6:
+            n = sum(1 for c in cue_starts if t <= c <= t + wlen)
+            if best is None or n > best[0]: best = (n, t)
+            t += step
+        if best and best[0] >= 4: out.append((round(best[1], 1), wlen))
+    return out if len(out) >= 2 else sync_windows(dur)
 _TS = re.compile(r"(\d+):(\d\d):(\d\d)[,.](\d{1,3})")
 def _ts(t):
     m = _TS.match(t); h, mi, se, ms = m.groups(); return int(h) * 3600 + int(mi) * 60 + int(se) + int(ms.ljust(3, "0")) / 1000
@@ -2889,7 +2902,7 @@ def estimate_offset(sub_starts, asr_starts, max_off=30.0):
     return off, matched / len(asr_starts), matched
 def decide_sync(windows):
     """windows: [(position 0..1, offset, support, matched)] -> (status, offset, note); status in: in sync | late | early | drift | unknown."""
-    good = [w for w in windows if w[1] is not None and w[2] >= 0.5 and w[3] >= 4]
+    good = [w for w in windows if w[1] is not None and w[2] >= 0.5 and w[3] >= 3]
     if len(good) < 2: return "unknown", None, f"too little speech or subtitle text to judge ({len(good)}/{len(windows)} usable samples)"
     offs = [w[1] for w in good]; spread = max(offs) - min(offs); med = sorted(offs)[len(offs) // 2]
     if spread > 0.7: return "drift", med, f"drift: {good[0][1]:+.1f}s at {good[0][0]:.0%} -> {good[-1][1]:+.1f}s at {good[-1][0]:.0%} ({len(good)}/{len(windows)} samples)"
@@ -2960,13 +2973,11 @@ def subtitle_sync_check(path, pr=None):
     a_pick = next((st for st in a if canon((st.get("tags") or {}).get("language", "und") or "und") in PREF_AUDIO), a[0] if a else None)
     alang = canon((a_pick.get("tags") or {}).get("language", "und") or "und") if a_pick else "und"; audio_stream = a_pick["index"] if a_pick else None
     asr_lang = TWO_LETTER.get(alang) if alang not in ("und", "") else None
-    all_cues = parse_sub_cues(open(ref, encoding="utf-8-sig", errors="replace").read()) if kind == "sidecar" else None
+    if kind == "sidecar": all_cues = parse_sub_cues(open(ref, encoding="utf-8-sig", errors="replace").read())
+    else: all_cues = parse_sub_cues(subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-map", f"0:{ref}", "-f", "srt", "-"], capture_output=True, text=True, timeout=600).stdout)   # the whole track once; cue times are absolute
     windows = []
-    for start, wlen in sync_windows(dur):
-        if kind == "sidecar": subs = [s_ - start for s_, e_ in all_cues if start <= s_ <= start + wlen + 5]
-        else:
-            o = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(start), "-t", str(wlen), "-i", path, "-map", f"0:{ref}", "-f", "srt", "-"], capture_output=True, text=True, timeout=180).stdout
-            subs = [s_ for s_, e_ in parse_sub_cues(o) if s_ <= wlen + 5]
+    for start, wlen in pick_windows(dur, [s_ for s_, e_ in all_cues]):
+        subs = [s_ - start for s_, e_ in all_cues if start <= s_ <= start + wlen + 5]
         asr = [s_ for s_, e_ in _asr_segments(path, start, wlen, audio_stream, asr_lang)]
         off, support, matched = estimate_offset(subs, asr); windows.append((start / dur, off, support, matched))
     status, off, note = decide_sync(windows)
@@ -3248,6 +3259,26 @@ def ui_state(conn):
     try: latest["space"] = space_view(conn)
     except Exception as e: latest["space"] = {"error": repr(e)}
     return latest
+JOB_WORDS = {"whisper": "AI subtitles", "subsearch": "Bazarr search", "verify": "content check", "subsync": "subtitle timing check"}
+def failed_jobs(conn, hours=24):
+    """Background jobs that ended in an error in the last `hours` hours, with no later success or retry for the same title. -> [dict(title, why, job_id, kind, label)]"""
+    out = []; seen = set(); cut = time.time() - hours * 3600
+    for kind, label, result, ts_ in conn.execute("SELECT kind, label, result, ts FROM action WHERE ts > ? AND result LIKE 'ERROR%' AND kind IN ('whisper','subsearch','verify','subsync') ORDER BY ts DESC", (cut,)):
+        if (kind, label) in seen: continue
+        seen.add((kind, label))
+        if conn.execute("SELECT 1 FROM action WHERE kind=? AND label=? AND ts > ? AND result NOT LIKE 'ERROR%'", (kind, label, ts_)).fetchone(): continue   # it worked later
+        if conn.execute("SELECT 1 FROM action WHERE kind='retry' AND label=? AND ts > ?", (label, ts_)).fetchone(): continue   # already retried, wait for it
+        row = conn.execute("SELECT id FROM jobs WHERE job LIKE ? AND job LIKE ? ORDER BY id DESC LIMIT 1", (f'%"type": "{kind}"%', f'%"label": {json.dumps(label)}%')).fetchone()
+        err = re.sub(r"^ERROR\s*", "", str(result)).split(" | ")[0][:140]
+        out.append(dict(kind=kind, label=label, job_id=row[0] if row else None, title=f"{JOB_WORDS.get(kind, kind)} for {label}", why=f"It stopped with: {err}. Retry runs it again; if it fails the same way, About shows the exact cause to report."))
+    return out
+def retry_job(conn, job_id, actor):
+    """Queue a copy of an earlier job (the Retry button on a failed one)."""
+    row = conn.execute("SELECT job FROM jobs WHERE id=?", (job_id,)).fetchone()
+    if not row: return 404, {"error": "that job is not on record any more"}
+    job = json.loads(row[0]); job.pop("_id", None); job["actor"] = f"retry by {actor}"; job["prio"] = 2
+    enqueue(job); record_action(conn, "on", "retry", job.get("app", ""), job.get("fid") or job.get("episodeid") or job.get("radarrid") or "", job.get("label", ""), f"{JOB_WORDS.get(job.get('type'), job.get('type'))} queued again by {actor}", "queued ahead of routine jobs")
+    refresh_reports(conn); return 200, {"ok": True, "queued": True, "note": f"{JOB_WORDS.get(job.get('type'), job.get('type'))} for {job.get('label', '')} is queued again; the result lands in Actions"}
 def today_summary(conn, since=None):
     """What happened since the last nightly run and what needs a human. Used by the Today panel and the daily digest."""
     now = time.time(); since = since or (now - 26 * 3600)
@@ -3256,7 +3287,7 @@ def today_summary(conn, since=None):
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
         key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
-               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
+               "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
         if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
@@ -3281,6 +3312,7 @@ def today_summary(conn, since=None):
     t_soon = [t for t in trash_list() if t["purge_on"] <= (datetime.date.today() + datetime.timedelta(days=1)).isoformat()]
     if t_soon: needs.append(dict(kind="trash", sev="low", check="TRASH", title=f"{len(t_soon)} file(s) purge within 24 h ({sum(t['size'] for t in t_soon)/1e9:.1f} GB)", why="restore anything you still want from the Trash tab"))
     ts_ = tests_status()
+    for fj in failed_jobs(conn)[:5]: needs.append(dict(kind="job", sev="medium", check="JOBFAIL", name="A job failed", title=fj["title"], why=fj["why"], job_id=fj["job_id"]))
     if not ts_["ok"]: needs.append(dict(kind="tests", sev="high", check="SELFTEST", title="a self-test is failing", why=str((ts_["selftest"].get("failed") or ts_["uibot"].get("failed") or ""))[:140]))
     h = health_info()
     if h["status"] not in ("ok", "running"): needs.append(dict(kind="health", sev="high", check="HEALTH", title=f"audit is {h['status']}", why=f"last run {h.get('last_run')}"))
@@ -3632,6 +3664,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/settings": code, obj = ui_settings_post(conn, body, actor)
             elif p == "/api/whisper": code, obj = ui_whisper(conn, body, actor)
             elif p == "/api/subsync": code, obj = ui_subsync(conn, body, actor)
+            elif p == "/api/retry_job": code, obj = retry_job(conn, int(body.get("id") or 0), actor)
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
             elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
             elif p == "/api/update": code, obj = ui_update(conn, actor)

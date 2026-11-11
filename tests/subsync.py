@@ -17,6 +17,10 @@ check("parses ASS", audit.parse_sub_cues(ass) == [(1.5, 3.0), (62.25, 64.0)], au
 check("sample windows: three 60 s windows on a 40-minute file", audit.sync_windows(2400) == [(330.0, 60.0), (1170.0, 60.0), (2010.0, 60.0)], audit.sync_windows(2400))
 check("sample windows: a 30 s test clip gets 8 s windows (mirrored by e2e_stack.py)", audit.sync_windows(30) == [(0.5, 8.0), (11.0, 8.0), (21.5, 8.0)], audit.sync_windows(30))
 
+dense = [600 + i * 3.0 for i in range(40)] + [1500 + i * 2.5 for i in range(30)] + [2100 + i * 4.0 for i in range(20)]   # talk at 10, 25 and 35 minutes; silence elsewhere
+pw = audit.pick_windows(2400, dense); check("windows go where the subtitles are dense, one per third", len(pw) == 3 and 540 <= pw[0][0] <= 600 and 1440 <= pw[1][0] <= 1500 and 2040 <= pw[2][0] <= 2100, pw)
+check("short clips keep the fixed windows", audit.pick_windows(30, [1.0, 2.0, 3.0, 4.0, 5.0]) == audit.sync_windows(30))
+check("no cue information keeps the fixed windows", audit.pick_windows(2400, []) == audit.sync_windows(2400))
 speech = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5]
 late = [t + 2.4 for t in speech]; off, sup, n = audit.estimate_offset(late, speech)
 check("subtitles 2.4 s late are measured as +2.4", off is not None and abs(off - 2.4) < 0.15 and sup == 1.0, (off, sup, n))

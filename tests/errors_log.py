@@ -1,6 +1,6 @@
 """Q25 no swallowed errors: a failure inside a job keeps its traceback (errors.log + About → Recent errors + health count).
 Run: python tests/errors_log.py   Exit 1 on failure."""
-import os, sys, tempfile
+import os, sys, tempfile, time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.environ["CONFIG_DIR"] = tempfile.mkdtemp(prefix="auditarr-errlog-"); os.environ["REPORT_DIR"] = os.environ["CONFIG_DIR"]
 sys.path.insert(0, ROOT)
@@ -38,4 +38,11 @@ msgs = audit.about_info(conn=conn)["health"]; check("About warns and lists them"
 audit.ERRORS.clear(); back = audit.errors_recent()
 check("after a restart the file still tells the story", len(back) >= 3 and all("ts" in x and x["when"] for x in back) and any(x["where"] == "broken_job" for x in back), [x["where"] for x in back])
 check("old entries fall out of the window", audit.errors_recent(hours=0) == [])
+# Q31: a failed job becomes a Needs-you row with a Retry button
+import json as _json
+jid = conn.execute("INSERT INTO jobs(ts, job, status) VALUES(?,?,'done')", (time.time(), _json.dumps(dict(type="whisper", kind="series", app="sonarr", label="Show S01E01", path="/x.mkv", seriesid=1, episodeid=101, actor="nightly")))).lastrowid; conn.commit()
+needs = audit.today_summary(conn)["needs"]; fj = next((n for n in needs if n["check"] == "JOBFAIL"), None)
+check("a job that ended in an error shows up under Needs you with its job id", fj is not None and fj["job_id"] == jid and "AI subtitles for Show S01E01" in fj["title"] and "Retry" in fj["why"], fj)
+code, obj = audit.retry_job(conn, jid, "tester"); check("Retry queues a copy of the job ahead of routine ones", code == 200 and obj.get("queued") and audit.WHISPER_Q.queue and audit.WHISPER_Q.queue[0][0] == 2, (code, obj))
+check("after a retry the row waits for the result instead of nagging", not any(n["check"] == "JOBFAIL" for n in audit.today_summary(conn)["needs"]))
 conn.close(); bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

@@ -1,5 +1,5 @@
 name: ci
-on: { push: { branches: [main], tags: ['v*'] }, pull_request: {}, workflow_dispatch: {} }
+on: { push: { branches: [main], tags: ['v*'] }, pull_request: {}, workflow_dispatch: {}, schedule: [{ cron: '0 6 * * 1' }] }   # Mondays 06:00 UTC: a quiet-day run so a broken runner, mirror or dependency shows up before a release needs it (Q30)
 permissions: { contents: read }
 jobs:
   test:
@@ -29,6 +29,12 @@ jobs:
       - uses: aquasecurity/trivy-action@v0.36.0
         with: { image-ref: "auditarr:ci", severity: "CRITICAL,HIGH", ignore-unfixed: true, exit-code: "1", format: "table" }
       - run: cd uibot && node visual_diff.js
+      - name: tell the owner when the quiet-day run breaks (set the NTFY_URL secret; NTFY_TOKEN optional)
+        if: failure() && github.event_name == 'schedule'
+        env: { NTFY_URL: "${{ secrets.NTFY_URL }}", NTFY_TOKEN: "${{ secrets.NTFY_TOKEN }}" }
+        run: |
+          [ -n "$NTFY_URL" ] || { echo "no NTFY_URL secret - skipping the push"; exit 0; }
+          curl -s -o /dev/null -H "Title: Auditarr CI broke on its own" -H "Priority: high" -H "Tags: warning" ${NTFY_TOKEN:+-H "Authorization: Bearer $NTFY_TOKEN"} -d "The weekly scheduled CI run failed with no code change: a runner, mirror or dependency problem. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" "$NTFY_URL" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with: { name: ui-screenshots, path: uibot/screens/*.png, if-no-files-found: ignore }

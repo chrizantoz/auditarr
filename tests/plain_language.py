@@ -75,7 +75,7 @@ SAMPLE_DETAIL = {"WRONG_LANGUAGE": "audio=['fre'] original=eng wanted=['eng']", 
  "AUDIO_OFFSET": "audio track starts 2.10s after/before video with no matching cut", "PLEX_MISSING": "x", "RES_MISLABELED": "1280x720 but tagged Bluray-1080p", "HI10P": "10-bit H.264 (yuv420p10le)",
  "AV1": "AV1 video", "SUBS_OUT_OF_SYNC": "external 'x.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/x.en.srt", "INTERLACED": "interlaced video (tt)", "TRUEHD_ONLY": "only lossless audio (TrueHD)", "DV_PROFILE5": "Dolby Vision profile 5", "DV_PROFILE7": "Dolby Vision profile 7 (dual layer, compat id 6)"}
 for code in audit.CHECK_NAMES:
-    if code in ("SPACE", "UNFOUND", "TRASH", "SELFTEST", "HEALTH"): continue
+    if code in ("SPACE", "UNFOUND", "TRASH", "SELFTEST", "HEALTH", "JOBFAIL"): continue
     lint(f"name {code}", audit.CHECK_NAMES[code] + ".", max_words=8)
     sev = "low" if code in ("RUNTIME_LONG", "AUDIO_OFFSET") else "medium"
     txt = audit.plain_sentence(code, sev, "Show S01E01", SAMPLE_DETAIL.get(code, "x"), "sonarr")

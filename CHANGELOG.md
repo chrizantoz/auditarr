@@ -3,6 +3,9 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Failed jobs ask for a click (Q31): a background job that stopped with an error now appears under Needs you with a Retry button and the reason it stopped.
+- CI runs every Monday on its own and can push a warning when that run fails (Q30).
+- Subtitle timing: the three samples are now taken where the subtitles are densest, so openings, endings and quiet scenes no longer leave the check unable to judge.
 - Testing (Q28): bot checks may no longer hard-code counts, and a tidy library is now one of the fixture sets the page must pass.
 - Settings type safety (Q29): a test saves every setting as text the way the UI does and runs the planners and summaries against it, and lints the code for raw numeric reads.
 - Real answers in the fake stack (Q24, first half): sanitised recordings of what real Sonarr, Radarr, Whisparr, Bazarr and Plex answer now live in tests/shapes, and the fake arr services carry every field the real ones send. A test guards both fidelity and privacy of the recordings.

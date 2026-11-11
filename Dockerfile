@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg mkvtoolnix ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/*
 LABEL org.opencontainers.image.source="https://github.com/chrizantoz/auditarr" org.opencontainers.image.description="Nightly quality control for a Sonarr/Radarr/Bazarr/Plex library" org.opencontainers.image.licenses="GPL-3.0"

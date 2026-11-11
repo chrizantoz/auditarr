@@ -121,6 +121,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **F29** Snooze instead of ignore: "remind me in 30 days" on a finding; it disappears and comes back once, with a note that it was snoozed.
 - 🔴 **F30** Weekly report card: one push or email on Sunday with the score trend, the week's fixes and the three things most worth doing, in the same plain words as the morning push.
 - 🟢 **F31** (2026-11-11) Subtitles first for what people are watching: every 5 minutes the app looks at what is playing in Plex and what is next up on each Home; no-subtitle episodes of those shows (the next six and the start of the next season) and movies get a Bazarr search straight away and, if Bazarr still has nothing `WATCH_PRIORITY_MINUTES` later (20), AI subtitles - both ahead of every other job. Rows show ▶ watching now / 📺 next up. `tests/watch_priority.py`.
+- 🔴 **F32** Burned-in subtitles: some releases (MP4 raws from fansub groups) carry no subtitle track because the subtitles are painted into the picture. Sample a few frames from the lower third and look for subtitle-shaped text (high-contrast outlined lettering across several frames); when found, say "this file has subtitles burned into the picture, language unknown" instead of "no subtitles", skip the AI-subtitle push for it unless the audio language is not the wanted one, and offer a one-frame preview so the owner can tell which language it is.
 
 ## 🙂 Later: even friendlier (added 2026-11-11, ranked)
 

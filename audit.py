@@ -207,7 +207,9 @@ SETTABLE = {   # env name: (kind, default, help)
  "AUTO_SUBSYNC": ("mode", "on", "nightly: check subtitle timing on files whose external subtitles changed in the last AUTO_SUBSYNC_DAYS days and on what people are watching - Whisper listens to three short samples and compares them with the subtitle times; out-of-sync files become findings with a Re-time button"),
  "AUTO_SUBSYNC_MAX": ("int", "6", "max subtitle timing checks per night (about a minute each on the GPU)"),
  "AUTO_AUDIO_LANG": ("mode", "on", "nightly: for files whose audio carries no language label (Unknown language rows), Whisper listens to a short sample and the audio is labelled with the language it hears - English means no subtitles are needed and the row clears; other languages get subtitles the usual way"),
- "AUTO_AUDIO_LANG_MAX": ("int", "10", "max spoken-language detections per night (about 20 seconds each on the GPU)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
+ "AUTO_AUDIO_LANG_MAX": ("int", "10", "max spoken-language detections per night (about 20 seconds each on the GPU)"),
+ "HARDSUB_CHECK": ("onoff", "on", "for files reported without subtitles: look at eight frames from the lower part of the picture for lettering painted into the video (burned-in subtitles); when found, the row says so instead of 'no subtitles' and offers a frame to look at"),
+ "HARDSUB_MAX": ("int", "150", "max files whose frames are inspected per night (a few seconds each)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
@@ -361,6 +363,7 @@ def plain_sentence(code, sev, label, detail, app=None):
         tagged = lang_word((re.search(r'audit-lang-(\w{3})', d) or [None, ''])[1])
         return f"This show is marked as {tagged}, but this whole season is in {au}. Probably fine, the show just switches language between seasons." if "simply in a different language" in d else f"You marked this show as {tagged} audio and this file has {au}."
     if code == "DUB_ONLY": return f"This anime only has {au or 'an English'} audio, no Japanese track. A re-download fetches a dual-audio release."
+    if code in ("NO_SUBS", "UND_AUDIO_NO_SUBS") and "burned into the picture" in d: return "The subtitles are painted into the picture, so no player can switch them and the app cannot read their language. 'Show me a frame' lets you check which language they are."
     if code == "NO_SUBS": return ("No subtitles yet. Bazarr is still searching; if it finds nothing for a few days, AI subtitles are made automatically." if "still searching" in d
                                   else "No subtitles and Bazarr is not looking for any. 'Find subtitles' asks it to.") + (" There is an unlabelled subtitle track inside - 'Label subtitle tracks' may be all it needs." if "untagged text" in d else "")
     if code == "UND_AUDIO_NO_SUBS": return "The audio has no language label and there are no subtitles, so players cannot tell what it is. 'Detect the language' listens and labels it; English needs no subtitles."
@@ -775,6 +778,7 @@ def db():
     if "started_at" not in jcols: c.execute("ALTER TABLE jobs ADD COLUMN started_at REAL")
     c.execute("CREATE TABLE IF NOT EXISTS realdur(path TEXT PRIMARY KEY, mtime REAL, dur REAL, ts REAL)")
     c.execute("CREATE TABLE IF NOT EXISTS trackprefs(path TEXT PRIMARY KEY, mtime REAL, ts REAL, note TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS hardsub(path TEXT PRIMARY KEY, mtime REAL, verdict TEXT, score REAL, best_t REAL, ts REAL)")
     c.execute("CREATE TABLE IF NOT EXISTS plexsel(rk TEXT PRIMARY KEY, ts REAL, audio_id TEXT, sub_id TEXT)")
     c.execute("""CREATE TABLE IF NOT EXISTS watch(app TEXT, parent_id INTEGER, season INTEGER, title TEXT, library TEXT, files INTEGER, bytes INTEGER, leaf INTEGER, viewed INTEGER,
         plays INTEGER, last_played REAL, added REAL, status TEXT, show_rk TEXT, item_rk TEXT, updated REAL)""")
@@ -932,6 +936,50 @@ def tag_subs(path, streams=None):
 REALDUR_CACHE = {}   # path -> (mtime, dur), loaded per run from the realdur table
 REALDUR_BUDGET = {"left": 0}   # new end-of-stream probes allowed this run (each costs ~10 s on shfs)
 REALDUR_MAX = int(E("REALDUR_MAX", "40"))
+# ---------- F32: subtitles painted into the picture ----------
+HARDSUB_CACHE = {}; HARDSUB_BUDGET = {"left": 0}
+def frame_band(path, t, w=320):
+    """The middle 70 % of the lower 28 % of the picture at time t, small and grayscale (raw bytes, width, height). Corner logos fall outside it."""
+    out = subprocess.run(["ffmpeg", "-v", "error", "-ss", str(t), "-i", path, "-frames:v", "1", "-vf", f"crop=iw*0.7:ih*0.28:iw*0.15:ih*0.72,scale={w}:-2,format=gray", "-f", "rawvideo", "-"], capture_output=True, timeout=60).stdout
+    return out, w, (len(out) // w if w else 0)
+def text_score(buf, w, h):
+    """How much the band looks like subtitle lettering: bright pixels with a dark pixel right beside them (outlined type), dense over a run of rows. -> (density, (top, bottom))"""
+    if not h: return 0.0, (0, 0)
+    rows = []
+    for y in range(h):
+        r = buf[y * w:(y + 1) * w]; hits = 0
+        for x in range(1, w - 1):
+            if r[x] > 190 and (r[x - 1] < 80 or r[x + 1] < 80): hits += 1
+        rows.append(hits)
+    best = 0.0; where = (0, 0)
+    for y0 in range(h):
+        acc = 0
+        for y1 in range(y0, min(h, y0 + max(6, int(h * 0.5)))):
+            acc += rows[y1]
+            if y1 - y0 >= 4:
+                d = acc / ((y1 - y0 + 1) * w)
+                if d > best: best, where = d, (y0, y1)
+    return best, where
+def hardsub_verdict(path, dur, mtime=None, threshold=0.03, frames=8):
+    """Eight frames between 12 % and 88 % of the file: lettering in at least three of them, in about the same rows, means burned-in subtitles.
+    -> ('burned' | 'clean' | 'unknown', best score, time of the strongest frame). Cached per file + mtime; budgeted per night."""
+    key = os.path.normpath(path); mt = mtime or (os.path.getmtime(path) if os.path.exists(path) else 0)
+    hit = HARDSUB_CACHE.get(key)
+    if hit and abs(hit[0] - mt) < 1: return hit[1], hit[2], hit[3]
+    if HARDSUB_BUDGET["left"] <= 0 or not dur or dur < 20: return "unknown", 0.0, 0.0
+    HARDSUB_BUDGET["left"] -= 1; scores = []
+    try:
+        for i in range(frames):
+            t = dur * (0.12 + 0.76 * i / (frames - 1)); b, w, h = frame_band(path, t); sc, where = text_score(b, w, h); scores.append((sc, t, where))
+    except Exception as e: log("hardsub:", repr(e)); return "unknown", 0.0, 0.0
+    pos = [x for x in scores if x[0] >= threshold]
+    same_band = len(pos) >= 3 and (max(p[2][0] for p in pos) - min(p[2][0] for p in pos)) <= 12
+    verdict = "burned" if same_band else "clean"; best = max(scores, key=lambda x: x[0])
+    HARDSUB_CACHE[key] = (mt, verdict, best[0], best[1]); return verdict, best[0], best[1]
+def load_hardsub(conn):
+    HARDSUB_CACHE.clear(); HARDSUB_CACHE.update({r[0]: (r[1], r[2], r[3], r[4]) for r in conn.execute("SELECT path, mtime, verdict, score, best_t FROM hardsub")}); HARDSUB_BUDGET["left"] = int(setting("HARDSUB_MAX")) if setting("HARDSUB_CHECK") == "on" else 0
+def flush_hardsub(conn):
+    conn.executemany("INSERT OR REPLACE INTO hardsub VALUES(?,?,?,?,?,?)", [(p_, v[0], v[1], v[2], v[3], time.time()) for p_, v in HARDSUB_CACHE.items()]); conn.commit()
 def real_duration(path, mtime=None, conn=None):
     """Where the streams actually end (last audio/video packet pts), independent of the container's duration field. Seeks to the end; cached per file+mtime."""
     try: mt = mtime if mtime is not None else os.stat(path).st_mtime
@@ -1036,10 +1084,15 @@ def check(it, bz_eps, bz_movs, profile=None, rt_profile=None):
         hunting = (it["kind"] == "series" and any(e in bz_eps for e in it["ep_ids"])) or (it["kind"] == "movie" and it["parent_id"] in bz_movs)
         if not intent["nosubs"]:
             has_pref_audio = bool(audio & PREF_AUDIO); has_pref_sub = bool(subs_all & PREF_SUBS) or ("und" in ext)
+            burned = ""
+            if real and not has_pref_audio and not has_pref_sub or (not real and audio and not subs_all):
+                try: hv = hardsub_verdict(it["path"], float(((it.get("probe") or {}).get("format") or {}).get("duration") or 0), it.get("mtime")) if it.get("path") and os.path.exists(it["path"]) else ("unknown", 0, 0)
+                except Exception: hv = ("unknown", 0, 0)
+                if hv[0] == "burned": burned = f" | subtitles burned into the picture (language unknown; seen at {hv[2]:.0f}s)"
             if real and not has_pref_audio and not has_pref_sub:
-                F("NO_SUBS", "medium" if hunting else "high", f"audio={sorted(real)} embedded_subs={sorted(subs)[:6]} external={sorted(ext)}" + (f" | {len(und_text)} untagged text subtitle track(s) inside - 'tag subs' reads the text and labels it (nightly SUBTAG does this too)" if und_text else "") + (" | Bazarr still searching" if hunting else " | not in Bazarr wanted list"))
+                F("NO_SUBS", "low" if burned else ("medium" if hunting else "high"), f"audio={sorted(real)} embedded_subs={sorted(subs)[:6]} external={sorted(ext)}" + burned + (f" | {len(und_text)} untagged text subtitle track(s) inside - 'tag subs' reads the text and labels it (nightly SUBTAG does this too)" if und_text else "") + (" | Bazarr still searching" if hunting else " | not in Bazarr wanted list"))
             elif not real and audio and not subs_all:
-                F("UND_AUDIO_NO_SUBS", "low", "audio language untagged, no subtitles anywhere" + (" | Bazarr searching" if hunting else ""))
+                F("UND_AUDIO_NO_SUBS", "low", "audio language untagged, no subtitles anywhere" + (" | Bazarr searching" if hunting else "") + burned)
     dur = None
     try: dur = float(fmt["duration"]) if fmt.get("duration") else None
     except (TypeError, ValueError, KeyError): pass
@@ -1666,7 +1719,7 @@ def run_once():
         seen.add(fidh)
         if upsert_finding(conn, fidh, app, fid, code, sev, label, path, detail, started, count_run=True) == "new": new.append((sev, code, label, detail)); progress(recent=[f"[{sev}] {code}: {label} - {detail}"])
     progress("checking", "running checks", 0, len(items)); profile = series_language_profile(items); rt_profile = season_runtime_profile(items)
-    found = {}; REALDUR_CACHE.clear(); REALDUR_CACHE.update({r[0]: (r[1], r[2]) for r in conn.execute("SELECT path, mtime, dur FROM realdur")}); REALDUR_BUDGET["left"] = REALDUR_MAX
+    found = {}; REALDUR_CACHE.clear(); REALDUR_CACHE.update({r[0]: (r[1], r[2]) for r in conn.execute("SELECT path, mtime, dur FROM realdur")}); REALDUR_BUDGET["left"] = REALDUR_MAX; load_hardsub(conn)
     for n_it, it in enumerate(items):
         if n_it % 500 == 0: progress(done=n_it)
         if n_it % 300 == 0:
@@ -2255,7 +2308,7 @@ def audit_one(app, parent_id, path, reason):
         if not items: log(f"import hook: nothing listed for {app} {parent_id}"); return
         prev = dict(PROGRESS); probe_all(conn, items)
         for k_, v_ in prev.items(): PROGRESS[k_] = v_
-        bz_eps, bz_movs = bazarr_wanted(); rules = load_ignores(); profile = series_language_profile(items); rt_profile = season_runtime_profile(items); started = time.time(); out = []
+        bz_eps, bz_movs = bazarr_wanted(); rules = load_ignores(); load_hardsub(conn); profile = series_language_profile(items); rt_profile = season_runtime_profile(items); started = time.time(); out = []
         targets = [it for it in items if not path or os.path.normpath(it.get("path") or "") == os.path.normpath(path)] or items
         for it in targets:
             for code, sev, detail in check(it, bz_eps, bz_movs, profile, rt_profile):
@@ -2263,6 +2316,7 @@ def audit_one(app, parent_id, path, reason):
                 if ignored(rules, code, it["label"], fidh): continue
                 upsert_finding(conn, fidh, app, it["fid"], code, sev, it["label"], it["path"], detail, started)
                 out.append((sev, code, it["label"], detail))
+        flush_hardsub(conn)
         for it in targets:   # an import re-check also clears this file's earlier findings that are gone now (a replaced or re-tagged file), instead of leaving them until the night
             still = {c for _, c, l, _ in out if l == it["label"]}
             for old_id, old_code in conn.execute("SELECT id, check_code FROM finding WHERE resolved_at IS NULL AND app=? AND fid=?", (app, it["fid"])).fetchall():
@@ -3513,7 +3567,7 @@ def about_info(fetch=False, refresh=False, conn=None):
     else: msgs.append(dict(level="ok", text="No errors in the last 24 hours", link=""))
     for t in ("ffmpeg", "ffprobe", "mkvpropedit"):
         if not shutil.which(t): msgs.append(dict(level="error", text=f"{t} is missing from the container - checks that need it are skipped", link=""))
-    links = dict(forum="https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/", demo="https://chrizantoz.github.io/auditarr/", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
+    links = dict(forum="https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/", demo="https://demo.chrizantoz.com", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
                  source=f"https://github.com/{APP_REPO}", sponsors="https://github.com/sponsors/chrizantoz", kofi="https://ko-fi.com/chrizantoz")
     return dict(version=APP_VERSION, stats=stats, health=msgs, errors=errs, links=links, releases=lr.get("releases", []), revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
                 db_mb=round((os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0) / 1e6, 1), config_dir=CONFIG_DIR, media_dir="/data" if os.path.isdir("/data") else "", timezone=E("TZ", "UTC"),
@@ -3682,6 +3736,15 @@ class Handler(SimpleHTTPRequestHandler):
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
         if p == "/api/discover": return self._json(403, SANDBOX_NOTE) if SANDBOX else self._json(200, discover_services())
+        if p == "/api/frame":   # one frame from the lower part of the picture, at the moment the painted text was seen (F32)
+            m_ = re.search(r"[?&]id=([0-9a-f]{8,20})", self.path); c_ = db()
+            try: row = c_.execute("SELECT path, detail FROM finding WHERE id=?", (m_.group(1) if m_ else "",)).fetchone()
+            finally: c_.close()
+            if not row or not row[0] or not os.path.exists(row[0]): return self._json(404, {"error": "no file for that row"})
+            t_ = re.search(r"seen at (\d+)s", row[1] or ""); at = t_.group(1) if t_ else "60"
+            jpg = subprocess.run(["ffmpeg", "-v", "error", "-ss", at, "-i", row[0], "-frames:v", "1", "-vf", "crop=iw:ih*0.34:0:ih*0.66,scale=min(960\\,iw):-2", "-f", "image2", "-c:v", "mjpeg", "-q:v", "4", "-"], capture_output=True, timeout=60).stdout
+            if not jpg: return self._json(500, {"error": "could not read a frame from the file"})
+            self.send_response(200); self.send_header("Content-Type", "image/jpeg"); self.send_header("Content-Length", str(len(jpg))); self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(jpg); return
         if p == "/api/errors":
             m_ = re.search(r"[?&]hours=(\d+)", self.path); return self._json(200, dict(errors=errors_recent(hours=int(m_.group(1)) if m_ else 24)))
         if p == "/api/about":

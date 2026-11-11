@@ -221,6 +221,30 @@ if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     if "Executable doesn't exist" in (p.stderr + p.stdout): print("SKIP browser bot (Chromium not downloaded here; CI runs it)")
     else: check("real-browser bot passes against the live app", p.returncode == 0, "; ".join(bad)[:200] or p.stderr[-300:])
 else: print("SKIP browser bot (uibot/node_modules/playwright missing)")
+# Q33: a first install, done the way a person does it: blank Auditarr, Setup cards, Test, Save connections, reload, Find my apps, first audit
+CFG2 = tempfile.mkdtemp(prefix="auditarr-e2e-fresh-"); os.makedirs(os.path.join(CFG2, "reports")); PORT2 = free_port()
+env2 = {k: v for k, v in env.items() if not (k.endswith("_URL") or k.endswith("_APIKEY")) or k in ("NTFY_URL", "SUBGEN_URLS")}
+env2.update(CONFIG_DIR=CFG2, REPORT_DIR=os.path.join(CFG2, "reports"), HTTP_PORT=str(PORT2), HOST_IP="", RUN_ON_START="0", DISCOVER_EXTRA=f"{MURL}/sonarr,{MURL}/radarr,{MURL}/bazarr", PLEX_TOKEN="")
+log2 = open(os.path.join(CFG2, "daemon.log"), "w"); daemon2 = subprocess.Popen([sys.executable, os.path.join(ROOT, "audit.py"), "--daemon"], env=env2, stdout=log2, stderr=subprocess.STDOUT)
+BASE2 = f"http://127.0.0.1:{PORT2}"; up2 = False
+for _ in range(40):
+    time.sleep(0.5)
+    try: urllib.request.urlopen(BASE2 + "/health", timeout=2); up2 = True; break
+    except Exception: pass
+check("a blank install starts (no connections configured)", up2)
+try:
+    setup2 = json.loads(urllib.request.urlopen(BASE2 + "/api/setup", timeout=30).read())
+    check("a blank install reports nothing configured", all(not x["has_key"] for x in setup2["services"]), [x["kind"] for x in setup2["services"] if x["has_key"]])
+except Exception as e: check("a blank install reports nothing configured", False, repr(e))
+fr_bot = os.path.join(ROOT, "uibot", "first_run_bot.js")
+if up2 and os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
+    p2 = subprocess.run(["node", fr_bot, BASE2, MURL], capture_output=True, text=True, timeout=600); print(p2.stdout[-2500:])
+    if "Executable doesn't exist" in (p2.stderr + p2.stdout): print("SKIP first-run walkthrough (Chromium not downloaded here; CI runs it)")
+    else: check("first-run walkthrough in a real browser passes against a blank install", p2.returncode == 0, "; ".join(l for l in p2.stdout.splitlines() if l.startswith("FAIL"))[:200] or p2.stderr[-300:])
+else: print("SKIP first-run walkthrough (playwright missing)")
+daemon2.terminate()
+try: daemon2.wait(10)
+except Exception: daemon2.kill()
 # F20: subtitle timing. S01E01 gets an English subtitle file whose lines all run 3 s behind the (fake) speech; the check must measure that, the Re-time button must fix it.
 SPEECH = [0.4, 1.9, 4.1, 5.0, 7.3, 8.1, 10.6, 12.2, 13.0, 15.5, 17.1, 19.4, 20.2, 22.8, 24.1, 26.6, 27.9, 29.5]   # = mock_stack.SPEECH, relative to each window
 def srt_time(t): h = int(t // 3600); m = int(t % 3600 // 60); s_ = int(t % 60); return f"{h:02d}:{m:02d}:{s_:02d},{int(round((t - int(t)) * 1000)):03d}"

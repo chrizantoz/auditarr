@@ -1,7 +1,7 @@
 """The playground's fake world: synthetic video files with real defects plus a fake Sonarr/Radarr/Bazarr/Plex/Whisper that answers for them.
 Runs forever; the hourly reset recreates the containers, which rebuilds everything. Env: DATA (default /data), PORT (default 8765)."""
 import os, sys, shutil, time, threading
-HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(HERE, "tests"))
+HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, os.path.join(os.path.dirname(HERE), "tests"))   # tests/ sits next to sandbox/
 import mock_stack  # noqa: E402
 from synthlib import make  # noqa: E402
 DATA = os.environ.get("DATA", "/data"); PORT = int(os.environ.get("PORT", "8765")); TV = os.path.join(DATA, "tv"); MOVIES = os.path.join(DATA, "movies")

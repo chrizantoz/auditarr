@@ -79,6 +79,8 @@ EOF
   log "${mode:-staging} $img -> $verdict (prod: $prod | staged: $stag)"; echo "$verdict" | grep -q '^PASS'
 }
 current_image(){ docker inspect media-audit --format '{{.Config.Image}}@{{.Image}}' 2>/dev/null; }
+# one deploy at a time: two watchers/crons calling update together must not race each other through rm/run
+exec 9>/var/lock/auditarr-deploy.lock; flock -w 3600 9 || { log "another deploy is running - giving up after an hour"; exit 1; }
 case "${1:-}" in
   run)      run_prod "${2:-$IMG_REPO:latest}" ;;
   stage)    stage "${2:-$IMG_REPO:latest}" ;;

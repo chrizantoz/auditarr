@@ -72,7 +72,7 @@ async function edgeChecks(S) {
   check("Today panel rendered", /need you|nothing needs you/.test($("#today-sum").textContent) && /Needs you/.test($("#today-body").textContent), $("#today-sum").textContent.slice(0, 90));
   const libs = [...new Set(F.map(f => f.library))].sort();
   check("library dropdown lists every library", $$("#f-lib option").length === libs.length + 1, $$("#f-lib option").map(o => o.textContent).join(" | "));
-  check("check dropdown populated", $$("#f-check option").length > 5);
+  const kinds = [...new Set(F.map(f => f.check))]; check("check dropdown lists every kind of problem", $$("#f-check option").length === kinds.length + 1, $$("#f-check option").length + " options for " + kinds.length + " kinds");
   const groups0 = $$("#findings details.grp-d").length; check("findings grouped by show", groups0 > 10, groups0 + " groups");
   check("rows have Plex + arr links", $$("#findings a[title='open in Plex']").length > 0 && $$("#findings a[title^='open in']").length > 0, $$("#findings a[title='open in Plex']").length + " plex links");
   // severity filter: 'low' is unchecked by default -> enabling it adds rows

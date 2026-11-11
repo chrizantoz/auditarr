@@ -88,4 +88,5 @@ mock.chaos = None; s, j = api("/api/run", {}); time.sleep(3); phase, st = wait_r
 check("recovery run finishes clean", phase == "done" and not (st.get("health") or {}).get("degraded"), (phase, (st.get("health") or {}).get("degraded"), tail(10)))
 ids_rec = {f["id"] for f in st.get("findings", [])}
 check("recovery run reproduces the baseline findings", ids_rec == set(base_ids), (sorted(set(base_ids) - ids_rec), sorted(ids_rec - set(base_ids))))
+s, hist = api("/api/history"); check("flakiness ledger (Q21): the wobble is remembered for the History tab (retry that worked, or Radarr back after vanishing)", s == 200 and hist.get("flakes") and hist.get("flaky_services"), (s, hist.get("flaky_services")))
 finish()

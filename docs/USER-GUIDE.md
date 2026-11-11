@@ -39,7 +39,7 @@ Three steps. **1 Connect your apps**: paste each app's address and API key (Sona
 - 🗑️ **Trash**: files Auditarr moved aside, with a **restore** button each and the date they purge for good.
 - 📜 **Actions**: a log of everything done, by Auditarr or by you, plus the **Background jobs** list (what is being searched, transcribed or verified right now) and the **re-grab tracker** (did the replacement arrive, and was it better).
 - 💽 **Space**: seasons everyone has finished watching and nobody has touched in months, with their size, and seasons nobody has ever watched. **archive** unmonitors them in the arr and moves the files to the trash with a 30-day grace period.
-- 📈 **History**: one line per nightly run and the self-test results.
+- 📈 **History**: one line per nightly run, the self-test results, library health over time, and **Flaky connections**: services that failed once and recovered. A few is normal; the same one every night is worth a look.
 - ⚙️ **Settings**: switches for what Auditarr may do by itself, in plain words (Off / Only report / On). Change, **Save changes**, done. Advanced view shows every knob with its environment name.
 - 📡 **Live**: the running audit's progress and the last log lines.
 

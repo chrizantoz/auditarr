@@ -66,9 +66,17 @@ def guard_write(what):
     raise ReadOnly(f"read-only mode: {what}")
 INFLIGHT = {"n": 0}   # UI actions being executed right now (a deploy waits for 0 so a remux is never killed half-way)
 DEPS = {}   # service -> {"ok": bool, "error": str, "ts": float}; filled during a run, shown in /health and the Today panel
+def note_flake(service, what, error):
+    """Q21 flakiness ledger: a call that failed and then worked, or a service that was down and came back. Shown on the History tab."""
+    try:
+        c = sqlite3.connect(DB_PATH, timeout=30); c.execute("CREATE TABLE IF NOT EXISTS flake(ts REAL, service TEXT, what TEXT, error TEXT)")
+        c.execute("INSERT INTO flake VALUES(?,?,?,?)", (time.time(), str(service)[:60], str(what)[:120], str(error)[:160])); c.execute("DELETE FROM flake WHERE ts < ?", (time.time() - 30 * 86400,)); c.commit(); c.close()
+    except Exception as e: log("flake ledger:", repr(e))
 def dep_status(name, ok, error=""):
+    was = DEPS.get(name)
     DEPS[name] = {"ok": bool(ok), "error": str(error)[:160], "ts": time.time()}
     if not ok: log(f"DEPENDENCY DOWN: {name} - {str(error)[:120]}")
+    elif was and not was["ok"]: note_flake(name, "was unreachable, answers again", was.get("error", ""))
 def degraded(): return sorted(k for k, v in DEPS.items() if not v["ok"])
 TRUST_PROXY_AUTH = E("TRUST_PROXY_AUTH", "0") == "1"   # 1 = a Remote-User header from your reverse proxy (Authelia etc.) counts as a login
 AUTH = {"loaded": False, "conf": None}
@@ -408,8 +416,15 @@ def api(base, key, path, method="GET", body=None, timeout=180):
     data = json.dumps(body).encode() if body is not None else None
     if (method or "GET").upper() not in ("GET", "HEAD") or data is not None: guard_write(f"{method or 'POST'} {base}/api/v3/{path}")
     req = urllib.request.Request(f"{base}/api/v3/{path}", data=data, method=method, headers={"X-Api-Key": key, "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        raw = r.read(); return json.loads(raw) if raw.strip() else None
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read(); return json.loads(raw) if raw.strip() else None
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:   # includes HTTPError; one retry for reads only - a write is never repeated blindly
+        transient = (not isinstance(e, urllib.error.HTTPError)) or e.code >= 500
+        if data is not None or (method or "GET").upper() not in ("GET", "HEAD") or not transient: raise
+        time.sleep(2)
+        with urllib.request.urlopen(req, timeout=timeout) as r: raw = r.read()
+        note_flake(base.rstrip("/").rsplit("/", 1)[-1] if base.count("/") > 2 else base, path.split("?")[0], repr(e)); return json.loads(raw) if raw.strip() else None
 def bazarr_conf():
     yml = os.path.join(ARR_DIR, "bazarr.yaml"); key = conn_value("BAZARR_APIKEY")
     if not key and os.path.exists(yml):
@@ -678,6 +693,7 @@ def db():
     CREATE TABLE IF NOT EXISTS rescan_log(app TEXT, parent_id INTEGER, ts REAL, PRIMARY KEY(app, parent_id));
     CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
     CREATE TABLE IF NOT EXISTS upcoming(app TEXT, fid INTEGER, label TEXT, ts REAL, PRIMARY KEY(app, fid));
+    CREATE TABLE IF NOT EXISTS flake(ts REAL, service TEXT, what TEXT, error TEXT);
     """)
     cols = [r[1] for r in c.execute("PRAGMA table_info(probe)")]
     if "ver" not in cols: c.execute("ALTER TABLE probe ADD COLUMN ver INTEGER DEFAULT 1")
@@ -2812,7 +2828,10 @@ def ui_history(conn):
             m = re.search(r"freed ([\d.]+) GB", result or ""); e["purge_gb"] += float(m.group(1)) if m else 0
     try: sh = json.loads((conn.execute("SELECT v FROM kv WHERE k='scores_history'").fetchone() or ["[]"])[0])
     except Exception: sh = []
-    return {"runs": runs[::-1], "days": dict(sorted(days.items())), "tests": tests_status(), "scores_history": sh}
+    flakes = [dict(ts=datetime.datetime.fromtimestamp(t).isoformat(timespec="minutes"), service=s_, what=w_, error=e_) for t, s_, w_, e_ in conn.execute("SELECT ts,service,what,error FROM flake WHERE ts > ? ORDER BY ts DESC LIMIT 200", (time.time() - 30 * 86400,))]
+    per = {}
+    for f_ in flakes: per[f_["service"]] = per.get(f_["service"], 0) + 1
+    return {"runs": runs[::-1], "days": dict(sorted(days.items())), "tests": tests_status(), "scores_history": sh, "flakes": flakes, "flaky_services": per}
 def ui_settings_get():
     items = []
     for name, (kind, default, help_) in SETTABLE.items():

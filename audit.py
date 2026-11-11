@@ -214,14 +214,15 @@ SETTABLE = {   # env name: (kind, default, help)
  "SUBTAG": ("mode", "on", "nightly: sniff untagged embedded subtitle tracks and write the language tag (mkv only, English/Japanese/Russian detected from the text)"),
  "SUBTAG_MAX": ("int", "100", "max files sub-tagged per run"),
  "TRASH_DAYS": ("int", "14", "keep re-grabbed/orphan files in the trash this many days"), "TRASH_DAYS_ARCHIVE": ("int", "30", "keep archived (watched & cold) seasons in the trash this many days"),
- "TRACK_PREFS": ("mode", "on", "nightly: set default audio/subtitle flags in MKVs (anime -> Japanese/original audio, else English; English subs) and Plex's remembered selection"),
+ "TRACK_PREFS": ("mode", "on", "nightly: set the default audio/subtitle flags in MKVs and Plex's remembered selection to what PREFER_DUBS, PREFERRED_AUDIO and PREFERRED_SUBS say"),
  "TRACK_PREFS_MAX": ("int", "1000", "max files whose MKV default flags are rewritten per night"),
  "PLEX_SELECT_MAX": ("int", "2000", "max Plex items whose selected audio/subtitle stream is set per night"),
  "WATCH_STATS": ("onoff", "on", "nightly: combine Tautulli plays, Plex watched counts and file sizes into the Space tab"),
  "COLD_DAYS": ("int", "180", "a fully watched season counts as cold when nobody played it for this many days"),
  "NEVER_WATCHED_DAYS": ("int", "365", "never-played titles are listed once they are this old"),
  "SPACE_MIN_GB": ("num", "3", "ignore seasons/movies smaller than this in the Space tab"), "TRASH_DAYS_DEDUPE": ("int", "3", "keep duplicates in the trash this many days"),
- "PREFERRED_AUDIO": ("csv", "eng", "audio languages that are always acceptable (ISO 639-2)"), "PREFERRED_SUBS": ("csv", "eng", "subtitle languages that count as 'has subs'"),
+ "PREFERRED_AUDIO": ("csv", "eng", "your language(s) for audio, ISO 639-2 (first one = the one the night picks when PREFER_DUBS is on)"), "PREFERRED_SUBS": ("csv", "eng", "your language(s) for subtitles, ISO 639-2 (first one = the one the night picks)"),
+ "PREFER_DUBS": ("onoff", "off", "how the night picks the default audio: off = every title in its original language with subtitles in your language (anime in Japanese, Korean drama in Korean); on = dubbed in your language whenever the file has it, original language only when it does not"),
  "NTFY_MIN_SEVERITY": ("sev", "medium", "push a notification for new findings at or above this severity"),
  "STALE_HOURS": ("num", "30", "/health reports 503 when the last run is older than this"),
 }
@@ -1386,12 +1387,14 @@ def wanted_langs(it):
     subtitles - Korean drama in Korean, Japanese anime in Japanese, Chinese donghua in Chinese (Japanese dub as second choice) -
     and English-original titles in English. An audit-lang-xxx tag on the title overrides everything."""
     orig = it.get("orig") or ""; is_anime = it.get("series_type") == "anime" or lib_of(it.get("path") or "", it["app"]) == "Anime"
+    mine = (canon(setting("PREFERRED_AUDIO").split(",")[0].strip()) or "eng"); subs = (canon(setting("PREFERRED_SUBS").split(",")[0].strip()) or "eng")
     tag = (it.get("intent") or {}).get("lang")
     if tag: prefs = [tag]
-    elif is_anime: prefs = list(dict.fromkeys([l for l in (orig if orig not in ("eng", "") else None, "jpn") if l]))
-    elif orig and orig != "eng": prefs = [orig]
-    else: prefs = ["eng"]
-    return (prefs, "eng")
+    elif setting("PREFER_DUBS") == "on": prefs = list(dict.fromkeys([l for l in (mine, orig if orig else None, "jpn" if is_anime else None) if l]))   # my language first, the original as the fallback
+    elif is_anime: prefs = list(dict.fromkeys([l for l in (orig if orig not in (mine, "") else None, "jpn") if l]))
+    elif orig and orig != mine: prefs = [orig]
+    else: prefs = [mine]
+    return (prefs, subs)
 def _sub_rank(st):
     t = ((st.get("tags") or {}).get("title") or "").lower(); d = st.get("disposition") or {}
     return (1 if (d.get("forced") or "forced" in t or "sign" in t or "song" in t) else 0) + (1 if ("sdh" in t or "cc" in t or d.get("hearing_impaired")) else 0) + (1 if "weeb" in t or "honorific" in t else 0)

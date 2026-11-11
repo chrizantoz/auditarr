@@ -144,6 +144,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **U24** Progress you can read: the first audit shows "checked 1,200 of 14,000 · about 18 minutes left" on Today, not only on the Live tab.
 - 🔴 **U25** Done-for-you defaults by library: when a library is named Anime or Kids, the matching language and subtitle switches are suggested on the Setup page with one click to accept.
 - 🟢 **U26** (2026-11-11) Something is happening: a thin moving bar under the top edge while any request is in flight, a spinner inside the button you pressed, pulsing chips for a running audit, a working row and a title being watched, and a turning arrow next to running background jobs. Honours reduced-motion.
+- 🟢 **U27** (2026-11-11) The audio rule is a choice, not a taste baked in: `PREFER_DUBS` off = every title in its original language with subtitles in your language (the default); on = dubbed in your language whenever the file has it, original only when it does not. The subtitle language follows `PREFERRED_SUBS` instead of being hard-coded to English; `PREFERRED_AUDIO` names your language. The per-title tag still wins. `tests/lang_rule.py`.
 
 ## 🔧 Later: smaller improvements
 

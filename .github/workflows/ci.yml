@@ -15,7 +15,7 @@ jobs:
         timeout-minutes: 10
         run: sudo bash scripts/ci-media-tools.sh
       - run: python tests/synthetic_media.py
-      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py && python tests/watch_priority.py && python tests/errors_log.py && python tests/subsync.py && python tests/shapes_check.py && python tests/settings_types.py && python tests/golden_digest.py && python tests/perf_budget.py
+      - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py && python tests/watch_priority.py && python tests/errors_log.py && python tests/subsync.py && python tests/shapes_check.py && python tests/settings_types.py && python tests/lang_rule.py && python tests/golden_digest.py && python tests/perf_budget.py
       - run: python tests/fuzz_detectors.py 3000 7 && python tests/fuzz_detectors.py 1500 ${{ github.run_number }}
       - run: python tests/mutation_check.py   # one rotating mutant per day; 'all' locally
       - uses: actions/setup-node@v4

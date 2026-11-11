@@ -89,6 +89,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
 - [ ] **F11** More than one instance per arr kind (two Sonarrs).
 - [ ] **F12** Translations: one JSON per language for names, sentences, buttons and help.
+- [ ] **F14** Smarter AI-subtitle trigger: queue Whisper once Bazarr has already searched an item a few times with nothing found (read its search history), instead of only waiting `AUTO_WHISPER_DAYS`. Owner request 2026-11-11.
 
 ## 🔧 Later: smaller improvements
 

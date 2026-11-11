@@ -44,6 +44,10 @@ Taken by the test bot in CI from real (sanitised) data, so they are always curre
 2. 🌙 **It audits every night** — opens every file, finds what is wrong, fixes the safe things by itself, and sends you one morning message: *Needs you: …*
 3. 🔘 **You press a button** — every problem has one plain-language sentence and one verb button (*Download a better copy*, *Make AI subtitles*, …). Everything is reversible from the **Trash** tab.
 
+### What it runs on
+
+Inside the container: Python 3.12 and its standard library, one Python package (`pyyaml`, to read Bazarr's config), `ffmpeg`/`ffprobe` and `mkvtoolnix`. No database server, no framework. The test bots need Node 20 with `jsdom`, `playwright`, `axe-core`, `pixelmatch` and `pngjs` (see `uibot/package.json`); none of that ships in the app image.
+
 ## 🚀 Quick start (Docker)
 
 The short way: run the container with your media mounted, open the page, and follow the **Setup** tab. It asks for the Sonarr, Radarr, Bazarr and Plex addresses and API keys, tests each one, shows which media folders it can see, and starts the first audit.

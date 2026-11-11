@@ -166,10 +166,11 @@ orp = next((f for f in byt.get("ORPHAN_FILE", []) if os.path.basename(orphan) in
 if orp:
     s, j = api("/api/ignore", {"id": orp["id"]}); s2, st = api("/api/state")
     check("Ignore hides the finding", s == 200 and not any(f["id"] == orp["id"] for f in st.get("findings", [])), (s, j))
+s0, st = api("/api/state"); prev_ts = ((st.get("tests") or {}).get("selftest") or {}).get("ts")
 s, j = api("/api/selftest"); t1 = time.time(); st_ = {}
-while time.time() - t1 < 150:   # the self-test runs in a thread; wait for a fresh result
+while time.time() - t1 < 150:   # the self-test runs in a thread; wait for the result of THIS trigger, not an earlier automatic one
     s2, st = api("/api/state"); st_ = (st.get("tests") or {}).get("selftest") or {}
-    if st_.get("total") and st_.get("ts", "") >= time.strftime("%Y-%m-%dT%H:%M", time.localtime(t1 - 60)): break
+    if st_.get("total") and st_.get("ts") and st_.get("ts") != prev_ts: break
     time.sleep(3)
 print("in-container self-test:", st_.get("passed"), "/", st_.get("total"), st_.get("failed"))
 check("the built-in self-test passes inside the fake stack", st_.get("total") and not st_.get("failed"), st_)

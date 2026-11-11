@@ -8,6 +8,8 @@ COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt && pip uninstall -y pip && rm -rf /usr/local/lib/python3*/site-packages/pip* /root/.cache
 COPY audit.py ui.html /app/
 COPY tests /app/tests
-ENV PYTHONUNBUFFERED=1
+ARG VERSION=dev
+ARG REVISION=
+ENV PYTHONUNBUFFERED=1 APP_VERSION=$VERSION APP_REVISION=$REVISION
 EXPOSE 3091
 CMD ["python", "/app/audit.py", "--daemon"]

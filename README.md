@@ -93,6 +93,8 @@ Out of the box the page is open to your local network (handy at home). On the **
 
 ## ⚙️ Settings
 
+Settings → **About** shows the version you run, the newest release (checked once a day, chip in the header when there is one), and how to update. With an update hook (`UPDATE_HOOK_URL`, e.g. Watchtower's HTTP API) it also gets an **Update now** button.
+
 Every option has a sensible default and can be changed on the **Settings tab** (saved in the database — no file editing needed). If the same option is set in more than one place, this is the order that wins: a one-off `?KEY=` in the URL → what you saved in the UI → the container's environment variable → the built-in default. The Settings tab shows you where each current value is coming from.
 
 ## 🧑‍💻 For developers

@@ -101,7 +101,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🔴 **F20** Subtitle sync check: spot a subtitle that drifts from the dialogue and drive Bazarr's sync for that file.
 - 🔴 **F21** Quiet hours for heavy jobs: no Whisper or remux while Plex has active streams or inside a time window.
 - 🔴 **F22** Space hogs: files whose size is absurd for their resolution, two copies of a movie at different qualities, encodes below the profile cutoff, with the gigabytes each decision frees (extends F7).
-- 🔴 **F23** Update-available chip: the page compares its version with the latest release and shows the changelog line.
+- 🟢 **F23** (2026-11-11) About panel + update check: version/build/runtime/uptime, newest release checked daily, "update available" chip, Check for updates, Update now via `UPDATE_HOOK_URL`. Owner request.
 - 🔴 **F24** Export and import: settings, device profiles and the ignore list as one file, for moving to a new box or recovering (pairs with the restore drill).
 - 🔴 **F25** Per-library rules: different language, subtitle and automation policies for anime, kids, movies.
 

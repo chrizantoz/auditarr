@@ -2754,6 +2754,7 @@ def ui_state(conn):
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
+    ab_ = about_info(fetch=False); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
     try:
         apps_ = arr_apps(); latest["setup"] = dict(arrs=sorted(apps_), bazarr=bool(bazarr_conf()[1]), plex=bool(plex_token()), first_run_done=bool(conn.execute("SELECT 1 FROM run WHERE finished IS NOT NULL LIMIT 1").fetchone()), degraded=degraded())
     except Exception as e: latest["setup"] = {"error": repr(e)}
@@ -2865,6 +2866,41 @@ def ui_settings_post(conn, body, actor):
     record_action(conn, "on", "settings", "ui", "kv", f"{len(diff)} setting(s)", f"changed by {actor}", json.dumps(diff)[:300]); refresh_reports(conn)
     return 200, {"ok": True, "saved": {k: mask(k, v) for k, v in new.items()}, "applies": "next run (and immediately for trash retention / Plex / notifications)"}
 START_TS = time.time()
+APP_VERSION = E("APP_VERSION", "dev"); APP_REVISION = E("APP_REVISION", ""); APP_REPO = "chrizantoz/auditarr"
+LATEST = {"ts": 0.0, "tag": "", "url": "", "name": "", "error": ""}
+def latest_release(fetch=True, refresh=False):
+    """Newest GitHub release (cached 6 h). fetch=False never touches the network (page loads); UPDATE_CHECK=0 disables the check entirely."""
+    if E("UPDATE_CHECK", "1") != "1": return LATEST
+    if not fetch or (not refresh and LATEST["ts"] and time.time() - LATEST["ts"] < 6 * 3600): return LATEST
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{APP_REPO}/releases/latest", headers={"User-Agent": "auditarr", "Accept": "application/vnd.github+json"})
+        j = json.load(urllib.request.urlopen(req, timeout=8)); LATEST.update(ts=time.time(), tag=j.get("tag_name") or "", url=j.get("html_url") or "", name=j.get("name") or "", error="")
+    except Exception as e: LATEST.update(ts=time.time(), error=str(e)[:120])
+    return LATEST
+def _vtuple(v):
+    n = re.findall(r"\d+", v or ""); return tuple(int(x) for x in n[:3]) if n else None
+def about_info(fetch=False, refresh=False):
+    """Settings → About: what is running, where, for how long, and whether a newer release exists."""
+    import platform, shutil
+    lr = latest_release(fetch, refresh); cur, new = _vtuple(APP_VERSION), _vtuple(lr["tag"])
+    return dict(version=APP_VERSION, revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
+                db_mb=round((os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0) / 1e6, 1), config_dir=CONFIG_DIR, media_dir="/data" if os.path.isdir("/data") else "", timezone=E("TZ", "UTC"),
+                uptime_s=int(time.time() - START_TS), tools={t: bool(shutil.which(t)) for t in ("ffmpeg", "ffprobe", "mkvpropedit", "mkvmerge")},
+                latest=dict(tag=lr["tag"], url=lr["url"], name=lr["name"], checked=datetime.datetime.fromtimestamp(lr["ts"]).isoformat(timespec="minutes") if lr["ts"] else "", error=lr["error"]),
+                update_available=bool(cur and new and new > cur), update_hook=bool(E("UPDATE_HOOK_URL")), check_enabled=E("UPDATE_CHECK", "1") == "1", license="GPL-3.0", repo=f"https://github.com/{APP_REPO}")
+def ui_update(conn, actor):
+    """POST /api/update: ask the host to update this container through a webhook (Watchtower's HTTP API or anything that pulls and recreates). The app cannot replace itself from inside."""
+    url = E("UPDATE_HOOK_URL")
+    if not url: return 400, {"error": "no update hook configured - update from the host (Unraid Docker tab, docker compose pull, or the deploy script); see Settings → About"}
+    if READ_ONLY: return 409, {"error": "read-only copy"}
+    hdr = {"User-Agent": "auditarr"}; tok = E("UPDATE_HOOK_TOKEN")
+    if tok: hdr["Authorization"] = "Bearer " + tok
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, data=b"{}", method="POST", headers=hdr), timeout=30) as r: code_ = r.status
+    except urllib.error.HTTPError as e: code_ = e.code
+    except Exception as e: record_action(conn, "on", "update", "ui", "", "Auditarr", f"update requested by {actor}", f"hook failed: {e!r}"[:160]); return 502, {"error": f"the update hook did not answer: {e!r}"[:160]}
+    record_action(conn, "on", "update", "ui", "", "Auditarr", f"update requested by {actor}", f"hook answered HTTP {code_}")
+    return 200, {"ok": True, "note": "Update requested. The host pulls the new image and restarts Auditarr; this page comes back by itself in a minute or two."}
 def run_selftest():
     """Run tests/selftest.py against ourselves (reversible API + detector sampling); results land in reports/selftest.json."""
     try:
@@ -3007,6 +3043,7 @@ class Handler(SimpleHTTPRequestHandler):
             c_ = db()
             try: return self._json(200, plan_tonight(c_))
             finally: c_.close()
+        if p == "/api/about": return self._json(200, about_info(fetch="refresh=1" in self.path, refresh="refresh=1" in self.path))
         if p == "/api/selftest":
             threading.Thread(target=run_selftest, daemon=True).start(); return self._json(202, {"ok": True, "note": "self-test started; results in the header chip / History tab in ~1-2 min"})
         if p == "/api/trash": return self._json(200, {"items": trash_list(), "keep": TRASH_KEEP})
@@ -3079,6 +3116,7 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/whisper": code, obj = ui_whisper(conn, body, actor)
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
             elif p == "/api/hook_setup": code, obj = ensure_hook(conn, str(body.get("app") or ""))
+            elif p == "/api/update": code, obj = ui_update(conn, actor)
             elif p == "/api/setpassword":
                 conf = auth_conf(conn)
                 if conf and not (auth_user and auth_user != "local") and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
@@ -3140,6 +3178,12 @@ def daemon():
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")
     if E("RUN_ON_START", "1") == "1": threading.Thread(target=guarded_run, daemon=True).start()
+    def _update_checker():
+        while True:
+            try: latest_release(True)
+            except Exception: pass
+            time.sleep(86400)
+    threading.Thread(target=_update_checker, daemon=True).start()
     hh, mm = [int(x) for x in RUN_AT.split(":")]
     while True:
         now = datetime.datetime.now(); nxt = now.replace(hour=hh, minute=mm, second=0, microsecond=0)

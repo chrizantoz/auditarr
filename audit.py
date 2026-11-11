@@ -1264,6 +1264,7 @@ def do_plex_select(conn, items):
         k = PLEX_KEYS.get(os.path.normpath(it.get("path") or "")); rk = k[0] if k else None
         if not rk or rk in seen or it.get("missing") or it["app"] == "whisparr": continue
         looked += 1
+        if looked % 50 == 0: progress(detail=f"Plex track selection: {looked} of up to {mx} items checked, {changed} switched"); conn.commit()   # heartbeat + release the write lock
         try:
             md = (plex_get(f"/library/metadata/{rk}").get("MediaContainer", {}).get("Metadata") or [{}])[0]; part = (md.get("Media") or [{}])[0].get("Part", [{}])[0]; streams = part.get("Stream", [])
         except Exception: continue

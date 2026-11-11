@@ -48,7 +48,7 @@ stage(){ # $1 = image, $2 = extra docker args (fault drill), $3 = "drill" to jud
     docker image inspect "$UIBOT_IMG" >/dev/null 2>&1 || docker pull -q "$UIBOT_IMG" >/dev/null 2>&1
     if docker image inspect "$UIBOT_IMG" >/dev/null 2>&1; then
       docker run --rm -e TZ=${TZ:-UTC} -e AUDIT_URL=http://$HOST_IP:3093 -e UI_HTML=/tmp/fetch-from-app -v "$S/data/reports":/out "$UIBOT_IMG" > "$S/uibot.log" 2>&1
-      bot=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(f"{j.get(\"passed\")}/{j.get(\"total\")}" + (" failed: " + "; ".join(j.get("failed") or []) if j.get("failed") else ""))' "$S/data/reports/uibot.json" 2>/dev/null || echo "bot did not report")
+      bot=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(str(j.get("passed")) + "/" + str(j.get("total")) + ((" failed: " + "; ".join(j.get("failed") or [])) if j.get("failed") else ""))' "$S/data/reports/uibot.json" 2>/dev/null || echo "bot did not report")
     else bot="bot image unavailable"; fi
   fi
   curl -s http://127.0.0.1:3091/api/state > "$S/prod.json"; curl -s http://127.0.0.1:3093/api/state > "$S/stag.json"; curl -s http://127.0.0.1:3093/health > "$S/health.json"

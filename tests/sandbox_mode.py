@@ -22,6 +22,9 @@ def post(path, body):
     r = Req(path, body); r.rfile = io.BytesIO(r._b)
     r._auth = lambda: (True, "local", "admin"); r._actor = lambda: "lan:192.168.1.9"; r.send_response = lambda *a: None; r.send_header = lambda *a: None; r.end_headers = lambda: None; r.wfile = io.BytesIO()
     audit.Handler.do_POST(r); return r.out
+class _R:
+    def __init__(self, ip, xff=None): self.client_address = (ip, 1); self.headers = {"X-Forwarded-For": xff} if xff else {}
+check("a visitor from the public internet may click (the locks guard, not the address)", audit.Handler._actor(_R("172.25.0.9", "203.0.113.7")) == "visitor:203.0.113.7" and audit.Handler._actor(_R("8.8.8.8")) == "visitor:8.8.8.8")
 check("connections cannot be changed", post("/api/settings", {"set": {"SONARR_URL": "http://192.168.1.10:8989"}})[0] == 403)
 check("keys cannot be changed", post("/api/settings", {"set": {"SONARR_APIKEY": "abc"}})[0] == 403)
 check("ordinary settings still save (dry-run gates, retention)", post("/api/settings", {"set": {"TRASH_DAYS": "3"}})[0] == 200)

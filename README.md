@@ -48,7 +48,11 @@ The full picture, with the automation switches and where it runs: **[How Auditar
 - Your media visible to Auditarr at the **same path** the other apps use (mounted at `/data` below). If the paths differ, you can map them — see *Requirements*.
 - About five minutes to fill in the `docker run` command below.
 
-### How it works in three steps
+### Try it without installing
+
+**[demo.chrizantoz.com](https://demo.chrizantoz.com)** runs the real app against a fake Sonarr, Radarr, Bazarr, Plex and Whisper on a handful of synthetic files with real defects. Every button works: move to the trash and undo, download a better copy, make AI subtitles, re-time subtitles, detect the language. Nothing is real, and it all resets on the hour.
+
+## How it works in three steps
 
 1. 🔗 **Connect** — start the container, open the page, paste your Sonarr / Radarr / Bazarr / Plex addresses and keys on the **Setup** tab and press *Test*.
 2. 🌙 **It audits every night** — opens every file, finds what is wrong, fixes the safe things by itself, and sends you one morning message: *Needs you: …*

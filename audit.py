@@ -3635,6 +3635,7 @@ class Handler(SimpleHTTPRequestHandler):
     def _actor(self):
         """Writes are allowed from the LAN / tailnet / the docker host itself, or through NPM when Authelia has set Remote-User."""
         ip = self.client_address[0]; user = self.headers.get("Remote-User") or self.headers.get("X-Remote-User")
+        if SANDBOX: return f"visitor:{(self.headers.get('X-Forwarded-For') or ip).split(',')[0].strip()}"   # the playground: anyone may click; its locks and write budget do the guarding
         if ip.startswith(("192.168.", "10.", "100.", "127.")) or ip == "::1" or ip == GATEWAY_IP: return user or f"lan:{ip}"
         if user: return f"{user}@{ip}"
         return None

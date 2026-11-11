@@ -57,7 +57,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [x] **Q19** (2026-11-11) Authorization test: a POST from a non-private address without the Authelia header is refused.
 - [x] **Q20** (2026-11-11) Security scans in CI: dependency audit + container image scan, failing on critical issues.
 - [x] **Q21** (2026-11-11) Flakiness ledger: reads get one retry; a retry that works, or a service that drops and comes back, lands in a 30-day table on the History tab. Proven by the chaos test.
-- [ ] **Q22** Publish the fake arr stack (`tests/mock_stack.py`) as a small standalone project ("arr-mock") once it has settled, for other arr companion apps.
+- [x] **Q22** (2026-11-11) Published as [arr-mock](https://github.com/chrizantoz/arr-mock): the fake stack, chaos mode and `synthlib`, with a README and self-check. `tests/mock_stack.py` stays the source; sync by hand when it changes.
 - [x] **Q23** `docs/TESTING.md`: how the harness works (read-only staging + write ledger, per-check promotion gate, synthetic media, plain-language lint, fault drill) so other projects can copy the method.
 
 ## 📦 Next: let someone else install it

@@ -45,9 +45,9 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **Q9** Slow-service drill: put a latency-injecting proxy in front of one service to prove timeouts, not just outright failures.
 
 🤖 **Bots, next layer (added 2026-11-11, ranked)**
-- [ ] **Q10** Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
-- [ ] **Q11** Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
-- [ ] **Q12** Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
+- [x] **Q10** (2026-11-11) Mutation check: deliberately break one detector in CI and assert the synthetic suite fails; rotate the detector nightly.
+- [x] **Q11** (2026-11-11) Regression corpus: one replayable case per real incident (`tests/regressions/`): Bazarr prose timestamp, self-test matching MISSING_FILE, batch killed by a deploy, orphan race.
+- [x] **Q12** (2026-11-11) Fuzzed detectors: thousands of random valid ffprobe results; invariants: no exception, known codes, a sentence for every finding, severity from the fixed set.
 - [ ] **Q13** Upgrade test: sample database per release; the new daemon must migrate, run and render on each.
 - [ ] **Q14** Restore drill (weekly, on the host): start a throwaway container on last night's backup and load its page.
 - [ ] **Q15** Chaos in the fake stack: random 500s, timeouts and mid-run disappearance; the audit finishes degraded with no half-done writes.
@@ -97,7 +97,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - [ ] **S3** Phone notifications with a link straight to the Trash tab after any file move.
 - [ ] **S4** Per-show learning: problem types you always ignore quietly drop to low on their own.
 - [x] **S6** Re-check orphans against the arr at the end of a run, so files imported mid-run aren't flagged as orphans (added 2026-11-11).
-- [ ] **S7** (found 2026-11-11) MP4 lossless rewrite safety: after the swap, re-probe the final file and compare its checksum with the verified temporary file; refuse the bulk button for MP4 until the root cause of one corrupted result is understood (details in the private incident notes).
+- [x] **S7** (2026-11-11) MP4 lossless rewrite safety: after the swap, re-probe the final file and compare its checksum with the verified temporary file; refuse the bulk button for MP4 until the root cause of one corrupted result is understood (details in the private incident notes).
 - [x] **S8** (2026-11-11) Run visibility: progress heartbeat during the quiet Plex-selection phase, "last activity" and a "possibly stuck" chip on the Live tab; settings never echo or log secrets.
 - [ ] **S5** A Sonarr custom format that penalises AV1 if certain re-downloads keep coming back as AV1.
 

@@ -372,8 +372,10 @@ def bazarr_wanted():
     except Exception as e: log("bazarr wanted:", e); dep_status("bazarr", False, repr(e))
     return eps, movs
 def hms(s):
+    """'0:42:00' / '42:00' / '2520' -> seconds; anything unparseable -> None (arr media info is not always clean)."""
     if not s: return None
-    p = [int(float(x)) for x in str(s).split(":")]
+    try: p = [int(float(x)) for x in str(s).split(":")]
+    except (TypeError, ValueError): return None
     while len(p) < 3: p.insert(0, 0)
     return p[0]*3600 + p[1]*60 + p[2]
 
@@ -907,7 +909,7 @@ def check(it, bz_eps, bz_movs, profile=None, rt_profile=None):
         want = norm_tokens(it["title"]) | set().union(*[norm_tokens(t) for t in it["ep_titles"]]) if it["ep_titles"] else norm_tokens(it["title"])
         got = norm_tokens(ttl); fname = norm_tokens(os.path.basename(it["path"] or ""))
         if want and not (got & want) and len(got & fname) / len(got) < 0.3:
-            F("TITLE_MISMATCH", "low", f"embedded title '{ttl[:60]}' does not match '{it['title']}'" + (f" / {it['ep_titles'][0][:40]}" if it["ep_titles"] else ""))
+            F("TITLE_MISMATCH", "low", f"embedded title '{ttl[:60]}' does not match '{it['title']}'" + (f" / {(it['ep_titles'][0] or '')[:40]}" if it["ep_titles"] and it["ep_titles"][0] else ""))
     # player compatibility
     if PLAYER_CHECKS and ok and v:
         v0 = v[0]; codec = (v0.get("codec_name") or "").lower(); pix = v0.get("pix_fmt") or ""

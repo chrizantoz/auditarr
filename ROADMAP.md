@@ -91,6 +91,33 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - 🔴 **F12** Translations: one JSON per language for names, sentences, buttons and help.
 - 🟢 **F14** (2026-11-11) Same-day AI subtitles: after a new download with no subtitles, if Bazarr still has nothing `AUTO_WHISPER_IMPORT_MINUTES` later, Whisper runs right away (Bazarr's API does not expose per-item search attempts, so the import hook plus a head start is the signal). Nightly `AUTO_WHISPER_DAYS` stays as the catch-all. Owner request.
 
+### 🌍 Reach, usefulness and upkeep (added 2026-11-11, ranked — owner-approved)
+
+- 🔴 **F15** Jellyfin and Emby support: the same checks, Up-next, track selection and library health for a Jellyfin or Emby server, chosen on the Setup page next to Plex.
+- 🔴 **F16** Stuck downloads: a queue item sitting for days, a failed import or a dead indexer becomes a finding with one-click "remove and search again".
+- 🔴 **F17** Discord, Telegram and email for the morning push and alerts (Apprise-style adapters; ntfy stays).
+- 🔴 **F18** Close the loop with the arr: after two re-grabs come back with the same defect, mark the release failed and blocklist it so the arr stops fetching that group.
+- 🔴 **F19** Dashboard endpoint: a token-protected summary (needs-you count, health, last run, library scores) for Homepage, Homarr and Home Assistant widgets.
+- 🔴 **F20** Subtitle sync check: spot a subtitle that drifts from the dialogue and drive Bazarr's sync for that file.
+- 🔴 **F21** Quiet hours for heavy jobs: no Whisper or remux while Plex has active streams or inside a time window.
+- 🔴 **F22** Space hogs: files whose size is absurd for their resolution, two copies of a movie at different qualities, encodes below the profile cutoff, with the gigabytes each decision frees (extends F7).
+- 🔴 **F23** Update-available chip: the page compares its version with the latest release and shows the changelog line.
+- 🔴 **F24** Export and import: settings, device profiles and the ignore list as one file, for moving to a new box or recovering (pairs with the restore drill).
+- 🔴 **F25** Per-library rules: different language, subtitle and automation policies for anime, kids, movies.
+
+## 🙂 Later: even friendlier (added 2026-11-11, ranked)
+
+- 🔴 **U11** Guided first visit: a three-step overlay on the first open (Today → a row → its buttons), dismissible, never shown again.
+- 🔴 **U12** "What if" on every row: one tap expands what happens if you ignore it, fix it or wait, in two sentences each.
+- 🔴 **U13** Undo for more than file moves: a ten-second undo on Ignore, on settings changes and on accept-language.
+- 🔴 **U14** Setup auto-discovery: find Sonarr, Radarr, Bazarr and Plex on the Docker network or the LAN, read keys from mounted config folders, prefill the Setup page; the user only presses Test.
+- 🔴 **U15** Errors that say what to do: every failure message maps to a plain cause and a next step ("Bazarr key is wrong - Settings → General in Bazarr, then paste it here").
+- 🔴 **U16** One-click "fix everything safe" per show: all reversible, low-risk fixes for a title behind one confirm, with a summary of what it did.
+- 🔴 **U17** Search that understands intent: "anime no subtitles", "4k movies wrong language" filter by library, kind and problem at once.
+- 🔴 **U18** Phone layout, second pass: big Today buttons, swipe to ignore or fix on a row, sticky filter bar.
+- 🔴 **U19** Keyboard and screen-reader pass: shortcuts for the common actions, a larger-text mode, focus order checked by the browser bot.
+- 🔴 **U20** Help that answers questions: a search box over the user guide inside the "?" panel ("how do I make subtitles for a whole show").
+
 ## 🔧 Later: smaller improvements
 
 - 🟢 **S1** Content verification for movies (Radarr): dialogue against the movie's synopsis plus two dozen decoys from the same library. _(2026-11-11)_

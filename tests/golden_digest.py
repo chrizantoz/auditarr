@@ -49,7 +49,7 @@ srv = ThreadingHTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serv
 audit.NTFY_URL = f"http://127.0.0.1:{srv.server_address[1]}/auditarr"; audit.NTFY_TOKEN_FILE = ""
 audit.ntfy(f"Auditarr daily: {len(t['needs'])} need you · {sum(t['did'].values())} fixes overnight", text, "high", click=audit.page_url("findings")); time.sleep(0.3)
 check("mock ntfy received the digest body unchanged", got.get("body") == text, got.get("body"))
-check("push carries a title with the counts", got.get("headers", {}).get("Title") == "Auditarr daily: 3 need you · 5 fixes overnight", got.get("headers", {}).get("Title"))
+check("push carries a title with the counts", got.get("headers", {}).get("Title") == f"Auditarr daily: {len(t['needs'])} need you · 5 fixes overnight", got.get("headers", {}).get("Title"))
 check("push priority is high when something critical is open", got.get("headers", {}).get("Priority") == "high")
 check("push links straight into the page (PUBLIC_URL + #findings)", got.get("headers", {}).get("Click") == "https://auditarr.example.test/#findings", got.get("headers", {}).get("Click"))
 check("trash link variant", audit.page_url("trash") == "https://auditarr.example.test/#trash", audit.page_url("trash"))

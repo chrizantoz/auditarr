@@ -12,7 +12,8 @@ PASSED=$(grep -c "^PASS " /tmp/bot.log); TOTAL=$(grep -cE "^(PASS|FAIL) " /tmp/b
 node -e '
 const fs=require("fs"); const log=fs.readFileSync("/tmp/bot.log","utf8").split("\n");
 const failed=log.filter(l=>l.startsWith("FAIL ")).map(l=>l.slice(5).split("  [")[0]);
-fs.writeFileSync(process.argv[1], JSON.stringify({ts:new Date().toISOString().slice(0,19), passed:+process.argv[2], total:+process.argv[3], failed}, null, 1));
+let page="";try{page=((JSON.parse(fs.readFileSync("/tmp/data/state.json","utf8")).about||{}).revision||"")}catch(e){}
+fs.writeFileSync(process.argv[1], JSON.stringify({ts:new Date().toISOString().slice(0,19), passed:+process.argv[2], total:+process.argv[3], failed, revision:process.env.BOT_REVISION||"", page_revision:page}, null, 1));
 ' "$OUT" "$PASSED" "$TOTAL"
 echo "uibot: $PASSED/$TOTAL passed"; grep "^FAIL" /tmp/bot.log; cat /tmp/bot.log | tail -1
 exit $rc

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- The nightly page check records which build of the bot tested which build of the page, and About warns when they differ (Q27).
 - Failed jobs ask for a click (Q31): a background job that stopped with an error now appears under Needs you with a Retry button and the reason it stopped.
 - CI runs every Monday on its own and can push a warning when that run fails (Q30).
 - Subtitle timing: the three samples are now taken where the subtitles are densest, so openings, endings and quiet scenes no longer leave the check unable to judge.

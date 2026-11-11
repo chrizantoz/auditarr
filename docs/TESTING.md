@@ -41,6 +41,7 @@ Only after all of that does CI publish the image.
 - `tests/subsync.py`: subtitle timing maths (cue parsing, offset estimate, verdict, file shift, which subtitle gets checked); the stack test runs a fake Whisper and a 3 s-late subtitle file through detection and Re-time.
 - `tests/errors_log.py`: a crash inside a job keeps its traceback (errors.log, About → Recent errors, health count); the stack test fails if errors.log is not empty at the end.
 - `tests/watch_priority.py`: what someone is watching in Plex gets its subtitles first (Bazarr now, AI later, both at the head of the queue).
+- The nightly bot report carries the bot's build and the page's build; About warns when the two differ (pull both images together).
 - The jsdom bot against the live page (the `auditarr-uibot` image; it fetches the page from the running app unless one is mounted at `/app/ui.html`), result shown in the header chip and the History tab.
 - Backup proof: the nightly SQLite backup is reopened and integrity-checked.
 - Before any promotion, `auditarr-deploy.sh update` stages the new image read-only on a copy of the real database: its run must finish, the self-test and the UI bot must pass against the staged page, errors.log must be empty, nothing may be written, and no kind of problem may appear from nowhere or vanish compared with production.

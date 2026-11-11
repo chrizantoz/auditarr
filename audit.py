@@ -3414,6 +3414,7 @@ def about_info(fetch=False, refresh=False, conn=None):
     for d in h.get("degraded") or []: msgs.append(dict(level="error", text=f"{d} could not be reached during the last run", link=""))
     if h.get("status") == "stale": msgs.append(dict(level="warn", text="The last audit is older than expected - the nightly run may not be happening", link=""))
     if not (h.get("tests") or {}).get("ok", True): msgs.append(dict(level="warn", text="The built-in self-test did not pass last time (History tab)", link=""))
+    if (h.get("tests") or {}).get("uibot_drift"): msgs.append(dict(level="warn", text=f"The nightly page check used a UI bot from another build ({h['tests']['uibot_drift']}) - pull both images together so the check matches this version", link=""))
     errs = errors_recent()
     if errs: msgs.append(dict(level="warn", text=f"{max(h.get('errors_24h', 0), len(errs))} error(s) in the last 24 hours - see Recent errors below", link=""))
     elif h.get("errors_24h"): msgs.append(dict(level="warn", text=f"{h['errors_24h']} failed action(s) in the last 24 hours - the Actions tab lists them; from this version on the exact cause is kept too", link=""))
@@ -3457,6 +3458,8 @@ def tests_status():
     try: hist = [json.loads(l) for l in open(os.path.join(REPORT_DIR, "selftest-history.jsonl")).read().splitlines()[-30:] if l.strip()]
     except Exception: pass
     out["history"] = hist; out["ok"] = all(not v.get("failed") and v.get("total") for v in (out["selftest"], out["uibot"]) if v) or (not out["selftest"] and not out["uibot"])
+    br, pr_ = str((out["uibot"] or {}).get("revision") or ""), str((out["uibot"] or {}).get("page_revision") or APP_REVISION or "")   # Q27: the bot and the page it tested must be the same build
+    out["uibot_drift"] = f"bot build {br[:7]} checked page build {pr_[:7]}" if br and pr_ and br[:7] != pr_[:7] else ""
     try:
         c_ = sqlite3.connect(DB_PATH, timeout=10); r_ = c_.execute("SELECT v FROM kv WHERE k='backup_last'").fetchone(); c_.close(); out["backup"] = json.loads(r_[0]) if r_ else {}
         if out["backup"] and not out["backup"].get("ok"): out["ok"] = False
@@ -3514,7 +3517,7 @@ def health_info():
     return dict(status=st, errors_24h=err24 + len([e for e in ERRORS if e["ts"] > time.time() - 86400]), read_only=READ_ONLY, write_attempts=len(WRITE_LEDGER), write_log=[w for _, w in WRITE_LEDGER[-10:]], degraded=degraded(), busy=INFLIGHT["n"] + (1 if RUN_LOCK.locked() else 0), deps={k: dict(ok=v["ok"], error=v["error"]) for k, v in DEPS.items()},
                 last_run=datetime.datetime.fromtimestamp(last).isoformat(timespec="seconds") if last else None, age_hours=round(age_h, 1) if age_h is not None else None,
                 stale_after_hours=STALE_HOURS, phase=PROGRESS.get("phase"), sub_queue=SUB_Q.qsize(),
-                tests=dict(ok=ts_["ok"], selftest=f"{ts_['selftest'].get('passed', '?')}/{ts_['selftest'].get('total', '?')} @ {str(ts_['selftest'].get('ts', ''))[:16]}" if ts_["selftest"] else "never", uibot=f"{ts_['uibot'].get('passed', '?')}/{ts_['uibot'].get('total', '?')} @ {str(ts_['uibot'].get('ts', ''))[:16]}" if ts_["uibot"] else "never"))
+                tests=dict(ok=ts_["ok"], uibot_drift=ts_.get("uibot_drift", ""), selftest=f"{ts_['selftest'].get('passed', '?')}/{ts_['selftest'].get('total', '?')} @ {str(ts_['selftest'].get('ts', ''))[:16]}" if ts_["selftest"] else "never", uibot=f"{ts_['uibot'].get('passed', '?')}/{ts_['uibot'].get('total', '?')} @ {str(ts_['uibot'].get('ts', ''))[:16]}" if ts_["uibot"] else "never"))
 
 # ---------- daemon ----------
 LIVE_HTML = r"""<!doctype html><meta charset=utf-8><title>media-audit</title>

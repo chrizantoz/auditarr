@@ -45,4 +45,9 @@ needs = audit.today_summary(conn)["needs"]; fj = next((n for n in needs if n["ch
 check("a job that ended in an error shows up under Needs you with its job id", fj is not None and fj["job_id"] == jid and "AI subtitles for Show S01E01" in fj["title"] and "Retry" in fj["why"], fj)
 code, obj = audit.retry_job(conn, jid, "tester"); check("Retry queues a copy of the job ahead of routine ones", code == 200 and obj.get("queued") and audit.WHISPER_Q.queue and audit.WHISPER_Q.queue[0][0] == 2, (code, obj))
 check("after a retry the row waits for the result instead of nagging", not any(n["check"] == "JOBFAIL" for n in audit.today_summary(conn)["needs"]))
+# Q27: a UI bot from another build than the page it tested is called out on About
+_json.dump(dict(ts="2026-01-01T00:00:00", passed=46, total=46, failed=[], revision="abc1234def", page_revision="9876543210"), open(os.path.join(audit.REPORT_DIR, "uibot.json"), "w"))
+check("About warns when the nightly bot and the page were different builds", any("another build" in m["text"] for m in audit.about_info(conn=conn)["health"]))
+_json.dump(dict(ts="2026-01-01T00:00:00", passed=46, total=46, failed=[], revision="abc1234def", page_revision="abc1234999"), open(os.path.join(audit.REPORT_DIR, "uibot.json"), "w"))
+check("…and stays quiet when they match", not any("another build" in m["text"] for m in audit.about_info(conn=conn)["health"]))
 conn.close(); bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

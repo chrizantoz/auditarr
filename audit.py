@@ -2038,6 +2038,10 @@ def audit_one(app, parent_id, path, reason):
                 if row is None or row[1] is not None: conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,0,1,0)", (fidh, app, it["fid"], code, sev, it["label"], it["path"], detail, started, started))
                 else: conn.execute("UPDATE finding SET last_seen=?, detail=?, severity=?, label=?, path=? WHERE id=?", (started, detail, sev, it["label"], it["path"], fidh))
                 out.append((sev, code, it["label"], detail))
+        for it in targets:   # an import re-check also clears this file's earlier findings that are gone now (a replaced or re-tagged file), instead of leaving them until the night
+            still = {c for _, c, l, _ in out if l == it["label"]}
+            for old_id, old_code in conn.execute("SELECT id, check_code FROM finding WHERE resolved_at IS NULL AND app=? AND fid=?", (app, it["fid"])).fetchall():
+                if old_code not in still and old_code not in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE"): resolve_finding(conn, old_id, "cleared by the import re-check")
         conn.commit(); label = targets[0]["label"] if targets else str(parent_id)
         bad = [x for x in out if x[0] in ("high", "critical")]
         record_action(conn, "on", "import-check", app, parent_id, label, f"checked right after import ({reason})", (f"{len(out)} finding(s): " + ", ".join(sorted({check_name(c) for _, c, _, _ in out}))) if out else "clean")

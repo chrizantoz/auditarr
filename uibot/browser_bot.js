@@ -81,11 +81,12 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
       await page.fill("#f-q", ""); await page.waitForTimeout(300);
       // 2. "make AI subtitles for the whole show"  -> open the Tools box, one confirm, a toast that says queued
       await page.evaluate(() => { const d = document.querySelector("#w-show") && document.querySelector("#w-show").closest("details"); if (d) d.open = true; });
+      const toastBefore = await page.textContent("#toast");
       await page.fill("#w-show", "Alpha Show"); await page.click("#w-go"); await page.waitForTimeout(100);
       check("persona: whole-show AI subtitles asks before acting", await page.isVisible(".confirm"));
       if (await page.isVisible(".confirm")) {
         await page.locator(".confirm button.primary").first().click();
-        await page.waitForFunction(() => /queued|no |not /i.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
+        await page.waitForFunction(prev => document.querySelector("#toast").textContent !== prev && document.querySelector("#toast").textContent.trim() !== "", toastBefore, { timeout: 20000 }).catch(() => {});
         const tt = await page.textContent("#toast"); check("persona: toast confirms the subtitles were queued", /queued/i.test(tt), tt);
       }
       // 3. "this one is fine, stop showing it"  -> Ignore on a row, confirm, the row is gone

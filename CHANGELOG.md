@@ -8,6 +8,7 @@ All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizan
 - 👁️ **Read-only login** (F9): Setup → Protect the page → read-only account. A viewer sees the whole page without buttons, and the server answers 403 to any change from that session; the role travels in the signed session cookie.
 - 🎬 **Content check for movies** (S1): the dialogue is compared with the movie's synopsis against two dozen decoy synopses from the same Radarr library (matches / mislabeled / inconclusive). Nightly auto-verify and Tonight's plan include movies.
 - 📲 **Pushes open the page** (S3): every ntfy notification carries a link to the Findings tab (Trash when files were moved); the page reads `#findings`, `#trash` and the other tab names from the address. `PUBLIC_URL` sets the address used in links.
+- 🔄 The instant check after an import now also clears that file's earlier findings that are gone (a replaced or re-tagged file no longer waits for the night to drop off the list).
 - 🧯 Two host drills in `docs/auditarr-deploy.sh`: `restore` boots last night's backup in a throwaway container and checks it, `drill 4` puts Sonarr behind a 200-second latency proxy to prove the audit gives up on a slow service in time.
 - 🧪 The fake Sonarr/Radarr/Bazarr used by the tests is published as its own small project, [arr-mock](https://github.com/chrizantoz/arr-mock), chaos mode included.
 - 🧑‍💻 Persona tasks in the live browser test: a pretend first-time user searches for a missing episode, makes AI subtitles for a whole show and ignores a finding, using only the page.

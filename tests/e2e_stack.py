@@ -152,7 +152,12 @@ s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" i
 s, st = api("/api/state"); sc = st.get("scores") or {}
 check("library scores computed per library after a run", any(k in sc for k in ("TV", "Movies", "Other")) and all(0 <= v["score"] <= 100 for v in sc.values()), sc)
 s, st = api("/api/state"); check("the import check is recorded in Actions", any(a["kind"] == "import-check" for a in st.get("actions", [])), [a["kind"] for a in st.get("actions", [])][:6])
-make(W["files"][0]["path"], alang="eng")   # back to clean for the rest of the run
+make(W["files"][0]["path"], alang="eng")   # back to clean for the rest of the run: a fixed file re-imported must clear its old findings on the import check
+s, j = api(f"/webhook/sonarr?token={tok}", {"eventType": "Download", "series": {"id": 1}, "episodes": [{"id": 101}], "episodeFile": {"id": 11, "path": W["files"][0]["path"]}})
+t5 = time.time(); still = True
+while time.time() - t5 < 60 and still:
+    time.sleep(3); s, st = api("/api/state"); still = any(f["check"] in ("WRONG_LANGUAGE", "NO_SUBS") and "S01E01" in f["title"] for f in st.get("findings", []))
+check("a fixed file re-imported clears its old findings on the import check", not still, [f["check"] for f in st.get("findings", []) if "S01E01" in f["title"]])
 s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "test"}); check("setup: connection test to the (fake) Sonarr succeeds and lists its root folder as visible", s == 200 and j.get("ok") and any(r["visible"] for r in j.get("roots", [])), j)
 s, j = api("/api/test_connection", {"kind": "sonarr", "url": f"{MURL}/sonarr", "key": "wrong"}); check("setup: a wrong key is reported as such", s == 200 and not j.get("ok") and "key" in (j.get("error") or ""), j)
 s, j = api("/api/setup"); check("setup page: both arrs connected, media visible, first run done", s == 200 and j.get("complete") and j.get("first_run_done") and j.get("media_visible"), {k: j.get(k) for k in ("complete", "first_run_done", "media_visible")})

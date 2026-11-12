@@ -52,7 +52,8 @@ RUN_AT       = E("RUN_AT", "05:00"); HTTP_PORT = int(E("HTTP_PORT", "3091"))
 NTFY_URL     = E("NTFY_URL", ""); NTFY_TOKEN_FILE = E("NTFY_TOKEN_FILE", ""); NTFY_MIN_SEV = E("NTFY_MIN_SEVERITY", "medium")
 REPORT_URL   = E("REPORT_URL", f"http://{HOST_IP}:{HTTP_PORT}/latest.html")
 SKIP_RUNTIME_APPS = set(E("SKIP_RUNTIME_APPS", "whisparr,sportarr").split(",")); SKIP_LANG_APPS = set(E("SKIP_LANG_APPS", "whisparr").split(","))   # sports events have no reliable expected runtime
-SKIP_TITLE_APPS = set(E("SKIP_TITLE_APPS", "whisparr,sportarr").split(","))   # scene releases there carry site/ad titles
+SKIP_TITLE_APPS = set(E("SKIP_TITLE_APPS", "whisparr,sportarr").split(","))
+SKIP_MISSING_APPS = set(E("SKIP_MISSING_APPS", "sportarr").split(","))   # a sports guide lists every game; "not downloaded" there is a choice, not a gap   # scene releases there carry site/ad titles
 PLAYER_CHECKS = E("PLAYER_CHECKS", "1") == "1"; ORPHAN_SCAN = E("ORPHAN_SCAN", "1") == "1"
 # --- write gates ---
 ARR_RESCAN   = E("ARR_RESCAN", "on"); ARR_RESCAN_MAX = int(E("ARR_RESCAN_MAX", "40")); RESCAN_COOLDOWN_DAYS = 7
@@ -1747,6 +1748,7 @@ def run_once():
                              (f"[two releases agree: the re-grabbed replacement has the same {code_} - probably not a defect; re-grab hidden, ignore it if you agree]", app_, label_, code_)).rowcount
     if n_sd: conn.commit(); log(f"same-defect: {n_sd} finding(s) downgraded to low (two releases agree)")
     for mi_ in MISSING:
+        if mi_["app"] in SKIP_MISSING_APPS: continue
         code = "MISSING_SCENE" if mi_["app"] == "whisparr" else "MISSING_EPISODE" if mi_["kind"] == "series" else "MISSING_MOVIE"
         q = MISSING_EV.get(mi_["app"], {}).get("queue", {}).get(mi_["id"])
         sev = "low" if (q or mi_["app"] == "whisparr" or mi_["days"] > 365) else "medium"

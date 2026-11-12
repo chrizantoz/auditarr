@@ -74,7 +74,7 @@ async function edgeChecks(S) {
   const S = JSON.parse(data.state), F = S.findings;
   if (EDGE && EDGE !== "tidy") return edgeChecks(S);   // tidy = a clean library: it must pass the full suite, not a reduced one
   check("header shows last run + files", /last run/.test($("#s-run").textContent) && /files/.test($("#s-run").textContent), $("#s-run").textContent.slice(0, 90));
-  const appsSeen = Object.entries(((data.state || {}).run || {}).files_by_app || {}).filter(([, n]) => n > 0).map(([a]) => a);   // only the apps this install has (a demo may run without Whisparr)
+  const appsSeen = Object.entries((S.run || {}).files_by_app || {}).filter(([, n]) => n > 0).map(([a]) => a);   // only the apps this install has (a demo may run without Whisparr)
   if (appsSeen.length) check("header shows per-app counts", appsSeen.every(a => new RegExp(a + " \\d+").test($("#s-run").textContent)), $("#s-run").textContent.slice(0, 120));
   check("health chip rendered", /healthy|running|stale|failed/.test($("#s-health").textContent), $("#s-health").textContent);
   check("severity chips", $$("#s-sev .chip").length === 4);   // fixed: four severities exist, always
@@ -131,7 +131,7 @@ async function edgeChecks(S) {
   $$("#settings [data-set]")[0].value = "dryrun"; $("#save-settings").click(); await sleep(100);
   check("settings save posts to /api/settings", posts.some(p => p.url.includes("api/settings")));
   check("live tab shows phase", /phase/.test($("#l-st").textContent));
-  $("nav button[data-tab=space]").click(); await sleep(100); const sp = (data.state || {}).space || {};
+  $("nav button[data-tab=space]").click(); await sleep(100); const sp = S.space || {};
   if ((sp.watched_cold || []).length || (sp.never_watched || []).length) check("space tab lists cold + never-watched with archive buttons", $$("#space table").length >= 1 && $$("#space button[data-archive]").length >= 1 && /Watched/.test($("#space").textContent) && /Never watched/.test($("#space").textContent), $$("#space table").length + " tables, " + $$("#space button[data-archive]").length + " archive buttons");
   $("nav button[data-tab=findings]").click(); await sleep(50);
   // whisper tool

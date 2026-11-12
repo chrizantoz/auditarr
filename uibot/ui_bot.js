@@ -65,6 +65,13 @@ async function edgeChecks(S) {
     $("nav button[data-tab=space]").click(); await sleep(100); check("errors: Space shows the error text", /Tautulli unreachable/.test(txt("#space")));
     $("nav button[data-tab=history]").click(); await sleep(200); check("errors: History names the failing checks", /settings save/.test(txt("#history")) && /tab trash visible/.test(txt("#history")));
   }
+  if (EDGE === "signin") {
+    check("signin: no Sign out when the home network let you in", $("#logout").classList.contains("hidden"));
+    $("nav button[data-tab=setup]").click(); await sleep(250); const cb = $("#lan-nologin");
+    check("signin: Setup shows the home-network box, ticked, with the router warning", cb && cb.checked && /router forwards this port/.test($("#authbox").textContent), cb ? $("#authbox").textContent.slice(0, 120) : "no checkbox");
+    if (cb) { const n0 = posts.length; cb.checked = false; cb.dispatchEvent(new w.Event("change", { bubbles: true })); await sleep(120);
+      check("signin: unticking it posts the change", posts.slice(n0).some(p => p.url.includes("api/local_login") && JSON.parse(p.body).on === false), posts.slice(n0).map(p => p.url).join(",")); }
+  }
   if (EDGE === "arrgap") {
     $$(".sev").forEach(c => { c.checked = true; }); const gapIds = new Set(S.findings.filter(f => /^gap/.test(f.id)).map(f => f.id)); const seen = { trash: 0, rescan: 0, leak: [] };
     for (const by of ["show", "check", "library"]) {

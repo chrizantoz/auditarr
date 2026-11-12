@@ -63,4 +63,7 @@ for i in range(3):
     f = dict(tpl); f["id"] = f"stray{i:03d}"; f["title"] = f"Stray Home Video {i + 1}.mkv"; f["path"] = f"/data/media/tv/Stray Home Video {i + 1}.mkv"; f["detail"] = "900 MB in sonarr root /data/media/tv - not managed by any arr"; rows.append(f)
 s["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "ORPHAN_FILE"][:40]
 write("arrgap", g)
+# 6. signin: sign-in on, and this browser was let in because it is on the home network (LOCAL_NO_LOGIN). The checkbox must post, Sign out must hide.
+g = copy.deepcopy(base); g["state"]["auth"] = {"enabled": True, "user": "owner", "viewer": None, "local_no_login": True, "local_no_login_env": False, "via": "lan", "role": "admin"}
+write("signin", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

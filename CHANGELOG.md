@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Fixed: MP4 files saved with a .mkv name were sent to mkvpropedit when the cached probe had no container format, and every pass retried them (one season made 88 "errors in the last 24 hours" on About). The file's first bytes now decide, and a failed default-flags edit waits a day, or a changed file, before the next try.
 - Fixed: opening the page straight on Setup (a link or bookmark ending in #setup) showed step 4 with no players and step 5 without its real state until a button was pressed; Setup now waits for the page's first load. Page-bot world `deeplink` opens on #setup with a slow answer.
 - No sign-in on your own network: a checkbox under the password on Setup (or `LOCAL_NO_LOGIN=1`). A browser on your LAN or tailnet that opens the address and port directly gets in; anything through a reverse proxy, tunnel or CDN (it carries `X-Forwarded-For`, `CF-Connecting-IP` or similar) is still asked, so your domain keeps its sign-in. The read-only login keeps its role on the LAN.
 - Q40: both public demos (Auditarr and Dedupearr) are checked every night through their public addresses by the page bot; the result is a health line on About, red when a visitor would see a broken page.

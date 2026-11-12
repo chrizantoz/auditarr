@@ -1530,10 +1530,16 @@ def plan_defaults(it):
     if ap is None and sp is None: return None
     if (ap is None or ap == cur_a) and (sp is None or sp == cur_s): return None
     return (ap, sp, f"audio default {cur_a}->{ap} ({want_a[0]}), subs default {cur_s}->{sp} ({want_s})")
+MKV_MAGIC = b"\x1a\x45\xdf\xa3"   # every Matroska file starts with the EBML header id
 def is_matroska(it):
-    """True unless the probe says the container is something else (a .mkv name is not proof: some releases are MP4 inside). No probe = trust the name."""
+    """True unless the probe or the file's first bytes say the container is something else (a .mkv name is not proof: some releases
+    are MP4 inside). The probe's format can be missing (older cached probes keep only the streams), so the file itself decides then;
+    with neither (file unreadable, not probed yet) the name is trusted."""
     fmt = str(((it.get("probe") or {}).get("format") or {}).get("format_name") or "")
-    return not fmt or "matroska" in fmt
+    if fmt: return "matroska" in fmt
+    try:
+        with open(it.get("path") or "", "rb") as fh: return fh.read(4) == MKV_MAGIC
+    except OSError: return True
 def apply_defaults(path, ap, sp, n_audio, n_subs):
     cmd = ["mkvpropedit", path]
     if ap is not None:
@@ -1545,11 +1551,14 @@ def do_track_prefs(conn, items):
     mode = gate(setting("TRACK_PREFS"), "TRACK_PREFS")
     if mode == "off": return 0, 0
     mx = int(setting("TRACK_PREFS_MAX")); seen = {r[0]: r[1] for r in conn.execute("SELECT path, mtime FROM trackprefs")}; done = 0; planned = 0
+    failed = {r[0]: (r[1], r[2]) for r in conn.execute("SELECT path, mtime, ts FROM trackprefs WHERE note LIKE 'failed:%'")}   # a failure waits a day (or a changed file) before the next try
     for it in items:
         if done >= mx: break
         pth = it.get("path") or ""
         if not pth.lower().endswith(".mkv") or it.get("missing") or it["intent"]["ignore"] or it["app"] == "whisparr": continue
-        if abs((seen.get(pth) or 0) - (it.get("mtime") or 0)) < 1: continue
+        if pth in failed:
+            if abs((failed[pth][0] or 0) - (it.get("mtime") or 0)) < 1 and failed[pth][1] > time.time() - 86400: continue
+        elif abs((seen.get(pth) or 0) - (it.get("mtime") or 0)) < 1: continue
         if not is_matroska(it):   # an MP4 saved with a .mkv name: mkvpropedit cannot edit it, so remember and skip instead of failing every night
             conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), "skipped: MP4 inside a .mkv name")); continue
         plan = plan_defaults(it)
@@ -1564,7 +1573,9 @@ def do_track_prefs(conn, items):
             except OSError: mt = it.get("mtime")
             conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, mt, time.time(), why)); conn.execute("DELETE FROM probe WHERE path=?", (pth,)); queue_plex(pth); done += 1
             record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, "mkvpropedit ok")
-        else: record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, f"ERROR {msg}")
+        else:
+            record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, f"ERROR {msg}")
+            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), f"failed: {msg[-120:]}"))
     conn.commit()
     if done or planned: log(f"track prefs: {done} files' default flags set ({planned} needed it)")
     return done, planned

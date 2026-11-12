@@ -86,6 +86,27 @@ check("a truly empty series is still skipped", not audit.series_has_files({"stat
 # 2026-11-12: five MP4 files named .mkv failed "set default tracks" every night (mkvpropedit: not a Matroska file) and filled Today's error list
 check("an MP4 inside a .mkv name is not sent to mkvpropedit", not audit.is_matroska({"probe": {"format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2"}}}))
 check("a real MKV, or a file not probed yet, still is", audit.is_matroska({"probe": {"format": {"format_name": "matroska,webm"}}}) and audit.is_matroska({}))
+# 2026-11-12: 8 MP4-inside-.mkv episodes whose cached probe had streams but no format: is_matroska trusted the name, mkvpropedit failed,
+# and the track-prefs pass retried every pass (88 "errors in 24 h" on the About tab from one season)
+mp4 = os.path.join(TMP, "fake-mp4.mkv"); open(mp4, "wb").write(b"\x00\x00\x00\x20ftypisom" + b"\x00" * 64)
+mkv = os.path.join(TMP, "real.mkv"); open(mkv, "wb").write(b"\x1a\x45\xdf\xa3" + b"\x00" * 64)
+check("probe without a format: the file's first bytes decide (MP4 inside .mkv -> not Matroska)", not audit.is_matroska({"path": mp4, "probe": {"streams": []}}))
+check("probe without a format: a real MKV header still counts as Matroska", audit.is_matroska({"path": mkv, "probe": {"streams": []}}))
+try:
+    conn = audit.db(); calls = []
+    real_apply, real_setting, real_gate, real_plan = audit.apply_defaults, audit.setting, audit.gate, audit.plan_defaults
+    audit.apply_defaults = lambda *a: (calls.append(a[0]), (False, "Error: not a Matroska file"))[1]
+    audit.setting = lambda k: {"TRACK_PREFS": "on", "TRACK_PREFS_MAX": "50"}.get(k, real_setting(k)); audit.gate = lambda v, n: v
+    audit.plan_defaults = lambda it: (1, 1, "audio default None->1 (eng)")
+    item = {"path": mkv, "mtime": 1000.0, "missing": False, "intent": {"ignore": False}, "app": "sonarr", "fid": 1, "label": "Show S01E01", "probe": {"streams": [{"codec_type": "audio"}]}}
+    audit.do_track_prefs(conn, [item]); audit.do_track_prefs(conn, [item]); audit.do_track_prefs(conn, [item])
+    check("a failed default-flags edit is not retried on every pass (one try, then a day's wait)", len(calls) == 1, calls)
+    conn.execute("UPDATE trackprefs SET ts=ts-90000 WHERE path=?", (mkv,)); audit.do_track_prefs(conn, [item])
+    check("after a day it is tried again", len(calls) == 2, calls)
+    audit.do_track_prefs(conn, [dict(item, mtime=2000.0)])
+    check("a changed file is tried again at once", len(calls) == 3, calls)
+finally:
+    audit.apply_defaults, audit.setting, audit.gate, audit.plan_defaults = real_apply, real_setting, real_gate, real_plan
 
 # 2026-11-12: Today said "a self-test is failing / see the History tab" while every self-test passed; the failing part was the public demo canary, which neither the card nor the History tab named
 src_t = open(os.path.join(ROOT, "audit.py")).read(); ui_t = open(os.path.join(ROOT, "ui.html")).read()

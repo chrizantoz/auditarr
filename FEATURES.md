@@ -1,6 +1,6 @@
 # 🔍 Auditarr — what it does
 
-Auditarr is a nightly quality-control bot for a **Sonarr / Radarr / Whisparr / Bazarr / Plex** library. Each night it opens every file your arr apps manage, checks what is *actually* inside against what the arr and Plex *believe*, fixes the safe problems on its own, and puts everything else in front of you with one-click buttons. Anything it moves goes to a Trash folder with a countdown first — nothing is deleted outright, and every move can be undone.
+Auditarr is a nightly quality-control bot for a **Sonarr / Radarr / Whisparr / Sportarr / Bazarr / Plex** library. Each night it opens every file your arr apps manage, checks what is *actually* inside against what the arr and Plex *believe*, fixes the safe problems on its own, and puts everything else in front of you with one-click buttons. Anything it moves goes to a Trash folder with a countdown first — nothing is deleted outright, and every move can be undone.
 
 ### 📖 A few words you'll see
 

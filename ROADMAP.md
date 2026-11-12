@@ -108,7 +108,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **F8** Loudness check: flag files whose dialogue is far quieter than the library norm; optional lossless gain fix.
 - 🟢 **F9** Viewer role: a second, read-only login (Setup → Protect the page → read-only account). Buttons hidden, every change refused by the server. _(2026-11-11)_
 - 🔴 **F10** Web push + installable app (PWA): the digest as a phone notification without ntfy.
-- 🔴 **F11** More than one instance per arr kind (two Sonarrs).
+- 🟡 **F11** More than one instance per arr kind: Sportarr (a Sonarr build) added as a named fourth arr 2026-11-12 (`SPORTARR_URL` / `/arr/sportarr.xml`, Sports library, runtime and title checks off by default). A generic "second Sonarr" with any name is still to come.
 - 🔴 **F12** Translations: one JSON per language for names, sentences, buttons and help.
 - 🟢 **F14** (2026-11-11) Same-day AI subtitles: after a new download with no subtitles, if Bazarr still has nothing `AUTO_WHISPER_IMPORT_MINUTES` later, Whisper runs right away (Bazarr's API does not expose per-item search attempts, so the import hook plus a head start is the signal). Nightly `AUTO_WHISPER_DAYS` stays as the catch-all. Owner request.
 

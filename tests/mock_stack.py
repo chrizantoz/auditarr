@@ -83,7 +83,7 @@ class Handler(BaseHTTPRequestHandler):
         if app == "whisper": return self._asr(parts[1:], q)   # fake Whisper: speech at fixed irregular times, so a shifted subtitle file is measurable
         body = self._body() if method != "GET" else None
         ch = getattr(self.server, "chaos", None)   # Q15: random 500s, slow answers, one service vanishing mid-run
-        if ch and app in ("sonarr", "radarr", "whisparr", "bazarr"):
+        if ch and app in ("sonarr", "radarr", "whisparr", "sportarr", "bazarr"):
             ch["n"][app] = ch["n"].get(app, 0) + 1; r = ch["rnd"].random()
             if app == ch.get("vanish_app") and ch.get("vanish_from", 0) <= ch["n"][app] < ch.get("vanish_from", 0) + ch.get("vanish_len", 0):
                 try: self.connection.shutdown(socket.SHUT_RDWR)
@@ -94,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
         if method != "GET": self.server.calls.append(dict(app=app, method=method, path="/" + "/".join(parts[1:]), query=q, body=body))
         public = (len(parts) <= 1) or parts[1:] in (["ping"], []) or (app == "bazarr" and len(parts) == 1) or app == "plex"
         if not public and self.headers.get("X-Api-Key") != KEY and self.headers.get("X-API-KEY") != KEY: return self._send(401, {"error": "bad key"})
-        if app in ("sonarr", "radarr", "whisparr"): return self._arr(app, method, parts[1:], q, body)
+        if app in ("sonarr", "radarr", "whisparr", "sportarr"): return self._arr(app, method, parts[1:], q, body)
         if app == "bazarr": return self._bazarr(method, parts[1:], q, body)
         if app == "plex": return self._plex(method, parts[1:], q)
         return self._send(404, {})

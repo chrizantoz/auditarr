@@ -51,8 +51,8 @@ PROBE_WORKERS= int(E("PROBE_WORKERS", "4")); PROBE_MAX = int(E("PROBE_MAX", "200
 RUN_AT       = E("RUN_AT", "05:00"); HTTP_PORT = int(E("HTTP_PORT", "3091"))
 NTFY_URL     = E("NTFY_URL", ""); NTFY_TOKEN_FILE = E("NTFY_TOKEN_FILE", ""); NTFY_MIN_SEV = E("NTFY_MIN_SEVERITY", "medium")
 REPORT_URL   = E("REPORT_URL", f"http://{HOST_IP}:{HTTP_PORT}/latest.html")
-SKIP_RUNTIME_APPS = set(E("SKIP_RUNTIME_APPS", "whisparr").split(",")); SKIP_LANG_APPS = set(E("SKIP_LANG_APPS", "whisparr").split(","))
-SKIP_TITLE_APPS = set(E("SKIP_TITLE_APPS", "whisparr").split(","))   # scene releases there carry site/ad titles
+SKIP_RUNTIME_APPS = set(E("SKIP_RUNTIME_APPS", "whisparr,sportarr").split(",")); SKIP_LANG_APPS = set(E("SKIP_LANG_APPS", "whisparr").split(","))   # sports events have no reliable expected runtime
+SKIP_TITLE_APPS = set(E("SKIP_TITLE_APPS", "whisparr,sportarr").split(","))   # scene releases there carry site/ad titles
 PLAYER_CHECKS = E("PLAYER_CHECKS", "1") == "1"; ORPHAN_SCAN = E("ORPHAN_SCAN", "1") == "1"
 # --- write gates ---
 ARR_RESCAN   = E("ARR_RESCAN", "on"); ARR_RESCAN_MAX = int(E("ARR_RESCAN_MAX", "40")); RESCAN_COOLDOWN_DAYS = 7
@@ -173,7 +173,9 @@ ENGINE_NAMES = {"subgen": WHISPER_CPU_NAME, "subgen-verify": "CPU · content-che
 DOCKER_API = E("DOCKER_API", "http://dockersocket:2375")                      # wollomatic socket-proxy: GET /containers/(subgen|subgen-verify)/logs only
 WHISPER_CONTAINERS = [c for c in E("WHISPER_CONTAINERS", "subgen,subgen-verify").split(",") if c]   # Whisper endpoints for 'verify content' (first reachable wins; the -verify one is a small dedicated instance)
 PLEX_WEB = E("PLEX_WEB", "https://app.plex.tv/desktop/#!/server/{mid}/details?key=%2Flibrary%2Fmetadata%2F{rk}")   # or http://HOST:32400/web/index.html#!/server/{mid}/details?key=...
-ARR_LINK = {a: E(f"{a.upper()}_LINK_BASE") for a in ("sonarr", "radarr", "whisparr")}   # public URLs for the arr links, default = the API base
+ARR_APPS = (("sonarr", 8989, "series"), ("radarr", 7878, "movie"), ("whisparr", 6969, "series"), ("sportarr", 1867, "series"))   # every arr-shaped app: name, default port, what it manages (Sportarr is a Sonarr build for sports)
+ARR_KINDS = tuple(a[0] for a in ARR_APPS); OPTIONAL_ARRS = {"whisparr", "sportarr"}
+ARR_LINK = {a: E(f"{a.upper()}_LINK_BASE") for a in ARR_KINDS}   # public URLs for the arr links, default = the API base
 ALLOW_RUN_OVERRIDES = E("ALLOW_RUN_OVERRIDES", "1") == "1"   # GET /run?DEDUPE=on&DEDUPE_MAX=3 for one supervised run
 OVERRIDABLE = {"REMEDIATE_CHECKS","DEDUPE","DEDUPE_MAX","DEDUPE_MIN_RUNS","REMEDIATE","REMEDIATE_MAX","REMEDIATE_MIN_RUNS","REMEDIATE_MIN_AGE_HOURS","REMEDIATE_FILE_MIN_AGE_HOURS","ARR_RESCAN","PAPERCLIP"}
 # settings the UI may change persistently (stored in the kv table). Precedence: per-run /run?KEY= override > UI-saved > container env > default.
@@ -469,7 +471,7 @@ def conn_value(name):
     return str(v) if v else E(name)
 def arr_apps():
     apps = {}
-    for name, port, kind in (("sonarr", 8989, "series"), ("radarr", 7878, "movie"), ("whisparr", 6969, "series")):
+    for name, port, kind in ARR_APPS:
         url = conn_value(f"{name.upper()}_URL") or (f"http://{HOST_IP}:{port}" if HOST_IP else ""); key = conn_value(f"{name.upper()}_APIKEY")
         xml = os.path.join(ARR_DIR, f"{name}.xml")
         if not key and os.path.exists(xml): key = read_key(xml)
@@ -1657,7 +1659,7 @@ def lib_of(path, app=None):
         if path and (path == a or path.startswith(a + "/")): return b
     m = re.match(r"^/data/(?:media/)?([^/]+)/", path or "")
     if m and m.group(1) and not m.group(1).startswith("."): return _LIB_NAMES.get(m.group(1).lower(), m.group(1).title())
-    return {"whisparr": "XXX", "radarr": "Movies", "sonarr": "TV"}.get(app or "", "Other")
+    return {"whisparr": "XXX", "radarr": "Movies", "sonarr": "TV", "sportarr": "Sports"}.get(app or "", "Other")
 def write_reports(conn, run_info):
     os.makedirs(REPORT_DIR, exist_ok=True)
     rows = conn.execute("SELECT id,app,check_code,severity,label,path,detail,first_seen,last_seen,fid FROM finding WHERE resolved_at IS NULL ORDER BY "
@@ -2055,7 +2057,7 @@ def _probe(url, headers=None, timeout=8):
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read(); ct = r.headers.get("Content-Type") or ""
         return json.loads(raw) if "json" in ct or raw[:1] in b"{[" else raw.decode("utf-8", "replace")
-SERVICE_NAMES = {"sonarr": "Sonarr", "radarr": "Radarr", "whisparr": "Whisparr", "bazarr": "Bazarr", "plex": "Plex"}
+SERVICE_NAMES = {"sonarr": "Sonarr", "radarr": "Radarr", "whisparr": "Whisparr", "sportarr": "Sportarr", "bazarr": "Bazarr", "plex": "Plex"}
 KEY_PLACE = {"plex": "Plex Web → open any item → ⋯ → Get info → View XML; the X-Plex-Token is at the end of that page's address.", "bazarr": "Bazarr → Settings → General → Security → API Key."}
 def plain_error(kind, e):
     """U15: turn an exception from talking to a service into (what happened, what to do), in plain words."""
@@ -2077,7 +2079,7 @@ def plain_error(kind, e):
     return f"Unexpected answer from {name}.", repr(e)[:120]
 def discover_services(extra=None):
     """U14 setup auto-discovery: look for Sonarr, Radarr, Whisparr, Bazarr and Plex on the Docker network and the LAN, and say whether a key was found in mounted config files."""
-    ports = {"sonarr": 8989, "radarr": 7878, "whisparr": 6969, "bazarr": 6767, "plex": 32400}
+    ports = {"sonarr": 8989, "radarr": 7878, "whisparr": 6969, "sportarr": 1867, "bazarr": 6767, "plex": 32400}
     hosts = []
     if HOST_IP: hosts.append(HOST_IP)
     try:   # the container's default gateway is the Docker host on a bridge network
@@ -2121,7 +2123,7 @@ def discover_services(extra=None):
             if r and r["kind"] not in found: found[r["kind"]] = r
     out = []
     for kind, r in found.items():
-        if kind in ("sonarr", "radarr", "whisparr"): key = bool(conn_value(f"{kind.upper()}_APIKEY")) or (os.path.exists(os.path.join(ARR_DIR, f"{kind}.xml")) and bool(read_key(os.path.join(ARR_DIR, f"{kind}.xml"))))
+        if kind in ARR_KINDS: key = bool(conn_value(f"{kind.upper()}_APIKEY")) or (os.path.exists(os.path.join(ARR_DIR, f"{kind}.xml")) and bool(read_key(os.path.join(ARR_DIR, f"{kind}.xml"))))
         elif kind == "bazarr": key = bool(bazarr_conf()[1])
         else: key = bool(plex_token())
         out.append(dict(kind=kind, name=SERVICE_NAMES[kind], url=r["url"], key_found=bool(key)))
@@ -2131,7 +2133,7 @@ def test_connection(kind, url, key):
     url = (url or "").rstrip("/"); out = {"kind": kind, "ok": False}
     if not url: out["error"] = "No address yet."; out["fix"] = f"Type the address you open {SERVICE_NAMES.get(kind, kind)} at in your browser, for example http://192.168.1.10:{ {'sonarr': 8989, 'radarr': 7878, 'whisparr': 6969, 'bazarr': 6767, 'plex': 32400}[kind] if kind in SERVICE_NAMES else 80}."; return out
     try:
-        if kind in ("sonarr", "radarr", "whisparr"):
+        if kind in ARR_KINDS:
             if not key: out["error"] = "No API key yet."; out["fix"] = f"Copy it from {KEY_PLACE.get(kind, SERVICE_NAMES[kind] + ' → Settings → General → Security → API Key.')}"; return out
             st = _probe(f"{url}/api/v3/system/status", {"X-Api-Key": key}); out.update(ok=True, version=st.get("version"), name=st.get("appName") or kind)
             roots = [r.get("path") for r in (_probe(f"{url}/api/v3/rootfolder", {"X-Api-Key": key}) or []) if isinstance(r, dict)]
@@ -2154,13 +2156,13 @@ def test_connection(kind, url, key):
 def ui_setup(conn):
     """What the setup page shows: per service where its details come from and whether it answers, which media folders are visible, and whether a first run happened."""
     apps = arr_apps(); bz_url, bz_key = bazarr_conf(); services = []
-    for kind in ("sonarr", "radarr", "whisparr", "bazarr", "plex"):
+    for kind in ARR_KINDS + ("bazarr", "plex"):
         if kind == "bazarr": url, key = bz_url, bz_key
         elif kind == "plex": url, key = PLEX_URL, plex_token()
         else: url, key = (apps.get(kind) or (None, None, None))[:2]
         src = "saved in the setup page" if SETTINGS.get(f"{kind.upper()}_URL") or SETTINGS.get(f"{kind.upper()}_APIKEY" if kind != "plex" else "PLEX_TOKEN") else ("container env" if E(f"{kind.upper()}_URL") or E(f"{kind.upper()}_APIKEY") or E("PLEX_TOKEN") else ("mounted config file" if key else "not configured"))
-        t = test_connection(kind, url, key) if key else {"kind": kind, "ok": False, "error": "not configured" if kind != "whisparr" else "optional, not configured"}
-        t.update(url=url or "", has_key=bool(key), source=src, optional=kind == "whisparr"); services.append(t)
+        t = test_connection(kind, url, key) if key else {"kind": kind, "ok": False, "error": "not configured" if kind not in OPTIONAL_ARRS else "optional, not configured"}
+        t.update(url=url or "", has_key=bool(key), source=src, optional=kind in OPTIONAL_ARRS); services.append(t)
     runs = conn.execute("SELECT count(*) FROM run WHERE finished IS NOT NULL").fetchone()[0]
     required_ok = all(x["ok"] for x in services if x["kind"] in ("sonarr", "radarr")) and any(x["ok"] for x in services if x["kind"] in ("sonarr", "radarr"))
     roots = [r for x in services for r in x.get("roots", [])]
@@ -2572,7 +2574,7 @@ def ui_act(conn, body, actor):
         enqueue(dict(type="langdetect", finding=fid, app=f["app"], fid=f["fid"], path=path, label=f["label"], actor=actor, prio=3))
         return 200, {"ok": True, "queued": True, "note": "listening to a short sample (about 20 seconds on the GPU); the audio is labelled with the language heard, and the row clears if it is English"}
     if action == "subsync":
-        if f["app"] not in ("sonarr", "radarr", "whisparr"): return 400, {"error": "subtitle timing checks work on arr-managed files"}
+        if f["app"] not in ARR_KINDS: return 400, {"error": "subtitle timing checks work on arr-managed files"}
         if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
         enqueue(dict(type="subsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor=actor, prio=3))
         return 200, {"ok": True, "queued": True, "note": "checking subtitle timing: three short samples through Whisper, about a minute; the result appears on the row and in Actions"}
@@ -3857,7 +3859,7 @@ class Handler(SimpleHTTPRequestHandler):
                 k_ = str(body.get("kind") or ""); key_ = body.get("key") or ""
                 if SANDBOX and _up(str(body.get("url") or "")).netloc not in known: code, obj = 403, SANDBOX_NOTE   # the playground tests only its own fake hosts
                 else:
-                    if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ("sonarr", "radarr", "whisparr") else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
+                    if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ARR_KINDS else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
                     code, obj = 200, test_connection(k_, body.get("url") or "", key_)
             elif p == "/api/archive": code, obj = ui_archive(conn, body, actor)
             elif p == "/api/whisper_progress":

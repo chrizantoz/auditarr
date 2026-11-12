@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Nightly UI bot: the button checks look only at rows the page actually draws under the current filters (two false alarms on production when every no-subtitles row was FYI and hidden).
 - New addresses: the public demo is https://auditarr-demo.chrizantoz.com and the owner's instance https://auditarr.chrizantoz.com; the old demo.chrizantoz.com and media-audit.chrizantoz.com keep working.
 - Subtitles out of sync, when the drifting subtitles are a track inside the video file: the row now says that Bazarr cannot re-time a built-in track and offers Find subtitles and Make AI subtitles instead of a Re-time button that could only fail (seen on Chucky S01E02/E04, 2026-11-11). Background jobs now show their outcome next to DONE, in words ("out of sync and drifting: 9.2 s late 32% of the way in, 0.3 s late at 88%; needs re-timing, not a shift"), so a finished timing check is not mistaken for a fix.
 - Fixed: after saying yes to "Make AI subtitles for a whole show", the box stayed on "working…" with its buttons greyed out until the page was reloaded; the button now comes back as soon as the job is queued. Found by the browser bot on the public demo. The bot also ignores resources the network blocks outside the app (a proxy's analytics beacon) and names the step it got stuck on.

@@ -101,12 +101,13 @@ async function edgeChecks(S) {
   $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(50);
   // check-specific buttons
   const has = code => F.some(f => f.check === code);
+  const shown = code => F.filter(f => f.check === code && $(`#r-${f.id}`));   // only rows the page draws under the current filters can carry buttons (low rows are hidden by default; seen on production 2026-11-12)
   const btn = (sel) => $$(sel).length;
   if (has("MISSING_EPISODE")) check("missing episodes get a search button, no re-grab", btn("button[data-act=search]") > 0 && !F.filter(f => f.check === "MISSING_EPISODE").some(f => $(`#r-${f.id} button[data-act=regrab]`)));
   if (has("AUDIO_OFFSET")) check("intentional audio offsets hide fix sync", !F.filter(f => f.check === "AUDIO_OFFSET" && /intentional/.test(f.detail)).some(f => $(`#r-${f.id} button[data-act=fixsync]`)));
-  if (has("DUB_ONLY")) check("dub-only rows get re-grab", F.filter(f => f.check === "DUB_ONLY").some(f => $(`#r-${f.id} button[data-act=regrab]`)));
-  if (has("NO_SUBS")) check("no-subs rows get find subs", F.filter(f => f.check === "NO_SUBS" && f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=subsearch]`)));
-  if (has("HI10P")) check("HI10P movies get re-grab, anime does not", F.filter(f => f.check === "HI10P").every(f => !!$(`#r-${f.id} button[data-act=regrab]`) === (f.library !== "Anime")));
+  if (shown("DUB_ONLY").length) check("dub-only rows get re-grab", shown("DUB_ONLY").some(f => $(`#r-${f.id} button[data-act=regrab]`)));
+  if (shown("NO_SUBS").some(f => f.app === "sonarr")) check("no-subs rows get find subs", shown("NO_SUBS").filter(f => f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=subsearch]`)));
+  if (shown("HI10P").length) check("HI10P movies get re-grab, anime does not", shown("HI10P").every(f => !!$(`#r-${f.id} button[data-act=regrab]`) === (f.library !== "Anime")));
   const BULKABLE = new Set(["NO_SUBS", "UND_AUDIO_NO_SUBS", "RUNTIME_SHORT", "SAMPLE_FILE", "RES_MISLABELED", "CORRUPT_HEADER", "NO_AUDIO", "NO_VIDEO", "RUNTIME_LONG", "DUB_ONLY", "AV1"]);   // mirrors the page's bulk rules
   const perTitle = F.filter(f => BULKABLE.has(f.check) || f.app === "disk").reduce((m, f) => { const k = (f.title || "").replace(/ S\d+E\d+.*$/, ""); m[k] = (m[k] || 0) + 1; return m; }, {}); const biggest = Math.max(0, ...Object.values(perTitle));
   check("group headers offer bulk buttons when a title has several fixable rows", biggest < 2 || btn("button[data-bulk]") > 0, `${btn("button[data-bulk]")} bulk buttons, biggest title has ${biggest} fixable rows`);
@@ -142,7 +143,7 @@ async function edgeChecks(S) {
   const jargon = /^(re-grab|regrab|fix tag|fixtag|subsearch|plexrefresh|fixsync|fixheader|subtag|acceptlang|verify content|quarantine)$/i;
   check("buttons use plain verbs, not arr jargon", !$$("#findings button").some(x => jargon.test(x.textContent.trim())), ($$("#findings button").find(x => jargon.test(x.textContent.trim())) || {}).textContent);
   check("severity chips use plain words", $$("#s-sev .chip").every(c => /won't play|wrong|waiting|FYI/i.test(c.textContent)), $$("#s-sev .chip").map(c => c.textContent).join(","));
-  if (has("NO_SUBS")) check("no-subs rows offer AI subtitles", F.filter(f => f.check === "NO_SUBS" && f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=whisper]`)));
+  if (shown("NO_SUBS").some(f => f.app === "sonarr")) check("no-subs rows offer AI subtitles", shown("NO_SUBS").filter(f => f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=whisper]`)));
   check("page starts in simple view (technical tabs hidden)", d.body.classList.contains("simple") && $("nav button[data-tab=history]").classList.contains("adv-only"));
   $("#adv-toggle").click(); await sleep(30); check("Advanced toggle switches the view", !d.body.classList.contains("simple") && /Simple/.test($("#adv-toggle").textContent)); $("#adv-toggle").click(); await sleep(30);
   $("button[data-help=start]").click(); await sleep(30); check("help button opens the help panel", !$("#helpbox").classList.contains("hidden") && /How this page works/.test($("#helpbox").textContent));

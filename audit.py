@@ -1488,6 +1488,10 @@ def plan_defaults(it):
     if ap is None and sp is None: return None
     if (ap is None or ap == cur_a) and (sp is None or sp == cur_s): return None
     return (ap, sp, f"audio default {cur_a}->{ap} ({want_a[0]}), subs default {cur_s}->{sp} ({want_s})")
+def is_matroska(it):
+    """True unless the probe says the container is something else (a .mkv name is not proof: some releases are MP4 inside). No probe = trust the name."""
+    fmt = str(((it.get("probe") or {}).get("format") or {}).get("format_name") or "")
+    return not fmt or "matroska" in fmt
 def apply_defaults(path, ap, sp, n_audio, n_subs):
     cmd = ["mkvpropedit", path]
     if ap is not None:
@@ -1504,6 +1508,8 @@ def do_track_prefs(conn, items):
         pth = it.get("path") or ""
         if not pth.lower().endswith(".mkv") or it.get("missing") or it["intent"]["ignore"] or it["app"] == "whisparr": continue
         if abs((seen.get(pth) or 0) - (it.get("mtime") or 0)) < 1: continue
+        if not is_matroska(it):   # an MP4 saved with a .mkv name: mkvpropedit cannot edit it, so remember and skip instead of failing every night
+            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), "skipped: MP4 inside a .mkv name")); continue
         plan = plan_defaults(it)
         if not plan:
             conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), "ok")); continue
@@ -3483,7 +3489,14 @@ def today_summary(conn, since=None):
     for fj in failed_jobs(conn)[:5]: needs.append(dict(kind="job", sev="medium", check="JOBFAIL", name="A job failed", title=fj["title"], why=fj["why"], job_id=fj["job_id"]))
     if not ts_["ok"]:
         fails = [(f.get("name", "") + (f" ({f['info']})" if f.get("info") else "")) if isinstance(f, dict) else str(f) for f in (ts_["selftest"].get("failed") or []) + (ts_["uibot"].get("failed") or [])]
-        needs.append(dict(kind="tests", sev="high", check="SELFTEST", title="a self-test is failing", why=("; ".join(fails)[:160] + ". It reruns after the next audit; if it keeps failing, About → Recent errors has the details.") if fails else "see the History tab"))
+        which = "a self-test on this server is failing" if fails else ""
+        for app_, r_ in sorted(((ts_.get("demo") or {}).get("demos") or {}).items()):   # Q40 canary: say it is the public demo, not this server
+            if r_.get("failed") or not r_.get("total"):
+                fails.append(f"public {app_.capitalize()} demo {r_.get('passed', 0)}/{r_.get('total', 0)}: " + "; ".join(r_.get("failed") or ["did not answer"])); which = which or "the nightly check of the public demo is failing"
+        bk_ = ts_.get("backup") or {}
+        if bk_ and not bk_.get("ok"): fails.append(f"backup proof: {bk_.get('integrity') or 'failed'}"); which = which or "the nightly backup proof failed"
+        needs.append(dict(kind="tests", sev="high" if "server" in which or "backup" in which else "medium", check="SELFTEST", title=which or "a self-test is failing",
+                          why=("; ".join(fails)[:220] + ". It reruns tonight; the History tab shows every result.") if fails else "see the History tab"))
     h = health_info()
     if h["status"] not in ("ok", "running"): needs.append(dict(kind="health", sev="high", check="HEALTH", title=f"audit is {h['status']}", why=f"last run {h.get('last_run')}"))
     if h.get("degraded"): needs.append(dict(kind="health", sev="high", check="HEALTH", name="Service unreachable", title=f"{', '.join(h['degraded'])} could not be reached during the last run", why="the checks that need it were skipped, everything else ran. Check that the service is up and that its address in the container settings is right."))

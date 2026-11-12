@@ -83,5 +83,14 @@ check("a Sonarr file record (no episodeNumber) never guesses", audit.eps_for_fil
 check("a series with size on disk but a zero file count is still read", audit.series_has_files({"statistics": {"episodeFileCount": 0, "sizeOnDisk": 145170807220}}))
 check("a truly empty series is still skipped", not audit.series_has_files({"statistics": {"episodeFileCount": 0, "sizeOnDisk": 0}}) and not audit.series_has_files({}))
 
+# 2026-11-12: five MP4 files named .mkv failed "set default tracks" every night (mkvpropedit: not a Matroska file) and filled Today's error list
+check("an MP4 inside a .mkv name is not sent to mkvpropedit", not audit.is_matroska({"probe": {"format": {"format_name": "mov,mp4,m4a,3gp,3g2,mj2"}}}))
+check("a real MKV, or a file not probed yet, still is", audit.is_matroska({"probe": {"format": {"format_name": "matroska,webm"}}}) and audit.is_matroska({}))
+
+# 2026-11-12: Today said "a self-test is failing / see the History tab" while every self-test passed; the failing part was the public demo canary, which neither the card nor the History tab named
+src_t = open(os.path.join(ROOT, "audit.py")).read(); ui_t = open(os.path.join(ROOT, "ui.html")).read()
+check("the self-test card names the public demo when that is what failed", "the nightly check of the public demo is failing" in src_t and "public {app_.capitalize()} demo" in src_t)
+check("the History tab shows the public demo results", "Public demos (checked through their public addresses" in ui_t)
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Q40: both public demos (Auditarr and Dedupearr) are checked every night through their public addresses by the page bot; the result is a health line on About, red when a visitor would see a broken page.
 - Sportarr (a Sonarr build for sports) is a fourth arr: set `SPORTARR_URL` / `SPORTARR_APIKEY` or mount its config.xml at `/arr/sportarr.xml`; its files land in the Sports library. Runtime, title and missing-episode checks are skipped for it by default (event lengths and release titles are not what the guide says, and a sports guide lists every game whether you want it or not); language, subtitle, header and Plex checks run as usual. `SKIP_MISSING_APPS` controls the last one.
 - Nightly UI bot: the button checks look only at rows the page actually draws under the current filters (two false alarms on production when every no-subtitles row was FYI and hidden).
 - New addresses: the public demo is https://auditarr-demo.chrizantoz.com and the owner's instance https://auditarr.chrizantoz.com; the old demo.chrizantoz.com and media-audit.chrizantoz.com keep working.

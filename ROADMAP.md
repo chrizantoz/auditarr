@@ -86,7 +86,7 @@ Each of these would have caught something that reached production this week.
 - 🔴 **Q37** A phone persona: complete a task at phone width in the simple view (find a row, act, confirm, undo).
 - 🔴 **Q38** Error-path personas: press Find subtitles with Bazarr down, Make AI subtitles with no Whisper, Run now twice; each must end in a plain sentence, never silence or a code dump.
 - 🔴 **Q39** A long-open page: keep the page open across several refreshes and an audit in the staging soak; memory must stay flat and pending results must apply by themselves.
-- 🔴 **Q40** The public demo as a nightly canary: the browser bot runs against auditarr-demo.chrizantoz.com each night, so the whole ingress path is checked before a visitor finds a problem.
+- 🟢 **Q40** (2026-11-12) Both public demos as a nightly canary: the page bot runs through the public addresses each night (DNS, tunnel, proxy, container, API, page); the result is a health line on About.
 
 ## 📦 Next: let someone else install it
 

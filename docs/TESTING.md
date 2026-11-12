@@ -2,6 +2,8 @@
 
 A one-person project that moves other people's files has to be paranoid. This is the harness, in the order a change passes through it. Copy whatever is useful; everything here is plain Python, Node and shell.
 
+- 🌐 **Public demo canary** (nightly on the owner's server): the page bot runs against both public demos through their public addresses and writes `demo-canary.json`; About shows the result.
+
 ## 1. On every push (GitHub Actions, `.github/workflows/ci.yml`)
 
 | step | what it proves | file |

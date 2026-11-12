@@ -3573,6 +3573,11 @@ def about_info(fetch=False, refresh=False, conn=None):
     for d in h.get("degraded") or []: msgs.append(dict(level="error", text=f"{d} could not be reached during the last run", link=""))
     if h.get("status") == "stale": msgs.append(dict(level="warn", text="The last audit is older than expected - the nightly run may not be happening", link=""))
     if not (h.get("tests") or {}).get("ok", True): msgs.append(dict(level="warn", text="The built-in self-test did not pass last time (History tab)", link=""))
+    dm = ((h.get("tests") or {}).get("demo") or {}).get("demos") or {}
+    if dm:
+        bad = {k: v for k, v in dm.items() if v.get("failed") or not v.get("total")}
+        if bad: msgs.append(dict(level="warn", text="The public demo did not pass last night's check: " + "; ".join(f"{k} {v.get('passed', 0)}/{v.get('total', 0)} ({', '.join(v.get('failed') or [])[:160]})" for k, v in bad.items()) + " - visitors may be seeing a broken page (DNS, tunnel, proxy or the container)."))
+        else: msgs.append(dict(level="ok", text="Public demos checked through their public addresses at " + str(h["tests"]["demo"].get("ts", ""))[:16].replace("T", " ") + ": " + ", ".join(f"{k} {v['passed']}/{v['total']}" for k, v in dm.items()) + "."))
     if (h.get("tests") or {}).get("uibot_drift"): msgs.append(dict(level="warn", text=f"The nightly page check used a UI bot from another build ({h['tests']['uibot_drift']}) - pull both images together so the check matches this version", link=""))
     errs = errors_recent()
     if errs: msgs.append(dict(level="warn", text=f"{max(h.get('errors_24h', 0), len(errs))} error(s) in the last 24 hours - see Recent errors below", link=""))
@@ -3619,6 +3624,9 @@ def tests_status():
     out["history"] = hist; out["ok"] = all(not v.get("failed") and v.get("total") for v in (out["selftest"], out["uibot"]) if v) or (not out["selftest"] and not out["uibot"])
     br, pr_ = str((out["uibot"] or {}).get("revision") or ""), str((out["uibot"] or {}).get("page_revision") or APP_REVISION or "")   # Q27: the bot and the page it tested must be the same build
     out["uibot_drift"] = f"bot build {br[:7]} checked page build {pr_[:7]}" if br and pr_ and br[:7] != pr_[:7] else ""
+    try: out["demo"] = json.load(open(os.path.join(REPORT_DIR, "demo-canary.json")))   # Q40: the public demos, checked nightly through their public addresses
+    except Exception: out["demo"] = {}
+    if any(v.get("failed") or not v.get("total") for v in (out["demo"].get("demos") or {}).values()): out["ok"] = False
     try:
         c_ = sqlite3.connect(DB_PATH, timeout=10); r_ = c_.execute("SELECT v FROM kv WHERE k='backup_last'").fetchone(); c_.close(); out["backup"] = json.loads(r_[0]) if r_ else {}
         if out["backup"] and not out["backup"].get("ok"): out["ok"] = False

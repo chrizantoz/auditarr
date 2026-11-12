@@ -7,6 +7,7 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 ## 🗂️ How we track work (added 2026-11-12)
 
 - **This file** is the big picture: phases, what is done, what is next, in plain words.
+- **The board** across both apps: https://github.com/users/chrizantoz/projects/1 (cards grouped by status, app, area or phase).
 - **GitHub Issues** is the inbox and the day-to-day list. Anything found along the way becomes one issue with one label: `bug`, `bot` (the test bots), `feature`, `ux` (friendlier wording, navigation, flow), `design` (look and feel), `idea`, `owner-step`. Milestones match the phases here.
 - **Rule:** an idea is written down the moment it comes up, as an issue, not remembered. When an issue ships, this file gets its line and the issue closes.
 

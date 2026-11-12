@@ -704,7 +704,7 @@ def collect(apps, only=None):
                 for s in api(base, key, "series"):
                     if only is not None and (app, s["id"]) not in only: continue
                     intent = intent_from_tags(tags.get(t, "") for t in s.get("tags", []))
-                    has_files = bool((s.get("statistics") or {}).get("episodeFileCount"))
+                    has_files = series_has_files(s)
                     if not has_files and not (min_days and s.get("monitored")): continue
                     files = api(base, key, f"episodefile?seriesId={s['id']}") if has_files else []; eps_by_file = {}; season_last = {}
                     all_eps = api(base, key, f"episode?seriesId={s['id']}")
@@ -1030,6 +1030,12 @@ def season_runtime_profile(items):
         except (TypeError, ValueError): dur = 0
         if dur: per[(it["app"], it["parent_id"], it.get("season"))].append(dur < it["expected_lo"] * 0.6)
     return {k: (sum(v) / len(v), len(v)) for k, v in per.items()}
+def series_has_files(s):
+    """Whether to ask for a series' files. Sportarr's summary can say 0 files while it holds them (seen 2026-11-12 on a 145 GB series),
+    and skipping the file list then turns every file of that series into an 'unknown file', so any size on disk counts too."""
+    st = s.get("statistics") or {}
+    return bool(st.get("episodeFileCount") or st.get("sizeOnDisk"))
+
 def eps_for_file(f, eps_by_file, all_eps):
     """The episodes a file holds. Sonarr links each episode to one file; Sportarr splits an event into part files (pt1, pt2, pt3)
     and links the event to the first part only, so the other parts are matched by the season and episode number on the file record."""

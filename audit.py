@@ -707,7 +707,8 @@ def collect(apps, only=None):
                     has_files = bool((s.get("statistics") or {}).get("episodeFileCount"))
                     if not has_files and not (min_days and s.get("monitored")): continue
                     files = api(base, key, f"episodefile?seriesId={s['id']}") if has_files else []; eps_by_file = {}; season_last = {}
-                    for e in api(base, key, f"episode?seriesId={s['id']}"):
+                    all_eps = api(base, key, f"episode?seriesId={s['id']}")
+                    for e in all_eps:
                         sn = e.get("seasonNumber", 0); season_last[sn] = max(season_last.get(sn, 0), e.get("episodeNumber", 0))
                         if e.get("lastSearchTime"): LAST_SEARCH.setdefault(app, {})[e["id"]] = e["lastSearchTime"][:10]
                         if e.get("hasFile") and e.get("episodeFileId"): eps_by_file.setdefault(e["episodeFileId"], []).append(e)
@@ -718,7 +719,7 @@ def collect(apps, only=None):
                             if days >= min_days: MISSING.append(dict(app=app, kind="series", id=e["id"], parent_id=s["id"], label=label, path=s.get("path"), released=aired.date().isoformat(), days=days, ep_title=e.get("title") or "", last_search=(e.get("lastSearchTime") or "")[:10], slug=s.get("titleSlug")))
                     if not has_files: continue
                     for f in files:
-                        eps = sorted(eps_by_file.get(f["id"], []), key=lambda e: (e.get("seasonNumber", 0), e.get("episodeNumber", 0)))
+                        eps = sorted(eps_for_file(f, eps_by_file, all_eps), key=lambda e: (e.get("seasonNumber", 0), e.get("episodeNumber", 0)))
                         edge = bool(eps) and (eps[0].get("seasonNumber") or 0) > 0 and any(e.get("episodeNumber") in (1, season_last.get(e.get("seasonNumber", 0))) for e in eps)
                         label = s["title"] + (" " + "/".join(f"S{e.get('seasonNumber',0):02d}E{e.get('episodeNumber',0):02d}" for e in eps) if eps else "")
                         srt = s.get("runtime") or 0
@@ -1029,6 +1030,14 @@ def season_runtime_profile(items):
         except (TypeError, ValueError): dur = 0
         if dur: per[(it["app"], it["parent_id"], it.get("season"))].append(dur < it["expected_lo"] * 0.6)
     return {k: (sum(v) / len(v), len(v)) for k, v in per.items()}
+def eps_for_file(f, eps_by_file, all_eps):
+    """The episodes a file holds. Sonarr links each episode to one file; Sportarr splits an event into part files (pt1, pt2, pt3)
+    and links the event to the first part only, so the other parts are matched by the season and episode number on the file record."""
+    eps = eps_by_file.get(f["id"]) or []
+    if not eps and f.get("episodeNumber") is not None:
+        eps = [e for e in all_eps if e.get("seasonNumber") == f.get("seasonNumber") and e.get("episodeNumber") == f.get("episodeNumber")]
+    return eps
+
 def series_language_profile(items):
     """(app,parent_id) -> (dominant audio-language set, share of files having it). Uses ffprobe tags, falls back to arr."""
     import collections; per = collections.defaultdict(list)
@@ -1914,7 +1923,8 @@ def arr_file_info(apps, app, fid, path=None):
                     pid = mv["id"]; f = next((x for x in api(base, key, f"moviefile?movieId={pid}") if os.path.normpath(x.get("path", "")) == np), None); break
         if not f: raise LookupError("the arr no longer has this file (replaced or removed since the last audit) - run the audit again to refresh")
     if kind == "series":
-        srs = api(base, key, f"series/{pid}"); eps = [e for e in api(base, key, f"episode?seriesId={pid}") if e.get("episodeFileId") == f["id"]]
+        srs = api(base, key, f"series/{pid}"); all_eps = api(base, key, f"episode?seriesId={pid}")
+        eps = eps_for_file(f, {f["id"]: [e for e in all_eps if e.get("episodeFileId") == f["id"]]}, all_eps)
         return dict(app=app, kind=kind, fid=f["id"], parent_id=pid, path=f.get("path"), ep_ids=[e["id"] for e in eps], title=srs["title"],
                     orig=canon(LANG_NAME.get((srs.get("originalLanguage") or {}).get("name"), "")), monitored=srs.get("monitored"))
     mv = api(base, key, f"movie/{pid}")

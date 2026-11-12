@@ -178,7 +178,8 @@ async function edgeChecks(S) {
   $("nav button[data-tab=findings]").click(); await sleep(50);
   check("every button on every tab can be pressed without a JavaScript error", errors.length === errorsBefore, errors.slice(errorsBefore, errorsBefore + 3).join(" | ") || `${pressedTotal} presses`);
   const namedPresent = IDS.filter(id => $("#" + id) && !$("#" + id).disabled && !NAVIGATES.has(id)); const missedIds = namedPresent.filter(id => !pressedIdSet.has(id));
-  check("the press-everything sweep reached the action hooks the fixture offers and every enabled named button on the page", pressedHooks.has("data-act") && pressedHooks.has("data-bulk") && missedIds.length === 0, `${[...pressedHooks].join(",")} · ${pressedIdSet.size}/${namedPresent.length} named buttons; missed: ${missedIds.join(",") || "none"}`);
+  const bulkOffered = HOOKS.includes("data-bulk") && $$("button[data-bulk]").length > 0;   // group-wide buttons exist only when a group holds more than one row of the same kind: a live page may have none (seen on staging 2026-11-12)
+  check("the press-everything sweep reached the action hooks the fixture offers and every enabled named button on the page", pressedHooks.has("data-act") && (pressedHooks.has("data-bulk") || !bulkOffered) && missedIds.length === 0, `${[...pressedHooks].join(",")} · ${pressedIdSet.size}/${namedPresent.length} named buttons; missed: ${missedIds.join(",") || "none"}`);
   check("no JavaScript errors during the session", errors.length === 0, errors.slice(0, 3).join(" | "));
   let bad = 0; for (const [ok, name, info] of results) { console.log((ok ? "PASS " : "FAIL ") + name + (info ? `  [${info}]` : "")); if (!ok) bad++; }
   console.log(`\n${bad} failure(s) of ${results.length}`); process.exit(bad ? 1 : 0);

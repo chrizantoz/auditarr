@@ -81,6 +81,25 @@ def dep_status(name, ok, error=""):
 def degraded(): return sorted(k for k, v in DEPS.items() if not v["ok"])
 TRUST_PROXY_AUTH = E("TRUST_PROXY_AUTH", "0") == "1"   # 1 = a Remote-User header from your reverse proxy (Authelia etc.) counts as a login
 AUTH = {"loaded": False, "conf": None}
+LOCAL_NO_LOGIN_ENV = E("LOCAL_NO_LOGIN", "")   # 1 = no sign-in for a browser on your own network that talks to the port directly; 0 = always sign in; empty = the Setup checkbox decides
+PROXY_HEADERS = ("X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "X-Real-IP", "Forwarded", "CF-Connecting-IP", "CF-Ray", "True-Client-IP", "Via", "Tailscale-Funnel-Request")
+def local_no_login(conn=None):
+    """Is 'no sign-in on my own network' on? The env wins; otherwise the Setup checkbox (kv local_no_login)."""
+    if LOCAL_NO_LOGIN_ENV in ("0", "1"): return LOCAL_NO_LOGIN_ENV == "1"
+    c = conn or db()
+    try: r = c.execute("SELECT v FROM kv WHERE k='local_no_login'").fetchone(); return bool(r and r[0] == "1")
+    finally:
+        if conn is None: c.close()
+def direct_local(ip, headers):
+    """A browser on your own network talking to the port itself: a private or tailnet address AND no header any reverse proxy, tunnel
+    or CDN adds. Through a domain (NPM, Traefik, Caddy, Cloudflare, Tailscale Funnel) one of those headers is always there, so the
+    domain keeps asking for the sign-in even though the proxy itself sits on a private address."""
+    import ipaddress
+    if any(headers.get(h) for h in PROXY_HEADERS): return False
+    try: a = ipaddress.ip_address((ip or "").split("%")[0])
+    except ValueError: return False
+    if getattr(a, "ipv4_mapped", None): a = a.ipv4_mapped
+    return a.is_private or a.is_loopback or (a.version == 4 and a in ipaddress.ip_network("100.64.0.0/10"))
 def auth_conf(conn=None):
     """{"user","salt","hash","secret"} once a password is set (Setup page or AUTH_USER/AUTH_PASSWORD env); None = open page (LAN model)."""
     if AUTH["loaded"]: return AUTH["conf"]
@@ -3448,7 +3467,7 @@ def ui_state(conn):
         res_ = conn.execute("SELECT result FROM action WHERE kind=? AND label=? AND ts>=? ORDER BY ts DESC LIMIT 1", (kind, jb.get("label", ""), (started_ or ts_) - 1)).fetchone() if st_ not in ("queued", "running") else None   # the outcome, so the jobs table does not say only DONE
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), result=(res_[0] if res_ else ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
-    latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
+    latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user"), "local_no_login": local_no_login(conn), "local_no_login_env": LOCAL_NO_LOGIN_ENV in ("0", "1")}
     latest["sandbox"] = SANDBOX
     ab_ = about_info(fetch=False, conn=conn); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
     try:
@@ -3779,6 +3798,7 @@ class Handler(SimpleHTTPRequestHandler):
         u = session_user(conf, self.headers.get("Cookie"))
         if u: return True, u[0], u[1]
         if ip in ("127.0.0.1", "::1"): return True, "local", "admin"
+        if direct_local(ip, self.headers) and local_no_login(): return True, "lan", "admin"
         if TRUST_PROXY_AUTH and (self.headers.get("Remote-User") or self.headers.get("X-Remote-User")): return True, self.headers.get("Remote-User") or self.headers.get("X-Remote-User"), "admin"
         return False, None, None
     def _login_page(self, bad=False):
@@ -3794,7 +3814,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not ok_: return self._json(401, {"error": "sign in first"}) if p.startswith("/api/") or p.endswith((".json", ".md")) else self._login_page()
         if p == "/api/state":
             conn = db()
-            try: j_ = ui_state(conn); j_.setdefault("auth", {})["role"] = role_; return self._json(200, j_)
+            try: j_ = ui_state(conn); j_.setdefault("auth", {})["role"] = role_; j_["auth"]["via"] = _u if _u in ("lan", "local") else ""; return self._json(200, j_)
             finally: conn.close()
         if p == "/api/history":
             conn = db()
@@ -3918,9 +3938,16 @@ class Handler(SimpleHTTPRequestHandler):
             elif p == "/api/search_show": code, obj = ui_search_show(conn, body, actor)
             elif p == "/api/hook_setup": code, obj = (403, SANDBOX_NOTE) if SANDBOX else ensure_hook(conn, str(body.get("app") or ""))
             elif p == "/api/update": code, obj = (403, SANDBOX_NOTE) if SANDBOX else ui_update(conn, actor)
+            elif p == "/api/local_login":
+                on_ = bool(body.get("on"))
+                if LOCAL_NO_LOGIN_ENV in ("0", "1"): code, obj = 409, {"error": f"LOCAL_NO_LOGIN={LOCAL_NO_LOGIN_ENV} is set on the container; change it there"}
+                else:
+                    conn.execute("INSERT OR REPLACE INTO kv VALUES('local_no_login',?)", ("1" if on_ else "0",)); conn.commit()
+                    record_action(conn, "on", "settings", "ui", "auth", "local_login", f"set by {actor}", "no sign-in on the home network" if on_ else "sign-in everywhere")
+                    code, obj = 200, {"ok": True, "note": "On your own network the page opens without a sign-in; through your domain it still asks." if on_ else "The page asks for a sign-in everywhere, your own network too."}
             elif p == "/api/setpassword":
                 conf = auth_conf(conn)
-                if conf and not (auth_user and auth_user != "local") and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
+                if conf and not (auth_user and auth_user not in ("local", "lan")) and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
                 else:
                     role_set = "viewer" if body.get("role") == "viewer" else "admin"
                     try:

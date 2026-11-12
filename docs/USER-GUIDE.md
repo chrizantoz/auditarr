@@ -68,6 +68,7 @@ Three steps. **1 Connect your apps**: press **Find my apps** and Auditarr looks 
 | ✅ **xxx is correct** | tells Auditarr this show is supposed to be in that language (a Filipino drama, a Korean show). Clears every language finding for the show and stops future ones | remove the `audit-lang-xxx` tag on the show in Sonarr/Radarr |
 | 🔎 **Find subtitles** | asks Bazarr to search for subtitles right now | — |
 | 🤖 **Make AI subtitles** | Whisper listens to the audio and writes English subtitles. About a minute on the GPU; progress shows in the header | delete the `.en.srt` next to the file |
+| 📦 **Rewrap the file** | the video is an MP4 file under a .mkv name, so its default audio and subtitles cannot be set and some players misread it. Puts the same video, audio and subtitles in a real Matroska file, nothing re-encoded | Trash → Put back |
 | ⏱️ **Fix the time bar** | the file claims the wrong length, so players show a wrong time bar. Rewrites the container losslessly | Undo, or Trash → Put back |
 | 🎚️ **Fix audio delay** | audio starts late: removes the delay losslessly. Hidden when the delay is intentional | Undo, or Trash → Put back |
 | ⏳ *(any row showing* **working**) | a job is running for that file (AI subtitles, a content check). It leaves Needs you at once, its buttons are hidden, and it clears by itself when the job lands. If the job gives up, the row comes back. | — |

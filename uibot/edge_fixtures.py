@@ -69,4 +69,13 @@ write("signin", g)
 # 7. deeplink: the page opens straight on #setup and the state answers late (owner, 2026-11-12: "it doesn't show the players until I press the button")
 g = copy.deepcopy(base); g["state"]["devices"] = {"available": {"ps5": "PlayStation 5", "shield": "NVIDIA Shield", "apple-tv": "Apple TV 4K", "plex-web": "Plex Web / browser"}, "chosen": []}
 write("deeplink", g)
+# 8. mp4mkv: MP4 files saved with a .mkv name (8 episodes of one show, 2026-11-12). Each row offers Rewrap the file and no re-download; the show gets a bulk Rewrap.
+g = copy.deepcopy(base); tpl = next(f for f in base["state"]["findings"] if f["app"] == "sonarr"); rows = []
+for i in range(4):
+    f = dict(tpl); f.update(id=f"mp4{i:03d}", check="MP4_IN_MKV", name="File type does not match its name", severity="low", sev_name="FYI", library="TV", title=f"Glitter Lane S01E0{i + 1}",
+             path=f"/data/media/tv/Glitter Lane (2021)/Glitter Lane (2021) - S01E0{i + 1} - Episode {i + 1} [WEBDL-1080p].mkv", show="Glitter Lane",
+             detail="container is MP4 under a .mkv name - default tracks cannot be set and some players misread it; 'Rewrap the file' puts it in a real Matroska file without re-encoding",
+             plain="This video is an MP4 file under a Matroska name. It plays, but its default audio and subtitles cannot be set and some players misread it. 'Rewrap the file' fixes that without re-encoding."); rows.append(f)
+g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "MP4_IN_MKV"][:30]
+write("mp4mkv", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

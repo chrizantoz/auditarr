@@ -27,6 +27,7 @@ Checks (code -> meaning):
   HI10P             10-bit H.264 -> no hardware decode, Plex software-transcodes
   AV1               AV1 video (low)
   INTERLACED        interlaced video (low)
+  MP4_IN_MKV        an MP4 file with a .mkv name: default tracks cannot be set, some players misread it -> 'Rewrap the file' (low)
   TRUEHD_ONLY       only TrueHD/DTS-HD audio, no lossy fallback track (low)
   DUB_ONLY          anime whose file has no Japanese / original-language audio track (dub-only release)
   MISSING_EPISODE / MISSING_MOVIE   monitored, released >= MISSING_MIN_DAYS ago, no file (medium within a year, low if older)
@@ -316,7 +317,7 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "MISSING_FILE": "File vanished", "ZERO_SIZE": "Empty file", "CORRUPT_HEADER": "Unreadable file", "NO_AUDIO": "No audio", "NO_VIDEO": "No video",
  "RUNTIME_SHORT": "Too short", "RUNTIME_LONG": "Too long", "RUNTIME_DISAGREE": "Length changed", "SAMPLE_FILE": "Sample, not the episode", "TITLE_MISMATCH": "Title names another episode",
  "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "JOBFAIL": "A job failed", "PLEX_MISSING": "Not in Plex",
- "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video",
+ "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video", "MP4_IN_MKV": "File type does not match its name",
  "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "UNFOUND": "Nothing found for weeks",
  "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
 SEV_NAMES = {"critical": "Won't play", "high": "Wrong", "medium": "Waiting", "low": "FYI"}
@@ -424,6 +425,7 @@ def plain_sentence(code, sev, label, detail, app=None):
         return f"{what}: your {aff} cannot play it directly, so Plex transcodes for {'it' if ',' not in aff else 'them'}." + (" Re-download or expect green/purple colours there." if code == "DV_PROFILE5" else "")
     if code == "HI10P": return "10-bit H.264 video: normal for anime, but TVs and consoles cannot play it directly, so Plex transcodes."
     if code == "AV1": return "AV1 video: the PS5 and older TVs cannot play it directly, so Plex transcodes."
+    if code == "MP4_IN_MKV": return "This video is an MP4 file under a Matroska name. It plays, but its default audio and subtitles cannot be set and some players misread it. 'Rewrap the file' fixes that without re-encoding."
     if code == "INTERLACED": return "Old-style interlaced video (TV broadcast). Plays fine; some players show comb lines."
     if code == "TRUEHD_ONLY": return "Only lossless audio tracks. Some players cannot play those and need a transcode."
     if code == "DV_PROFILE5": return "Dolby Vision without a normal fallback: looks green and purple on most players. Re-download."
@@ -1189,6 +1191,10 @@ def check(it, bz_eps, bz_movs, profile=None, rt_profile=None):
         got = norm_tokens(ttl); fname = norm_tokens(os.path.basename(it["path"] or ""))
         if want and not (got & want) and len(got & fname) / len(got) < 0.3:
             F("TITLE_MISMATCH", "low", f"embedded title '{ttl[:60]}' does not match '{it['title']}'" + (f" / {(it['ep_titles'][0] or '')[:40]}" if it["ep_titles"] and it["ep_titles"][0] else ""))
+    # the container behind the name (2026-11-12: MP4 releases saved as .mkv failed the default-flags edit every pass)
+    if ok and (it.get("path") or "").lower().endswith(".mkv") and not is_matroska(it):
+        fmt_ = str(((pr or {}).get("format") or {}).get("format_name") or "mov,mp4")
+        F("MP4_IN_MKV", "low", f"container is {'MP4' if fmt_.startswith('mov') else fmt_.split(',')[0]} under a .mkv name - default tracks cannot be set and some players misread it; 'Rewrap the file' puts it in a real Matroska file without re-encoding")
     # player compatibility
     if PLAYER_CHECKS and ok and v:
         v0 = v[0]; codec = (v0.get("codec_name") or "").lower(); pix = v0.get("pix_fmt") or ""
@@ -2428,6 +2434,46 @@ def ui_search_show(conn, body, actor):
         r = api(base, key, "command", "POST", cmd, timeout=60); out[app_] = {"items": len(ids), "command": (r or {}).get("id")}
         record_action(conn, "on", "search", app_, len(ids), show, f"{cmd['name']} for every missing item via UI by {actor}", f"{len(ids)} item(s); command {(r or {}).get('id')} {(r or {}).get('status')}")
     return 200, {"ok": True, "searched": out, "note": f"{sum(v['items'] for v in out.values())} missing item(s) searched - results land in the arr's queue; titles that stay unfound show up in the Today digest"}
+def remux_to_mkv(conn, f, apps, actor):
+    """MP4_IN_MKV: rewrap an MP4 that carries a .mkv name into a real Matroska file with mkvmerge (no re-encode; MP4 text subtitles become
+    SRT tracks). The new file is built beside the old one and checked (Matroska, same video and audio tracks, same length) before the
+    original moves to the trash; any failure leaves the original untouched."""
+    import shutil
+    path = f["path"]
+    if not path or not path.lower().endswith(".mkv"): return 400, {"error": "Rewrap the file is for files with a .mkv name"}
+    if not os.path.exists(path): return 404, {"error": "file not on disk"}
+    ok, pr = ffprobe(path)
+    if not ok: return 500, {"error": "ffprobe failed", "detail": pr}
+    if is_matroska({"path": path, "probe": pr}):
+        resolve_finding(conn, f["id"]); refresh_reports(conn); return 200, {"ok": True, "already_gone": True, "note": "already a real MKV; finding cleared"}
+    size = os.path.getsize(path)
+    if shutil.disk_usage(os.path.dirname(path)).free < size * 1.1 + 2e9: return 507, {"error": f"not enough free space next to the file for a {size / 1e9:.1f} GB copy"}
+    kinds = lambda p_: {k: sum(1 for s_ in p_.get("streams", []) if s_.get("codec_type") == k) for k in ("video", "audio", "subtitle")}
+    k0 = kinds(pr); dur0 = float((pr.get("format") or {}).get("duration") or 0)
+    tmp = path[:-4] + ".remux.tmp.mkv"
+    try:
+        guard_write("mkvmerge remux"); p = subprocess.run(["mkvmerge", "-o", tmp, path], capture_output=True, text=True, timeout=3600)
+        if p.returncode not in (0, 1): raise RuntimeError((p.stderr or p.stdout)[-300:])
+        ok2, pr2 = ffprobe(tmp)
+        if not ok2 or "matroska" not in str((pr2.get("format") or {}).get("format_name") or ""): raise RuntimeError("the new file is not a Matroska file")
+        k1 = kinds(pr2); dur1 = float((pr2.get("format") or {}).get("duration") or 0)
+        if (k1["video"], k1["audio"]) != (k0["video"], k0["audio"]): raise RuntimeError(f"tracks changed: {k0['video']} video + {k0['audio']} audio before, {k1['video']} + {k1['audio']} after")
+        if dur0 and abs(dur1 - dur0) > 2: raise RuntimeError(f"length changed: {dur0 / 60:.1f} min before, {dur1 / 60:.1f} min after")
+    except Exception as e:
+        try: os.remove(tmp)
+        except OSError: pass
+        record_action(conn, "on", "remuxmkv", f["app"], f["fid"], f["label"], f"mkvmerge remux via UI by {actor}", f"ERROR {str(e)[-160:]}")
+        return 500, {"error": f"remux failed, original untouched: {e}"}
+    lost = k0["subtitle"] - k1["subtitle"]
+    dest, moved = quarantine(conn, path, f"ui remuxmkv by {actor}: MP4 inside .mkv rewrapped as Matroska", "regrab", sidecars=False); os.rename(tmp, path)
+    try: st0 = os.stat(dest); os.chmod(path, st0.st_mode & 0o777); os.chown(path, st0.st_uid, st0.st_gid)
+    except OSError: pass
+    conn.execute("DELETE FROM probe WHERE path=?", (path,)); conn.execute("DELETE FROM trackprefs WHERE path=?", (path,)); resolve_finding(conn, f["id"])
+    resc = rescan_for_path(apps, path) if f["app"] in apps else ""; plx = plex_refresh(path)
+    what = f"{k1['video']} video, {k1['audio']} audio, {k1['subtitle']} subtitle track(s)" + (f"; {lost} subtitle track(s) MKV cannot hold were left out" if lost > 0 else "")
+    record_action(conn, "on", "remuxmkv", f["app"], f["fid"], f["label"], f"mkvmerge remux via UI by {actor}: {what}", f"original -> {dest}; {resc}; {plx}")
+    refresh_reports(conn)
+    return 200, {"ok": True, "note": f"now a real MKV ({what}); default tracks are set on the next audit; original in the trash for {TRASH_DAYS} days"}
 def ui_act(conn, body, actor):
     fid = body.get("id"); action = body.get("action"); f = finding_row(conn, fid) if fid else None
     if not f: return 404, {"error": "finding not found"}
@@ -2651,6 +2697,8 @@ def ui_act(conn, body, actor):
         what = ("repaired/dropped " + ", ".join(dropped)) if dropped else "trimmed container at the real end"
         record_action(conn, "on", "fixheader", f["app"], f["fid"], f["label"], f"mkvmerge remux: header {hdr/60:.1f} -> {rd/60:.1f} min via UI by {actor} ({what})", f"original -> {dest}; {resc}; {plx}")
         refresh_reports(conn); return 200, {"ok": True, "header_min": round(hdr / 60, 1), "real_min": round(rd / 60, 1), "note": f"header rewritten ({hdr/60:.0f} -> {rd/60:.0f} min, {what}); original in the trash for {TRASH_DAYS} days"}
+    if action == "remuxmkv":
+        return remux_to_mkv(conn, f, apps, actor)
     if action == "langdetect":
         if not path or not os.path.exists(path): return 404, {"error": "file not on disk"}
         if not SUBGEN_URLS: return 400, {"error": "no Whisper endpoint configured (SUBGEN_URLS)"}
@@ -3518,7 +3566,7 @@ def today_summary(conn, since=None):
     did = {}
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
-        key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
+        key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "remuxmkv": "MP4 files rewrapped as MKV", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
                "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "langdetect": "spoken languages detected", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)

@@ -71,6 +71,17 @@ async function edgeChecks(S) {
     check("deeplink: opening straight on Setup lists every player without pressing anything", avail.length > 0 && $$("#devices .dev").length === avail.length, `${$$("#devices .dev").length} of ${avail.length}`);
     check("deeplink: and the sign-in step is drawn from the real state", /Protect the page|Sign-in is on|Turn sign-in on/.test($("#setup").textContent));
   }
+  if (EDGE === "mp4mkv") {
+    $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
+    const ids = S.findings.filter(f => f.check === "MP4_IN_MKV").map(f => f.id);
+    check("mp4mkv: every such row offers Rewrap the file as its main button", ids.length > 0 && ids.every(id => $(`#findings button.primary[data-act=remuxmkv][data-id="${id}"]`)), ids.length);
+    check("mp4mkv: no row offers a re-download for it", ids.every(id => !$(`#findings button[data-act=regrab][data-id="${id}"]`)));
+    const bulk = $("button[data-bulk=remuxmkv]"); check("mp4mkv: the show gets one bulk Rewrap for all its files", bulk && bulk.dataset.ids.split(",").length === ids.length && bulk.textContent.includes(`Rewrap all ${ids.length} files`), bulk ? bulk.textContent : "none");
+    const n0 = posts.length; $(`#findings button[data-act=remuxmkv][data-id="${ids[0]}"]`).click(); await sleep(30);
+    check("mp4mkv: pressing it asks first and posts nothing yet", !!$(".confirm") && posts.length === n0);
+    $(".confirm button.primary").click(); await sleep(120);
+    check("mp4mkv: saying yes posts Rewrap for that finding", posts.slice(n0).some(p => p.url.includes("api/act") && JSON.parse(p.body).action === "remuxmkv" && JSON.parse(p.body).id === ids[0]), posts.slice(n0).map(p => p.url + " " + p.body).join(" | "));
+  }
   if (EDGE === "signin") {
     check("signin: no Sign out when the home network let you in", $("#logout").classList.contains("hidden"));
     $("nav button[data-tab=setup]").click(); await sleep(250); const cb = $("#lan-nologin");
@@ -167,7 +178,7 @@ async function edgeChecks(S) {
   const rowsAll = $$("#findings tr[id^=r-]"); check("every row leads with a plain-language sentence", rowsAll.length > 0 && rowsAll.every(r => r.querySelector(".plain") && r.querySelector(".plain").textContent.trim().length > 15), rowsAll.length + " rows");   // fixed: a sentence is longer than 15 characters; not a row count
   const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/; check("group headers show no raw check codes", $$("#findings .grp-head").every(sm => !rawCode.test(sm.textContent)), ($$("#findings .grp-head").find(sm => rawCode.test(sm.textContent)) || {}).textContent);
   check("row problem column shows names, codes only in tooltips", rowsAll.slice(0, 200).every(r => !rawCode.test(r.children[1].textContent) && rawCode.test(r.children[1].title)), (rowsAll.find(r => rawCode.test(r.children[1].textContent)) || { children: [0, { textContent: "" }] }).children[1].textContent);
-  const jargon = /^(re-grab|regrab|fix tag|fixtag|subsearch|plexrefresh|fixsync|fixheader|subtag|acceptlang|verify content|quarantine)$/i;
+  const jargon = /^(re-grab|regrab|fix tag|fixtag|subsearch|plexrefresh|fixsync|fixheader|remuxmkv|subtag|acceptlang|verify content|quarantine)$/i;
   check("buttons use plain verbs, not arr jargon", !$$("#findings button").some(x => jargon.test(x.textContent.trim())), ($$("#findings button").find(x => jargon.test(x.textContent.trim())) || {}).textContent);
   check("severity chips use plain words", $$("#s-sev .chip").every(c => /won't play|wrong|waiting|FYI/i.test(c.textContent)), $$("#s-sev .chip").map(c => c.textContent).join(","));
   if (shown("NO_SUBS").some(f => f.app === "sonarr")) check("no-subs rows offer AI subtitles", shown("NO_SUBS").filter(f => f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=whisper]`)));

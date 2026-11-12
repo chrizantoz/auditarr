@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- New: **Rewrap the file** for videos that are MP4 files under a .mkv name (finding "File type does not match its name", FYI). Same video, audio and subtitles in a real Matroska file, nothing re-encoded; the new file is checked (Matroska, same tracks, same length) before the original moves to the trash. One button per file, one per show.
 - Fixed: MP4 files saved with a .mkv name were sent to mkvpropedit when the cached probe had no container format, and every pass retried them (one season made 88 "errors in the last 24 hours" on About). The file's first bytes now decide, and a failed default-flags edit waits a day, or a changed file, before the next try.
 - Fixed: opening the page straight on Setup (a link or bookmark ending in #setup) showed step 4 with no players and step 5 without its real state until a button was pressed; Setup now waits for the page's first load. Page-bot world `deeplink` opens on #setup with a slow answer.
 - No sign-in on your own network: a checkbox under the password on Setup (or `LOCAL_NO_LOGIN=1`). A browser on your LAN or tailnet that opens the address and port directly gets in; anything through a reverse proxy, tunnel or CDN (it carries `X-Forwarded-For`, `CF-Connecting-IP` or similar) is still asked, so your domain keeps its sign-in. The read-only login keeps its role on the LAN.

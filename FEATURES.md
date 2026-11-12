@@ -24,6 +24,7 @@ The left column is the internal code (handy for searching); the middle column is
 | NO_SUBS | no audio you understand **and** no subtitles you understand | 🟡 medium if Bazarr is still searching, otherwise 🟠 high |
 | UND_AUDIO_NO_SUBS | the audio language isn't tagged and there are no subtitles | 🟢 low |
 | RUNTIME_SHORT / RUNTIME_LONG | the file is much shorter/longer than the episode should be (handles multi-episode files, season quirks, premieres/finales) | 🟠 high / 🟡 medium |
+| MP4_IN_MKV | the file is an MP4 under a .mkv name: default tracks cannot be set and some players misread it; **Rewrap the file** fixes it without re-encoding | 🟢 low |
 | BAD_DURATION_HEADER | the file claims one length but the video actually ends at another (Plex shows the wrong runtime) | 🟡 medium |
 | RUNTIME_DISAGREE | the file and the arr disagree on length (a stale scan) → triggers an arr rescan | 🟡 medium |
 | RES_MISLABELED | the picture is smaller than the quality tag claims (e.g. "1080p" that isn't) | 🟡 medium |

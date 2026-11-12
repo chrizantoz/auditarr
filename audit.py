@@ -51,7 +51,7 @@ PROBE_WORKERS= int(E("PROBE_WORKERS", "4")); PROBE_MAX = int(E("PROBE_MAX", "200
 RUN_AT       = E("RUN_AT", "05:00"); HTTP_PORT = int(E("HTTP_PORT", "3091"))
 NTFY_URL     = E("NTFY_URL", ""); NTFY_TOKEN_FILE = E("NTFY_TOKEN_FILE", ""); NTFY_MIN_SEV = E("NTFY_MIN_SEVERITY", "medium")
 REPORT_URL   = E("REPORT_URL", f"http://{HOST_IP}:{HTTP_PORT}/latest.html")
-SKIP_RUNTIME_APPS = set(E("SKIP_RUNTIME_APPS", "whisparr,sportarr").split(",")); SKIP_LANG_APPS = set(E("SKIP_LANG_APPS", "whisparr").split(","))   # sports events have no reliable expected runtime
+SKIP_RUNTIME_APPS = set(E("SKIP_RUNTIME_APPS", "whisparr,sportarr").split(",")); SKIP_LANG_APPS = set(E("SKIP_LANG_APPS", "whisparr,sportarr").split(","))   # sports broadcasts carry no subtitles and rarely a language tag; the first Sportarr audit raised 36 language findings and would have queued AI subtitles for each   # sports events have no reliable expected runtime
 SKIP_TITLE_APPS = set(E("SKIP_TITLE_APPS", "whisparr,sportarr").split(","))
 SKIP_MISSING_APPS = set(E("SKIP_MISSING_APPS", "sportarr").split(","))   # a sports guide lists every game; "not downloaded" there is a choice, not a gap   # scene releases there carry site/ad titles
 PLAYER_CHECKS = E("PLAYER_CHECKS", "1") == "1"; ORPHAN_SCAN = E("ORPHAN_SCAN", "1") == "1"

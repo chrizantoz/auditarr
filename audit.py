@@ -183,6 +183,7 @@ SETTABLE = {   # env name: (kind, default, help)
  "SONARR_URL": ("url", "", "Sonarr address, e.g. http://192.168.1.10:8989 (blank = SONARR_URL env or http://HOST_IP:8989)"), "SONARR_APIKEY": ("secret", "", "Sonarr API key (Settings > General); blank = env or the mounted config.xml"),
  "RADARR_URL": ("url", "", "Radarr address, e.g. http://192.168.1.10:7878"), "RADARR_APIKEY": ("secret", "", "Radarr API key; blank = env or the mounted config.xml"),
  "WHISPARR_URL": ("url", "", "Whisparr address (optional)"), "WHISPARR_APIKEY": ("secret", "", "Whisparr API key (optional)"),
+ "SPORTARR_URL": ("url", "", "Sportarr address (optional)"), "SPORTARR_APIKEY": ("secret", "", "Sportarr API key (optional)"),
  "BAZARR_URL": ("url", "", "Bazarr address, e.g. http://192.168.1.10:6767"), "BAZARR_APIKEY": ("secret", "", "Bazarr API key (Settings > General); blank = env or the mounted config.yaml"),
  "PLEX_URL": ("url", "", "Plex address, e.g. http://192.168.1.10:32400"), "PLEX_TOKEN": ("secret", "", "Plex token (X-Plex-Token); blank = env or the mounted Preferences.xml"),
  "DEVICES": ("csv", "", "players you own, comma list of keys (ps5, shield, lg-tv, ...): compatibility notes then name the affected player or disappear; blank = generic notes"),

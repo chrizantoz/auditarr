@@ -385,6 +385,7 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "ORPHAN_FILE": return "A video file nobody manages: neither Sonarr nor Radarr knows about it, and Plex may not either."
     if code == "BAD_DURATION_HEADER": return "The file claims the wrong length, so players show a wrong time bar and may stop early. 'Fix the time bar' repairs it without re-downloading."
     if code == "SUBS_OUT_OF_SYNC":
+        if "drift:" in d and "src=embedded" in d: return "The subtitles built into the file start close but slide further out as the file goes on. Bazarr cannot re-time a built-in track: 'Find subtitles' gets a separate file that fits, or 'Make AI subtitles' makes one."
         if "drift:" in d: return "The subtitles start close but slide further out as the file goes on. 'Re-time the subtitles' has Bazarr fit them to the audio again."
         m_ = re.search(r"(\d+(?:\.\d+)?)s (late|early)", d); secs = f"about {round(float(m_.group(1)))} second{'s' if round(float(m_.group(1))) != 1 else ''} {m_.group(2)}" if m_ else "out of step"
         return f"The subtitles run {secs} through the whole file. 'Re-time the subtitles' shifts them into place, no re-download."
@@ -3073,6 +3074,12 @@ def _subsync_job(job):
             else:
                 upsert_finding(conn, fidh, job["app"], job["fid"], code, "medium", job["label"], job["path"], detail, now)
                 res = f"OUT OF SYNC: {r['note']}"
+                if r["status"] == "drift" and src and src[0] == "embedded" and (job["app"], job["fid"]) in upcoming_map(conn):   # nobody can re-time a built-in track: get a separate file before they press play
+                    try:
+                        info = arr_file_info(arr_apps(), job["app"], job["fid"], job["path"])
+                        enqueue(dict(type="subsearch", prio=1, fid=job["fid"], app=job["app"], kind=info["kind"], parent_id=info["parent_id"], ep_ids=info["ep_ids"], path=info["path"], label=job["label"], actor="built-in subtitles drift, up next in Plex"))
+                        res += "; asked Bazarr for a separate subtitle file (up next in Plex)"
+                    except Exception as e: log("subsync auto-search:", repr(e))
         elif r["status"] == "in sync":
             if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "subtitles in sync")
             res = f"in sync: {r['note']}"
@@ -3383,7 +3390,8 @@ def ui_state(conn):
         if st_ in ("queued", "running"):
             e_ = act.setdefault(kind, {"queued": 0, "running": 0, "running_for": 0}); e_[st_] += 1
             if st_ == "running" and started_: e_["running_for"] = max(e_.get("running_for", 0), int(time.time() - started_))
-        recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
+        res_ = conn.execute("SELECT result FROM action WHERE kind=? AND label=? AND ts>=? ORDER BY ts DESC LIMIT 1", (kind, jb.get("label", ""), (started_ or ts_) - 1)).fetchone() if st_ not in ("queued", "running") else None   # the outcome, so the jobs table does not say only DONE
+        recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), result=(res_[0] if res_ else ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user")}
     latest["sandbox"] = SANDBOX

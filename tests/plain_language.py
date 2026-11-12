@@ -50,6 +50,8 @@ GOLDEN = [
   "The subtitles run about 2 seconds late through the whole file. 'Re-time the subtitles' shifts them into place, no re-download."),
  ("SUBS_OUT_OF_SYNC", "medium", "Show S01E01", "external 'x.en.srt': subtitles drift: +0.3s at 15% -> +2.9s at 85% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=sidecar:/x.en.srt", "sonarr",
   "The subtitles start close but slide further out as the file goes on. 'Re-time the subtitles' has Bazarr fit them to the audio again."),
+ ("SUBS_OUT_OF_SYNC", "medium", "Chucky S01E02", "embedded track 2: subtitles drift: +9.1s at 6% -> -9.6s at 67% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=embedded:2", "sonarr",
+  "The subtitles built into the file start close but slide further out as the file goes on. Bazarr cannot re-time a built-in track: 'Find subtitles' gets a separate file that fits, or 'Make AI subtitles' makes one."),
  ("NO_SUBS", "low", "Anime S01E03", "audio=['jpn'] embedded_subs=[] external=[] | subtitles burned into the picture (language unknown; seen at 40s)", "sonarr",
   "The subtitles are painted into the picture, so no player can switch them and the app cannot read their language. 'Show me a frame' lets you check which language they are."),
  ("NO_SUBS", "medium", "Anime S01E03", "[working: AI subtitles queued 14:02] || audio=['jpn'] embedded_subs=[] external=[]", "sonarr", "AI subtitles queued 14:02. This row clears by itself when it is done; nothing to do."),

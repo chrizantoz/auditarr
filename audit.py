@@ -3575,7 +3575,7 @@ def about_info(fetch=False, refresh=False, conn=None):
     else: msgs.append(dict(level="ok", text="No errors in the last 24 hours", link=""))
     for t in ("ffmpeg", "ffprobe", "mkvpropedit"):
         if not shutil.which(t): msgs.append(dict(level="error", text=f"{t} is missing from the container - checks that need it are skipped", link=""))
-    links = dict(forum="https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/", demo="https://auditarr-auditarr-demo.chrizantoz.com", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
+    links = dict(forum="https://forums.unraid.net/topic/201247-support-auditarr-nightly-quality-control-for-your-sonarr-radarr-bazarr-plex-library/", demo="https://auditarr-demo.chrizantoz.com", docs=f"https://github.com/{APP_REPO}/blob/main/docs/USER-GUIDE.md", discussions=f"https://github.com/{APP_REPO}/discussions", issues=f"https://github.com/{APP_REPO}/issues",
                  source=f"https://github.com/{APP_REPO}", sponsors="https://github.com/sponsors/chrizantoz", kofi="https://ko-fi.com/chrizantoz")
     return dict(version=APP_VERSION, stats=stats, health=msgs, errors=errs, links=links, releases=lr.get("releases", []), revision=(APP_REVISION or "")[:12], dev_build=cur is None, docker=os.path.exists("/.dockerenv"), python=platform.python_version(), sqlite=sqlite3.sqlite_version,
                 db_mb=round((os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0) / 1e6, 1), config_dir=CONFIG_DIR, media_dir="/data" if os.path.isdir("/data") else "", timezone=E("TZ", "UTC"),

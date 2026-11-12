@@ -2138,7 +2138,7 @@ def test_connection(kind, url, key):
     try:
         if kind in ARR_KINDS:
             if not key: out["error"] = "No API key yet."; out["fix"] = f"Copy it from {KEY_PLACE.get(kind, SERVICE_NAMES[kind] + ' → Settings → General → Security → API Key.')}"; return out
-            st = _probe(f"{url}/api/v3/system/status", {"X-Api-Key": key}); out.update(ok=True, version=st.get("version"), name=st.get("appName") or kind)
+            st = _probe(f"{url}/api/v3/system/status", {"X-Api-Key": key}); out.update(ok=True, version=st.get("version"), name=(st.get("instanceName") if kind == "sportarr" else None) or st.get("appName") or kind)   # Sportarr answers "Sonarr" as appName
             roots = [r.get("path") for r in (_probe(f"{url}/api/v3/rootfolder", {"X-Api-Key": key}) or []) if isinstance(r, dict)]
             out["roots"] = [{"path": r, "visible": bool(r) and os.path.isdir(r)} for r in roots]
         elif kind == "bazarr":

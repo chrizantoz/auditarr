@@ -111,7 +111,7 @@ Every section has a **?** button that explains it in a few sentences and links h
 | RUNTIME_SHORT / RUNTIME_LONG | much shorter or longer than TVDB says. Short usually means a truncated file, long is usually an extended cut or ads |
 | TITLE_MISMATCH | the title embedded in the file is a different episode's name |
 | DUPLICATE_VIDEO | two files for the same episode in one folder |
-| ORPHAN_FILE | a video on disk that no arr knows about |
+| ORPHAN_FILE | a video on disk that no arr knows about. If it sits inside a folder an arr lists, the row says so, offers **Rescan the folder** first and never joins a group-wide Move to trash |
 | BAD_DURATION_HEADER | the file claims a wrong length, players show the wrong time bar |
 | AUDIO_OFFSET | the audio starts late; often intentional (a cold open), then fix sync is hidden |
 | PLEX_MISSING | the file exists but Plex does not list it |

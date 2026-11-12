@@ -65,6 +65,18 @@ async function edgeChecks(S) {
     $("nav button[data-tab=space]").click(); await sleep(100); check("errors: Space shows the error text", /Tautulli unreachable/.test(txt("#space")));
     $("nav button[data-tab=history]").click(); await sleep(200); check("errors: History names the failing checks", /settings save/.test(txt("#history")) && /tab trash visible/.test(txt("#history")));
   }
+  if (EDGE === "arrgap") {
+    $$(".sev").forEach(c => { c.checked = true; }); const gapIds = new Set(S.findings.filter(f => /^gap/.test(f.id)).map(f => f.id)); const seen = { trash: 0, rescan: 0, leak: [] };
+    for (const by of ["show", "check", "library"]) {
+      $("#f-group").value = by; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
+      for (const b of $$("button[data-bulk=quarantine]")) { seen.trash++; const leak = b.dataset.ids.split(",").filter(i => gapIds.has(i)); if (leak.length) seen.leak.push(by + ":" + leak.join(",")); }
+      seen.rescan += $$("button[data-bulk=arrrescan]").length;
+    }
+    check("arrgap: no bulk Move to trash ever holds a file from a folder an arr lists", seen.leak.length === 0, seen.leak.join(" | "));
+    check("arrgap: real strays elsewhere still get a bulk Move to trash", seen.trash > 0, seen.trash + " bulk trash buttons");
+    check("arrgap: the listed folder gets a bulk Rescan the folder", seen.rescan > 0, seen.rescan + " bulk rescan buttons");
+    check("arrgap: every such row offers Rescan the folder", [...gapIds].every(id => !!$(`#findings button[data-act=arrrescan][data-id="${id}"]`)));
+  }
   check(`${EDGE}: no JavaScript errors`, errors.length === 0, errors.slice(0, 3).join(" | "));
   let bad = 0; for (const [ok, name, info] of results) { console.log((ok ? "PASS " : "FAIL ") + name + (info ? `  [${info}]` : "")); if (!ok) bad++; }
   console.log(`\n${bad} failure(s) of ${results.length} (edge case: ${EDGE})`); process.exit(bad ? 1 : 0);

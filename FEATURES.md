@@ -31,7 +31,7 @@ The left column is the internal code (handy for searching); the middle column is
 | TITLE_MISMATCH | the title embedded in the file looks like a different episode | 🟢 low |
 | DV_PROFILE5 / DV_PROFILE7 / HI10P / AV1 / INTERLACED / TRUEHD_ONLY | formats some players can't handle | 🟠 high → 🟢 low |
 | PLEX_MISSING | the arr has the file but Plex never added it to the library | 🟡 medium |
-| ORPHAN_FILE / DUPLICATE_VIDEO | a video on disk no arr knows about / an unmanaged twin of a managed episode | 🟡 medium |
+| ORPHAN_FILE / DUPLICATE_VIDEO | a video on disk no arr knows about / an unmanaged twin of a managed episode | 🟡 medium (🔵 low and no bulk Move to trash when the file sits in a folder an arr lists: that is usually a reading gap, so **Rescan the folder** comes first) |
 | MISSING_EPISODE / MISSING_MOVIE / MISSING_SCENE | monitored and released, but still no file — shown with the arr's own evidence (queue, last grab/fail, last search, blocklist) | 🟡 medium / 🟢 low |
 
 🏷️ **Tell it how you want a title handled** with arr tags: `audit-ignore`, `audit-lang-xxx`, `audit-nosubs`, `audit-noremediate`. For one-offs, use `ignore.txt` or the ignore buttons in the UI.

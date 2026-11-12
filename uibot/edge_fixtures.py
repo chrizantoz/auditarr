@@ -52,4 +52,15 @@ s["today"] = {"error": "today_summary failed: OperationalError('database is lock
 s["tests"] = {"ok": False, "selftest": {"ts": "2026-01-01T05:10", "passed": 30, "total": 33, "failed": [{"name": "settings save", "info": "HTTP 500"}]}, "uibot": {"ts": "2026-01-01T05:45", "passed": 40, "total": 47, "failed": ["tab trash visible"]}}
 s["health"] = dict(s.get("health") or {}, status="stale", age_hours=41); x["history"]["tests"] = s["tests"]
 write("errors", x)
+# 5. arrgap: an arr lists a series folder but returned none of its files (Sportarr, 2026-11-12). Every file there looks unknown;
+#    the page must never offer a bulk Move to trash for them (#30), and must still offer it for real strays elsewhere.
+g = copy.deepcopy(base); s = g["state"]; tpl = next(f for f in base["state"]["findings"] if f["check"] == "ORPHAN_FILE"); rows = []
+for i in range(6):
+    f = dict(tpl); f["id"] = f"gap{i:03d}"; f["title"] = f"Fight Night {i + 1} Part {i % 3 + 1}.mkv"; f["severity"] = "low"; f["library"] = "Sports"
+    f["path"] = f"/data/media/sports/Fight Series/Season 2026/Fight Night {i + 1} Part {i % 3 + 1}.mkv"
+    f["detail"] = "2100 MB inside sportarr's folder for 'Fight Series' (/data/media/sports/Fight Series) but the arr did not list this file - probably a reading gap: rescan in sportarr first"; rows.append(f)
+for i in range(3):
+    f = dict(tpl); f["id"] = f"stray{i:03d}"; f["title"] = f"Stray Home Video {i + 1}.mkv"; f["path"] = f"/data/media/tv/Stray Home Video {i + 1}.mkv"; f["detail"] = "900 MB in sonarr root /data/media/tv - not managed by any arr"; rows.append(f)
+s["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "ORPHAN_FILE"][:40]
+write("arrgap", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

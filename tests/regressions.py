@@ -92,5 +92,22 @@ src_t = open(os.path.join(ROOT, "audit.py")).read(); ui_t = open(os.path.join(RO
 check("the self-test card names the public demo when that is what failed", "the nightly check of the public demo is failing" in src_t and "public {app_.capitalize()} demo" in src_t)
 check("the History tab shows the public demo results", "Public demos (checked through their public addresses" in ui_t)
 
+# 2026-11-12 (#30): Sportarr listed a series but none of its files; all 29 files of that folder became "unknown" with a bulk Move to trash
+try:
+    fold = {"/data/media/sports/Fight Series": ("sportarr", "Fight Series"), "/data/media/movies/Film (2020)": ("radarr", "Film")}
+    sv, dt = audit.gap_detail("ORPHAN_FILE", "medium", "/data/media/sports/Fight Series/Season 2026/Night 1 Part 2.mkv", "2100 MB in sportarr root /data/media/sports - not managed by any arr", fold)
+    check("unknown file inside a folder an arr lists -> low, marked as a reading gap", sv == "low" and audit.ARR_GAP in dt and "(/data/media/sports/Fight Series)" in dt, (sv, dt))
+    sv2, dt2 = audit.gap_detail("ORPHAN_FILE", "medium", "/data/media/tv/Stray.mkv", "900 MB in sonarr root /data/media/tv - not managed by any arr", fold)
+    check("a real stray outside any arr folder stays an ordinary unknown file", sv2 == "medium" and audit.ARR_GAP not in dt2, dt2)
+    check("a duplicate is never re-labelled as a gap", audit.gap_detail("DUPLICATE_VIDEO", "medium", "/data/media/movies/Film (2020)/b.mkv", "x", fold) == ("medium", "x"))
+    ps = audit.plain_sentence("ORPHAN_FILE", "low", "Night 1 Part 2.mkv", dt, "disk")
+    check("gap sentence names the arr and says rescan first", ps.startswith("This file sits in a folder Sportarr lists") and "Rescan the folder" in ps, ps)
+    c2 = audit.db(); now = time.time()
+    c2.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen) VALUES(?,?,?,?,?,?,?,?,?,?)", ("gap1", "disk", 1, "ORPHAN_FILE", "low", "Night 1 Part 2.mkv", "/nonexistent/Fight Series/x.mkv", dt, now, now)); c2.commit()
+    src = open(os.path.join(ROOT, "audit.py")).read()
+    check("bulk endpoint refuses Move to trash for gap findings", 'body.get("action") == "quarantine" and is_gap(fr)' in src)
+    check("is_gap reads the stored finding", audit.is_gap(audit.finding_row(c2, "gap1")))
+except Exception as e: check("arr-gap case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

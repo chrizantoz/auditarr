@@ -386,6 +386,9 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "RUNTIME_DISAGREE": return f"The file changed since {who} last looked at it. A rescan updates the record."
     if code == "TITLE_MISMATCH": return "The title written inside the file names a different episode. Often harmless (fansub naming), 'Check the episode' settles it."
     if code == "DUPLICATE_VIDEO": return "There are two files for this episode in the folder. Only one is in use; the other is wasting space."
+    if code == "ORPHAN_FILE" and ARR_GAP in d:
+        who_ = (re.search(r"inside (\w+)'s folder", d) or [None, "the arr"])[1]; who_ = who_[:1].upper() + who_[1:]
+        return f"This file sits in a folder {who_} lists, but {who_} did not list the file itself. That is usually a reading gap, not a stray file: 'Rescan the folder' first. Move it to the trash only if the rescan does not adopt it."
     if code == "ORPHAN_FILE": return "A video file nobody manages: neither Sonarr nor Radarr knows about it, and Plex may not either."
     if code == "BAD_DURATION_HEADER": return "The file claims the wrong length, so players show a wrong time bar and may stop early. 'Fix the time bar' repairs it without re-downloading."
     if code == "SUBS_OUT_OF_SYNC":
@@ -655,6 +658,7 @@ def intent_from_tags(tag_labels):
 MISSING = []   # filled by collect(): dicts(app, kind, id, parent_id, label, path(series/movie folder), released, days, last_search)
 MISSING_EV = {}   # app -> {"queue": {id: txt}, "grab": {id: date}, "fail": {id: date}, "block": {id: n}}
 LAST_SEARCH = {}  # app -> {episode/movie id: 'YYYY-MM-DD'}
+ARR_FOLDERS = {}  # series/movie folder an arr lists -> (app, title), files or not; an "unknown file" inside one is more likely a reading gap than an orphan (#30)
 def search_evidence(base, key, now):
     """What the arr has actually done about its missing items: queue, grabs / failed downloads in the last 30 days, blocklist. 3 calls per app."""
     ev = {"queue": {}, "grab": {}, "fail": {}, "block": {}, "cmd": {}}
@@ -695,7 +699,7 @@ def arr_status_line(app, ids):
 def collect(apps, only=None):
     """only={(app, parent_id)}: build items for those titles alone (import hook) without touching the run-wide MISSING/LAST_SEARCH state."""
     items = []; roots = {}; now = datetime.datetime.now(datetime.timezone.utc); min_days = 0 if only else int(setting("MISSING_MIN_DAYS") or 0)
-    if only is None: MISSING.clear(); MISSING_EV.clear(); LAST_SEARCH.clear()
+    if only is None: MISSING.clear(); MISSING_EV.clear(); LAST_SEARCH.clear(); ARR_FOLDERS.clear()
     for app, (base, key, kind) in apps.items():
         try:
             tags = {t["id"]: t["label"] for t in api(base, key, "tag")}
@@ -703,6 +707,7 @@ def collect(apps, only=None):
             if kind == "series":
                 for s in api(base, key, "series"):
                     if only is not None and (app, s["id"]) not in only: continue
+                    if s.get("path"): ARR_FOLDERS[os.path.normpath(s["path"])] = (app, s.get("title") or "")
                     intent = intent_from_tags(tags.get(t, "") for t in s.get("tags", []))
                     has_files = series_has_files(s)
                     if not has_files and not (min_days and s.get("monitored")): continue
@@ -733,6 +738,7 @@ def collect(apps, only=None):
             else:
                 for m in api(base, key, "movie"):
                     if only is not None and (app, m["id"]) not in only: continue
+                    if m.get("path"): ARR_FOLDERS[os.path.normpath(m["path"])] = (app, m.get("title") or "")
                     intent = intent_from_tags(tags.get(t, "") for t in m.get("tags", []))
                     if m.get("lastSearchTime"): LAST_SEARCH.setdefault(app, {})[m["id"]] = m["lastSearchTime"][:10]
                     if not m.get("hasFile"):
@@ -1209,6 +1215,23 @@ def orphan_scan(items, roots):
                         out.append((code, "low", full, f"{size/1e6:.0f} MB - the arr's record for this episode points at a file that is gone (re-grab in progress / import not finished); this is probably the replacement - leave it, the arr will adopt it on rescan")); continue
                     out.append((code, sev, full, f"{size/1e6:.0f} MB in {app} root {root} - not managed by any arr" + (" (same episode as a managed file)" if code == "DUPLICATE_VIDEO" else "")))
     log(f"orphan scan: {n} video files on disk, {len(out)} unmanaged"); return out
+
+ARR_GAP = "the arr did not list this file"   # marker in the detail: no bulk Move to trash, Rescan in the arr comes first (#30)
+def arr_folder_of(path, folders=None):
+    """The (folder, app, title) of the series/movie folder an arr lists that holds `path`, or None."""
+    folders = ARR_FOLDERS if folders is None else folders; d = os.path.dirname(os.path.normpath(path))
+    while d and d != os.path.dirname(d):
+        if d in folders: return (d,) + tuple(folders[d])
+        d = os.path.dirname(d)
+    return None
+def gap_detail(code, sev, full, detail, folders=None):
+    """An unknown file inside a folder an arr lists as a series or movie: when the arr answers incompletely (Sportarr, 2026-11-12)
+    every file of that series looks unmanaged. Say so, and keep the finding low until a rescan settles it."""
+    hit = arr_folder_of(full, folders) if code == "ORPHAN_FILE" else None
+    if not hit: return sev, detail
+    folder, app, title = hit
+    return "low", f"{detail.split(' in ')[0]} inside {app}'s folder for '{title}' ({folder}) but {ARR_GAP} - probably a reading gap: rescan in {app} first"
+def is_gap(f): return f.get("check") == "ORPHAN_FILE" and ARR_GAP in (f.get("detail") or "")
 
 # ---------- quarantine ----------
 def quarantine(conn, path, why, kind="regrab", sidecars=True):
@@ -1796,6 +1819,7 @@ def run_once():
             return os.path.normpath(full) in fresh[(app_, pid_)]
         for code, sev, full, detail in orphan_scan(items, roots):
             if arr_has_now(full): log(f"orphan scan: {os.path.basename(full)[:70]} - the arr imported it while this run was going; not an orphan"); continue
+            sev, detail = gap_detail(code, sev, full, detail)
             upsert("disk", int(hashlib.sha1(full.encode()).hexdigest()[:8], 16), code, sev, os.path.basename(full), full, detail)
     # Plex reconciliation: files the arr has but Plex never indexed
     skip_codes = set(); plex_missing_dirs = []
@@ -2419,6 +2443,10 @@ def ui_act(conn, body, actor):
             job.update(seriesid=info["parent_id"], episodeid=info["ep_ids"][0])
         else: job.update(radarrid=info["parent_id"])
         enqueue(job); return 200, {"ok": True, "queued": True, "note": f"AI subtitles queued ({WHISPER_Q.qsize()} ahead) - progress shows in the header, the result in Actions"}
+    if action == "arrrescan":
+        if f["app"] != "disk" or not path: return 400, {"error": "rescan in the arr is for unknown files"}
+        r = rescan_for_path(apps, path); record_action(conn, "on", "rescan", "disk", fid, f["label"], f"{f['check']} via UI by {actor}", r)
+        return (200, {"ok": True, "note": f"{r} - the row clears on the next audit if the arr adopts the file"}) if r != "no arr owns this path" else (409, {"error": "no arr lists a folder that holds this file any more"})
     if action == "plexrefresh":
         if not path: return 400, {"error": "no path"}
         plx = plex_refresh(path); record_action(conn, "on", "plex-refresh", "plex", fid, f["label"], f"{f['check']} via UI by {actor}", plx)
@@ -3863,7 +3891,14 @@ class Handler(SimpleHTTPRequestHandler):
                 ids = body.get("ids") or []; ok = 0; errs = []
                 if len(ids) > 500: code, obj = 400, {"error": "max 500 per call"}
                 else:
+                    rescanned = set()
                     for i in ids:
+                        fr = finding_row(conn, i) or {}
+                        if body.get("action") == "quarantine" and is_gap(fr): errs.append({"id": i, "error": "refused: inside a folder an arr lists - rescan in the arr, then decide one file at a time"}); continue
+                        if body.get("action") == "arrrescan":
+                            hit = (re.search(r"\((/.*?)\) but ", fr.get("detail") or "") or [None, fr.get("path")])[1]
+                            if hit in rescanned: ok += 1; continue
+                            rescanned.add(hit)
                         c, o = ui_act(conn, {"id": i, "action": body.get("action"), "lang": body.get("lang")}, actor)
                         if c == 200 and o.get("already_gone"): gone = locals().get("gone", 0) + 1
                         elif c == 200: ok += 1

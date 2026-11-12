@@ -2,13 +2,13 @@
 
 ![Auditarr - quality control for your media library](docs/banner.png)
 
-[![CI](https://github.com/chrizantoz/auditarr/actions/workflows/ci.yml/badge.svg)](https://github.com/chrizantoz/auditarr/actions/workflows/ci.yml) [![release](https://img.shields.io/github/v/release/chrizantoz/auditarr?include_prereleases&label=release)](https://github.com/chrizantoz/auditarr/releases) [![licence](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE) [![runs on](https://img.shields.io/badge/runs%20on-Docker%20%7C%20Unraid%20%7C%20compose-2ea44f)](docs/INSTALL.md) [![demo](https://img.shields.io/badge/demo-try%20it-2ea44f)](https://demo.chrizantoz.com) [![image](https://img.shields.io/badge/ghcr.io-chrizantoz%2Fauditarr-555)](https://github.com/chrizantoz/auditarr/pkgs/container/auditarr)
+[![CI](https://github.com/chrizantoz/auditarr/actions/workflows/ci.yml/badge.svg)](https://github.com/chrizantoz/auditarr/actions/workflows/ci.yml) [![release](https://img.shields.io/github/v/release/chrizantoz/auditarr?include_prereleases&label=release)](https://github.com/chrizantoz/auditarr/releases) [![licence](https://img.shields.io/badge/licence-GPL--3.0-blue)](LICENSE) [![runs on](https://img.shields.io/badge/runs%20on-Docker%20%7C%20Unraid%20%7C%20compose-2ea44f)](docs/INSTALL.md) [![demo](https://img.shields.io/badge/demo-try%20it-2ea44f)](https://auditarr-auditarr-demo.chrizantoz.com) [![image](https://img.shields.io/badge/ghcr.io-chrizantoz%2Fauditarr-555)](https://github.com/chrizantoz/auditarr/pkgs/container/auditarr)
 
 **Auditarr is a nightly quality-control bot for a self-hosted media library.** If you run the "arr" apps — **Sonarr** (TV), **Radarr** (movies), **Whisparr** (adult), **Bazarr** (subtitles) — alongside **Plex**, Auditarr opens every media file, checks what is *actually* inside it against what those apps *believe* is there, quietly fixes the safe problems on its own, and leaves you one-click, undoable buttons for the rest.
 
 Think of it as a librarian that walks the shelves each night: it finds the mislabeled, the broken, the wrong-language and the missing — then either fixes them or hands you a tidy to-do list.
 
-- 🧪 **Try it in your browser:** **[demo.chrizantoz.com](https://demo.chrizantoz.com)** is the real app on fake shows and movies with real defects; every button works and it resets on the hour. A static preview with sample data also lives at https://chrizantoz.github.io/auditarr/.
+- 🧪 **Try it in your browser:** **[auditarr-demo.chrizantoz.com](https://auditarr-auditarr-demo.chrizantoz.com)** is the real app on fake shows and movies with real defects; every button works and it resets on the hour. A static preview with sample data also lives at https://chrizantoz.github.io/auditarr/.
 - 📘 **New here? Start with the [User guide](docs/USER-GUIDE.md)** — a plain-language tour of the page and every button.
 - 📋 **Everything it checks and every button it has:** [FEATURES.md](FEATURES.md)
 - 📰 **What changed and when:** [CHANGELOG.md](CHANGELOG.md)
@@ -50,7 +50,7 @@ The full picture, with the automation switches and where it runs: **[How Auditar
 
 ### Try it without installing
 
-**[demo.chrizantoz.com](https://demo.chrizantoz.com)** runs the real app against a fake Sonarr, Radarr, Bazarr, Plex and Whisper on a handful of synthetic files with real defects. Every button works: move to the trash and undo, download a better copy, make AI subtitles, re-time subtitles, detect the language. Nothing is real, and it all resets on the hour.
+**[auditarr-demo.chrizantoz.com](https://auditarr-auditarr-demo.chrizantoz.com)** runs the real app against a fake Sonarr, Radarr, Bazarr, Plex and Whisper on a handful of synthetic files with real defects. Every button works: move to the trash and undo, download a better copy, make AI subtitles, re-time subtitles, detect the language. Nothing is real, and it all resets on the hour.
 
 ## How it works in three steps
 

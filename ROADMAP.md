@@ -4,6 +4,12 @@ Where Auditarr is heading. Each line starts with its status: 🟢 **done** and i
 
 The current focus: make the app **trustworthy to run** (a real test harness) and **easy to read** for someone who isn't a developer.
 
+## 🗂️ How we track work (added 2026-11-12)
+
+- **This file** is the big picture: phases, what is done, what is next, in plain words.
+- **GitHub Issues** is the inbox and the day-to-day list. Anything found along the way becomes one issue with one label: `bug`, `bot` (the test bots), `feature`, `ux` (friendlier wording, navigation, flow), `design` (look and feel), `idea`, `owner-step`. Milestones match the phases here.
+- **Rule:** an idea is written down the moment it comes up, as an issue, not remembered. When an issue ships, this file gets its line and the issue closes.
+
 ## 🚧 Now: solid testing + a friendlier interface
 
 🧪 **Testing — proving it does the right thing**

@@ -7,11 +7,12 @@ const html = fs.readFileSync(uiPath, "utf8");
 const data = {}; for (const n of ["state", "history", "settings", "trash"]) data[n] = fs.readFileSync(path.join(dataDir, n + ".json"), "utf8");
 const errors = []; const vc = new VirtualConsole(); vc.on("jsdomError", e => errors.push(String(e.message || e))); vc.on("error", m => errors.push(String(m)));
 const posts = [];
-const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true, url: "http://auditarr.test/", virtualConsole: vc, beforeParse(w) {
+const DEEP = fs.existsSync(path.join(dataDir, "edge.json")) && JSON.parse(fs.readFileSync(path.join(dataDir, "edge.json"), "utf8")).case === "deeplink";   // open straight on #setup with a slow state answer
+const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true, url: "http://auditarr.test/" + (DEEP ? "#setup" : ""), virtualConsole: vc, beforeParse(w) {
   w.fetch = async (url, opts) => {
     const u = String(url); const body = (s) => ({ ok: true, status: 200, headers: { get: () => "application/json" }, json: async () => JSON.parse(s), text: async () => s });
     if (opts && opts.method === "POST") { posts.push({ url: u, body: opts.body }); return body(JSON.stringify({ ok: true, silenced: 1, note: "test", done: 1, failed: [], failed_count: 0, saved: {}, applies: "x", queued: 1, dest: "/data/media/.trash/x.mkv" })); }
-    if (u.includes("api/state")) return body(data.state); if (u.includes("api/history")) return body(data.history);
+    if (u.includes("api/state")) { if (DEEP) await new Promise(r => setTimeout(r, 80)); return body(data.state); } if (u.includes("api/history")) return body(data.history);
     if (u.includes("api/settings")) return body(data.settings); if (u.includes("api/trash")) return body(data.trash);
     if (u.includes("api/setup")) return body(JSON.stringify({ services: ["sonarr", "radarr", "whisparr", "bazarr", "plex"].map(k => ({ kind: k, ok: false, url: "", has_key: false, source: "not configured", optional: k === "whisparr", error: "not configured" })), first_run_done: false, runs: 0, complete: false, media_visible: null, roots: [], hint: "mount the media" }));
     if (u.includes("api/run")) return body("{}"); return { ok: false, status: 404, headers: { get: () => "" }, json: async () => ({}) };
@@ -64,6 +65,11 @@ async function edgeChecks(S) {
     check("errors: failing tests are visible in the header", /tests 2 failing/.test(txt("#s-health")), txt("#s-health"));
     $("nav button[data-tab=space]").click(); await sleep(100); check("errors: Space shows the error text", /Tautulli unreachable/.test(txt("#space")));
     $("nav button[data-tab=history]").click(); await sleep(200); check("errors: History names the failing checks", /settings save/.test(txt("#history")) && /tab trash visible/.test(txt("#history")));
+  }
+  if (EDGE === "deeplink") {
+    await sleep(300); const avail = Object.keys(JSON.parse(data.state).devices.available || {});
+    check("deeplink: opening straight on Setup lists every player without pressing anything", avail.length > 0 && $$("#devices .dev").length === avail.length, `${$$("#devices .dev").length} of ${avail.length}`);
+    check("deeplink: and the sign-in step is drawn from the real state", /Protect the page|Sign-in is on|Turn sign-in on/.test($("#setup").textContent));
   }
   if (EDGE === "signin") {
     check("signin: no Sign out when the home network let you in", $("#logout").classList.contains("hidden"));

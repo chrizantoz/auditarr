@@ -66,4 +66,7 @@ write("arrgap", g)
 # 6. signin: sign-in on, and this browser was let in because it is on the home network (LOCAL_NO_LOGIN). The checkbox must post, Sign out must hide.
 g = copy.deepcopy(base); g["state"]["auth"] = {"enabled": True, "user": "owner", "viewer": None, "local_no_login": True, "local_no_login_env": False, "via": "lan", "role": "admin"}
 write("signin", g)
+# 7. deeplink: the page opens straight on #setup and the state answers late (owner, 2026-11-12: "it doesn't show the players until I press the button")
+g = copy.deepcopy(base); g["state"]["devices"] = {"available": {"ps5": "PlayStation 5", "shield": "NVIDIA Shield", "apple-tv": "Apple TV 4K", "plex-web": "Plex Web / browser"}, "chosen": []}
+write("deeplink", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

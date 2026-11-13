@@ -4383,9 +4383,10 @@ def daemon():
     except Exception as e: log("timing re-check:", repr(e))
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))
-    if E("JOBS", "on") != "off":   # the staging copy never queues real work
+    def _late_repairs():   # 2026-11-13: run after the page is up - the redo asks the arr about every title (25 s), and the update script waits for the page
         try: c_ = db(); redo_wrong_track_subs(c_); c_.close()
         except Exception as e: log("wrong-track redo:", repr(e))
+    if E("JOBS", "on") != "off": threading.Thread(target=_late_repairs, daemon=True).start()   # the staging copy never queues real work
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")

@@ -334,6 +334,8 @@ try:
     check("own AI subtitles: the result reads like a landed subtitle, so rows close and timing is re-checked", res9.startswith("whisper subtitle") and "Japanese track" in res9, res9)
     src9 = open(os.path.join(ROOT, "audit.py")).read()
     check("the AI subtitles job checks the track before taking Bazarr's subtitle", "own = whisper_wanted_track(job, w) if w else None" in src9 and "own_ai_subtitle(c_, job[\"path\"]" in src9)
+    st9 = src9[src9.index("def _late_repairs"):]; st9 = st9[:st9.index("serve_forever")]
+    check("startup never waits on the arr: the one-time redo runs in the background (2026-11-13: 25 s of arr calls made the update look failed)", "threading.Thread(target=_late_repairs" in st9)
     check("one time: wrong-track AI subtitles are made again (redo skips the 24 h rule), never on the staging copy", "redo_wrong_track_subs(c_)" in src9 and 'not job.get("redo") and whisper_done_since' in src9 and "wrong_track_redo_v1" in src9)
     c9.close()
 except Exception as e: check("wrong-track case runs", False, repr(e))

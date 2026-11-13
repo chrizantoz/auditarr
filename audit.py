@@ -1875,8 +1875,10 @@ def run_once():
     else: store_links(conn, apps, items, {})
     conn.executemany("INSERT OR REPLACE INTO realdur VALUES(?,?,?,?)", [(p_, v[0], v[1], time.time()) for p_, v in REALDUR_CACHE.items()]); conn.commit()
     answered = {it["app"] for it in items} | ({"disk"} if ORPHAN_SCAN and roots else set()); resolved = 0
-    for fid, app, code in conn.execute("SELECT id, app, check_code FROM finding WHERE resolved_at IS NULL").fetchall():
-        if fid not in seen and app in answered and code not in skip_codes: conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (started, fid)); resolved += 1
+    cur_path = {(it["app"], str(it["fid"])): it.get("path") for it in items}
+    for fid, app, code, afid, fpath in conn.execute("SELECT id, app, check_code, fid, path FROM finding WHERE resolved_at IS NULL").fetchall():
+        if fid in seen or app not in answered or code in skip_codes or kept_for_its_job(code, fpath, cur_path.get((app, str(afid)))): continue
+        conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (started, fid)); resolved += 1
     conn.commit()
     progress("actions", "rescans / remediation / handoff")
     regrab_outcomes = check_regrabs(conn, apps, items, found, started); subtags = do_subtag(conn, items, found)
@@ -2051,6 +2053,23 @@ def clear_working(conn, path=None, app=None, afid=None):
     for fid_, d_ in rows: conn.execute("UPDATE finding SET detail=? WHERE id=?", (d_.split("] || ", 1)[1] if "] || " in d_ else d_, fid_))
     if rows: conn.commit()
     return len(rows)
+JOB_MADE = {"SUBS_OUT_OF_SYNC"}   # findings a background check makes (subtitle timing), never the audit's own checks
+def kept_for_its_job(code, f_path, cur_path):
+    """2026-11-13: every audit closed every 'Subtitles out of sync' row, because the audit never makes one itself. Such a row stays open until its
+    own check, a fix, or a new file (another path) closes it."""
+    return code in JOB_MADE and bool(f_path) and os.path.normpath(f_path) == os.path.normpath(cur_path or "") and os.path.exists(f_path)
+def recheck_swept_timing(conn, now=None):
+    """One time: the timing rows the audit closed by mistake get a fresh timing check (three short samples, read-only). It reopens the ones
+    still out of sync. Returns how many were queued."""
+    if conn.execute("SELECT 1 FROM kv WHERE k='swept_timing_recheck_v1'").fetchone(): return 0
+    now = now or time.time(); runs = {round(r[0], 3) for r in conn.execute("SELECT started FROM run WHERE started > ?", (now - 14 * 86400,))}; n = 0; done = set()
+    for app, afid, label, path, res in conn.execute("SELECT app, fid, label, path, resolved_at FROM finding WHERE check_code='SUBS_OUT_OF_SYNC' AND resolved_at > ? ORDER BY resolved_at DESC", (now - 14 * 86400,)).fetchall():
+        if round(res, 3) not in runs or (app, afid) in done or not path or not os.path.exists(path): continue
+        if conn.execute("SELECT 1 FROM finding WHERE check_code='SUBS_OUT_OF_SYNC' AND app=? AND fid=? AND resolved_at IS NULL", (app, afid)).fetchone(): continue
+        done.add((app, afid)); enqueue(dict(type="subsync", fid=afid, app=app, path=path, label=label, actor="re-check: closed by mistake by an audit", prio=6)); n += 1
+    conn.execute("INSERT OR REPLACE INTO kv(k, v) VALUES('swept_timing_recheck_v1', ?)", (str(n),)); conn.commit()
+    if n: log(f"subtitle timing: {n} row(s) an audit closed by mistake get a fresh check")
+    return n
 def upsert_finding(conn, fidh, app, fid, code, sev, label, path, detail, started, count_run=False):
     """Write a finding a check just produced. -> 'new' | 'kept' | 'skipped'. A finding resolved at or after `started` was fixed while this check
     was running (a button pressed mid-audit): the check's older view must not re-open it - the next check decides."""
@@ -2422,8 +2441,8 @@ def audit_one(app, parent_id, path, reason):
         flush_hardsub(conn)
         for it in targets:   # an import re-check also clears this file's earlier findings that are gone now (a replaced or re-tagged file), instead of leaving them until the night
             still = {c for _, c, l, _ in out if l == it["label"]}
-            for old_id, old_code in conn.execute("SELECT id, check_code FROM finding WHERE resolved_at IS NULL AND app=? AND fid=?", (app, it["fid"])).fetchall():
-                if old_code not in still and old_code not in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE"): resolve_finding(conn, old_id, "cleared by the import re-check")
+            for old_id, old_code, old_path in conn.execute("SELECT id, check_code, path FROM finding WHERE resolved_at IS NULL AND app=? AND fid=?", (app, it["fid"])).fetchall():
+                if old_code not in still and old_code not in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE") and not kept_for_its_job(old_code, old_path, it.get("path")): resolve_finding(conn, old_id, "cleared by the import re-check")
         conn.commit(); label = targets[0]["label"] if targets else str(parent_id)
         bad = [x for x in out if x[0] in ("high", "critical")]
         record_action(conn, "on", "import-check", app, parent_id, label, f"checked right after import ({reason})", (f"{len(out)} finding(s): " + ", ".join(sorted({check_name(c) for _, c, _, _ in out}))) if out else "clean")
@@ -4147,6 +4166,9 @@ def daemon():
     if SETTINGS: log("UI-saved settings:", SETTINGS)
     if E("AUTH_RESET") == "1" and E("AUTH_USER") and E("AUTH_PASSWORD"):
         c1 = db(); save_account(c1, E("AUTH_USER"), E("AUTH_PASSWORD")); c1.close(); log("AUTH_RESET: password replaced from env - remove AUTH_RESET now")
+    try:
+        c_ = db(); recheck_swept_timing(c_); c_.close()
+    except Exception as e: log("timing re-check:", repr(e))
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()

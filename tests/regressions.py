@@ -200,5 +200,29 @@ try:
     c4.close()
 except Exception as e: check("follow-up case runs", False, repr(e))
 
+# 2026-11-13: every audit closed every 'Subtitles out of sync' row (One Piece S00E30 closed at the second an audit started, 3.8 s late and unfixed),
+# because the audit never makes such a row itself and its clean-up took "not seen this run" for "fixed"
+try:
+    import tempfile as _tf
+    c5 = audit.db(); d5 = _tf.mkdtemp(); P5 = os.path.join(d5, "Show - S00E30.mkv"); open(P5, "wb").write(b"x")
+    check("a timing row on the same, still-present file is kept by the audit's clean-up", audit.kept_for_its_job("SUBS_OUT_OF_SYNC", P5, P5))
+    check("a timing row whose file was replaced (another path) is not kept", not audit.kept_for_its_job("SUBS_OUT_OF_SYNC", P5, P5 + ".new.mkv"))
+    check("a timing row whose file is gone is not kept", not audit.kept_for_its_job("SUBS_OUT_OF_SYNC", P5 + ".gone", P5 + ".gone"))
+    check("every other kind of row is cleaned up as before", not audit.kept_for_its_job("NO_SUBS", P5, P5) and not audit.kept_for_its_job("WRONG_LANGUAGE", P5, P5))
+    src5 = open(os.path.join(ROOT, "audit.py")).read()
+    check("the end-of-audit clean-up and the import re-check both ask kept_for_its_job", src5.count("kept_for_its_job(") >= 3 and "kept_for_its_job(code, fpath, cur_path.get((app, str(afid))))" in src5 and "kept_for_its_job(old_code, old_path, it.get(\"path\"))" in src5)
+    t_run = 1_900_000_000.25
+    c5.execute("INSERT INTO run(started, finished, files) VALUES(?, ?, 1)", (t_run, t_run + 100))
+    c5.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('sw1','sonarr',30,'SUBS_OUT_OF_SYNC','medium','Show S00E30',?,'3.8s late',0,0,?,0,1,0)", (P5, t_run))
+    c5.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('sw2','sonarr',31,'SUBS_OUT_OF_SYNC','medium','Show S00E31',?,'fixed',0,0,?,0,1,0)", (P5, t_run + 50)); c5.commit()
+    q5 = []; real_enq = audit.enqueue; audit.enqueue = q5.append
+    try: n5 = audit.recheck_swept_timing(c5, now=t_run + 3600); n6 = audit.recheck_swept_timing(c5, now=t_run + 3600)
+    finally: audit.enqueue = real_enq
+    check("one-time repair: a timing row closed at the second an audit started gets a fresh timing check", n5 == 1 and q5 and q5[0]["type"] == "subsync" and str(q5[0]["fid"]) == "30", (n5, q5))
+    check("a row closed some other way (a fix, its own check) is left alone", all(str(j["fid"]) != "31" for j in q5))
+    check("the repair runs only once", n6 == 0 and len(q5) == 1)
+    c5.close()
+except Exception as e: check("audit clean-up case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

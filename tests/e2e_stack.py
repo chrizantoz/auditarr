@@ -238,12 +238,21 @@ st_, hd, body_ = raw("POST", "/api/logout", "{}", {"Content-Type": "application/
 st_, hd, body_ = raw("GET", "/health"); check("health stays open for monitoring", st_ == 200)
 st_, hd, body_ = raw("POST", "/api/logout", headers={"Cookie": cookie}); check("sign-out clears the cookie", st_ == 200 and "Max-Age=0" in (hd.get("Set-Cookie") or ""))
 
+# 2026-11-13: an audit run closed every 'Subtitles out of sync' row (the audit never makes one itself). Plant one on a listed, present file before the second run.
+import sqlite3 as _sq
+_c = _sq.connect(os.path.join(CFG, "state.db"), timeout=60); _r = _c.execute("SELECT app, fid, label, path FROM finding WHERE resolved_at IS NULL AND app='sonarr' AND path IS NOT NULL AND path != '' LIMIT 1").fetchone()
+if _r and os.path.exists(_r[3]):
+    _c.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('e2e-sync',?,?,'SUBS_OUT_OF_SYNC','medium',?,?,'embedded track 2: subtitles 3.8s late (3/3 samples agree) | fix: shift | lang=en | src=embedded:2',?,?,NULL,0,1,0)", (_r[0], _r[1], _r[2], _r[3], time.time(), time.time())); _c.commit()
+_c.close()
 # ---- a fresh run so the restored duplicate is a finding again, then the real browser clicks the real page
 api("/run"); t2 = time.time(); ph = None
 while time.time() - t2 < 240:
     s, st = api("/api/state"); ph = (st.get("progress") or {}).get("phase")
     if ph in ("done", "failed") and (st.get("run") or {}).get("finished", "") > time.strftime("%Y-%m-%dT%H:%M", time.localtime(t2 - 60)): break
     time.sleep(2)
+_c = _sq.connect(os.path.join(CFG, "state.db"), timeout=60); _o = _c.execute("SELECT resolved_at FROM finding WHERE id='e2e-sync'").fetchone(); _c.close()
+check("an audit run keeps a 'Subtitles out of sync' row on an unchanged file open (only its own check or a fix closes it)", _r is not None and _o is not None and _o[0] is None, (_r, _o))
+_c = _sq.connect(os.path.join(CFG, "state.db"), timeout=60); _c.execute("UPDATE finding SET resolved_at=? WHERE id='e2e-sync'", (time.time(),)); _c.commit(); _c.close()   # planted row done; the timing checks further down expect a clean slate
 s, st = api("/api/state"); check("second run re-detects the restored duplicate", any(os.path.basename(dup) in (f["path"] or "") for f in st.get("findings", []) if f["check"] == "DUPLICATE_VIDEO"), ph)
 bot = os.path.join(ROOT, "uibot", "browser_bot.js")
 if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):

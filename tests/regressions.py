@@ -130,5 +130,31 @@ try:
     check("is_gap reads the stored finding", audit.is_gap(audit.finding_row(c2, "gap1")))
 except Exception as e: check("arr-gap case runs", False, repr(e))
 
+# 2026-11-12: pressing Re-time / Make AI subtitles queued a job, but the row kept its buttons and looked untouched (owner: "I don't know if the button is doing its job")
+try:
+    P = "/data/media/anime/Show/Show - S00E30.mkv"
+    fs_ = [dict(id="a", check="SUBS_OUT_OF_SYNC", path=P), dict(id="b", check="WRONG_LANGUAGE", path=P), dict(id="c", check="SUBS_OUT_OF_SYNC", path="/data/other.mkv"),
+           dict(id="d", check="UND_AUDIO_NO_SUBS", path="/x.mkv"), dict(id="e", check="BAD_DURATION_HEADER", path="/y.mkv")]
+    now_ = audit.time.time()
+    audit.busy_marks(fs_, [("running", {"type": "whisper", "path": P}, now_ - 130), ("queued", {"type": "langdetect", "finding": "d", "path": "/x.mkv"}, now_)], {"e": ("fixing the time bar", now_)})
+    B = {f["id"]: f.get("busy") for f in fs_}
+    check("busy: a running AI-subtitles job marks the out-of-sync row of that file, with what and how long", B["a"] and B["a"]["what"] == "making AI subtitles" and B["a"]["state"] == "running" and B["a"]["mins"] == 2, B)
+    check("busy: it leaves a different kind of problem on the same file alone", not B["b"], B)
+    check("busy: and other files alone", not B["c"], B)
+    check("busy: a job that names its finding marks that finding as waiting", B["d"] and B["d"]["state"] == "waiting", B)
+    check("busy: a button press still running in the server marks its row", B["e"] and B["e"]["what"] == "fixing the time bar", B)
+    seen = {}
+    real = audit._ui_act
+    audit._ui_act = lambda conn_, body, actor: (seen.setdefault("inflight", dict(audit.PRESSING)), (200, {"ok": True}))[1]
+    try: audit.ui_act(None, {"id": "zz", "action": "subsync_fix"}, "test")
+    finally: audit._ui_act = real
+    check("busy: while a button press runs, the server lists it as in progress; afterwards it is gone", "zz" in seen.get("inflight", {}) and "zz" not in audit.PRESSING and seen["inflight"]["zz"][0] == "re-timing the subtitles", seen)
+    audit.busy_marks([dict(id="q", check="NO_SUBS", path=P)], [("queued", {}, None), ("running", {"type": "nosuch"}, None)])
+    check("busy: the deploy's request counter is still its own", audit.INFLIGHT == {"n": 0} or isinstance(audit.INFLIGHT.get("n"), int), audit.INFLIGHT)
+    check("busy: odd jobs in the queue do not break the page state", True)
+    ui = open(os.path.join(ROOT, "ui.html")).read()
+    check("busy: the page lists rows being fixed apart and moves a pressed row there before the server answers", "drawBusy(" in ui and "LB[id]=" in ui and "list=all.filter(f=>!busyOf(f))" in ui)
+except Exception as e: check("busy case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

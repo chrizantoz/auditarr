@@ -2474,7 +2474,41 @@ def remux_to_mkv(conn, f, apps, actor):
     record_action(conn, "on", "remuxmkv", f["app"], f["fid"], f["label"], f"mkvmerge remux via UI by {actor}: {what}", f"original -> {dest}; {resc}; {plx}")
     refresh_reports(conn)
     return 200, {"ok": True, "note": f"now a real MKV ({what}); default tracks are set on the next audit; original in the trash for {TRASH_DAYS} days"}
+PRESSING = {}   # finding id -> (what, started): a button press the server is still working on (re-time, rewrap, fix the time bar ... run inside the request)
+SUB_CODES = ("NO_SUBS", "UND_AUDIO_NO_SUBS", "SUBS_OUT_OF_SYNC")
+JOB_BUSY = {"whisper": ("making AI subtitles", SUB_CODES), "subsearch": ("searching for subtitles", SUB_CODES), "subsync": ("checking the subtitle timing", ("SUBS_OUT_OF_SYNC",)),
+            "langdetect": ("listening to the audio", None), "verify": ("checking what the file really is", None)}
+def _jload(raw):
+    try: v = json.loads(raw); return v if isinstance(v, dict) else {}
+    except Exception: return {}
+def busy_marks(findings, active_jobs, inflight=None):
+    """2026-11-12: a row whose fix was queued kept its buttons, so a press looked like it did nothing. Each finding a job is running or waiting
+    for gets busy={what, state, mins}: the page moves it to 'Being fixed now'. A job names its finding (langdetect, verify) or its file plus the kinds
+    of problem it can clear (subtitle jobs). active_jobs: [(status, job dict, started_at or ts)]."""
+    now = time.time(); by_id = {}; by_path = {}
+    for st_, jb, t0 in active_jobs:
+        what, codes = JOB_BUSY.get(jb.get("type"), (None, None))
+        if not what: continue
+        mark = dict(what=what, state="running" if st_ == "running" else "waiting", mins=int((now - (t0 or now)) / 60))
+        if jb.get("finding"): by_id.setdefault(jb["finding"], mark)
+        elif codes and jb.get("path"):
+            prev = by_path.get(os.path.normpath(jb["path"]))
+            if not prev or (prev[0]["state"] == "waiting" and mark["state"] == "running"): by_path[os.path.normpath(jb["path"])] = (mark, codes)
+    for f in findings:
+        m = (inflight or {}).get(f.get("id"))
+        if m: f["busy"] = dict(what=m[0], state="running", mins=int((now - m[1]) / 60)); continue
+        if f.get("id") in by_id: f["busy"] = by_id[f["id"]]; continue
+        pm = by_path.get(os.path.normpath(f.get("path") or "")) if f.get("path") else None
+        if pm and f.get("check") in pm[1]: f["busy"] = pm[0]
+    return findings
 def ui_act(conn, body, actor):
+    """Every button press on a row: while it runs, the row shows as 'Being fixed now' for anyone who loads the page."""
+    fid = body.get("id"); PRESSING[fid] = (ACT_WORDS.get(body.get("action"), "working on it"), time.time())
+    try: return _ui_act(conn, body, actor)
+    finally: PRESSING.pop(fid, None)
+ACT_WORDS = {"subsync_fix": "re-timing the subtitles", "remuxmkv": "rewrapping the file", "fixheader": "fixing the time bar", "fixsync": "fixing the audio delay",
+             "fixtag": "labelling the audio", "regrab": "asking for a better copy", "subtag": "labelling the subtitles", "quarantine": "moving it to the trash"}
+def _ui_act(conn, body, actor):
     fid = body.get("id"); action = body.get("action"); f = finding_row(conn, fid) if fid else None
     if not f: return 404, {"error": "finding not found"}
     apps = arr_apps(); path = f["path"]
@@ -3525,6 +3559,7 @@ def ui_state(conn):
             if st_ == "running" and started_: e_["running_for"] = max(e_.get("running_for", 0), int(time.time() - started_))
         res_ = conn.execute("SELECT result FROM action WHERE kind=? AND label=? AND ts>=? ORDER BY ts DESC LIMIT 1", (kind, jb.get("label", ""), (started_ or ts_) - 1)).fetchone() if st_ not in ("queued", "running") else None   # the outcome, so the jobs table does not say only DONE
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), result=(res_[0] if res_ else ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
+    busy_marks(latest.get("findings") or [], [(st_, _jload(raw), started_ or ts_) for st_, raw, ts_, _d, started_ in rows_ if st_ in ("queued", "running")], PRESSING)
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user"), "local_no_login": local_no_login(conn), "local_no_login_env": LOCAL_NO_LOGIN_ENV in ("0", "1")}
     latest["sandbox"] = SANDBOX

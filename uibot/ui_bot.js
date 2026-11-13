@@ -7,10 +7,12 @@ const html = fs.readFileSync(uiPath, "utf8");
 const data = {}; for (const n of ["state", "history", "settings", "trash"]) data[n] = fs.readFileSync(path.join(dataDir, n + ".json"), "utf8");
 const errors = []; const vc = new VirtualConsole(); vc.on("jsdomError", e => errors.push(String(e.message || e))); vc.on("error", m => errors.push(String(m)));
 const posts = [];
+const BUSYW = fs.existsSync(path.join(dataDir, "edge.json")) && JSON.parse(fs.readFileSync(path.join(dataDir, "edge.json"), "utf8")).case === "busy";   // posts answer slowly, and the server then reports the pressed row as being fixed
 const DEEP = fs.existsSync(path.join(dataDir, "edge.json")) && JSON.parse(fs.readFileSync(path.join(dataDir, "edge.json"), "utf8")).case === "deeplink";   // open straight on #setup with a slow state answer
 const dom = new JSDOM(html, { runScripts: "dangerously", pretendToBeVisual: true, url: "http://auditarr.test/" + (DEEP ? "#setup" : ""), virtualConsole: vc, beforeParse(w) {
   w.fetch = async (url, opts) => {
     const u = String(url); const body = (s) => ({ ok: true, status: 200, headers: { get: () => "application/json" }, json: async () => JSON.parse(s), text: async () => s });
+    if (opts && opts.method === "POST" && BUSYW && u.includes("api/act")) { await new Promise(r => setTimeout(r, 150)); const st = JSON.parse(data.state), id = JSON.parse(opts.body).id; st.findings.forEach(f => { if (f.id === id) f.busy = { what: "checking the subtitle timing", state: "waiting", mins: 0 }; }); data.state = JSON.stringify(st); }
     if (opts && opts.method === "POST") { posts.push({ url: u, body: opts.body }); return body(JSON.stringify({ ok: true, silenced: 1, note: "test", done: 1, failed: [], failed_count: 0, saved: {}, applies: "x", queued: 1, dest: "/data/media/.trash/x.mkv" })); }
     if (u.includes("api/state")) { if (DEEP) await new Promise(r => setTimeout(r, 80)); return body(data.state); } if (u.includes("api/history")) return body(data.history);
     if (u.includes("api/settings")) return body(data.settings); if (u.includes("api/trash")) return body(data.trash);
@@ -81,6 +83,21 @@ async function edgeChecks(S) {
     check("mp4mkv: pressing it asks first and posts nothing yet", !!$(".confirm") && posts.length === n0);
     $(".confirm button.primary").click(); await sleep(120);
     check("mp4mkv: saying yes posts Rewrap for that finding", posts.slice(n0).some(p => p.url.includes("api/act") && JSON.parse(p.body).action === "remuxmkv" && JSON.parse(p.body).id === ids[0]), posts.slice(n0).map(p => p.url + " " + p.body).join(" | "));
+  }
+  if (EDGE === "busy") {
+    $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
+    const ids = S.findings.filter(f => /^busy/.test(f.id)).map(f => f.id), [run, marked, free] = ids;
+    check("busy: a row the server is working on is not in the list, it is under Being fixed now", ids.length === 3 && !$(`#r-${run}`) && !!$(`#busyf #b-${run}`) && /making AI subtitles/.test(txt(`#b-${run}`)), txt("#busyf").slice(0, 200));   // fixed: the busy fixture writes exactly three rows (running, marked working, free)
+    check("busy: a row marked working (AI subtitles queued) is there too", !$(`#r-${marked}`) && !!$(`#busyf #b-${marked}`));
+    check("busy: the count says how many are being fixed", /2 being fixed/.test(txt("#f-count")), txt("#f-count"));
+    check("busy: the rows being fixed offer no buttons", !$$("#busyf button").length);
+    const btn = $(`#findings button.primary[data-act=subsync_fix][data-id="${free}"]`); check("busy: the other row still offers Re-time the subtitles", !!btn);
+    if (btn) {
+      btn.click(); await sleep(20); $(".confirm button.primary").click(); await sleep(40);
+      check("busy: pressing yes moves the row to Being fixed now at once, before the server answers", !$(`#r-${free}`) && !!$(`#busyf #b-${free}`) && !posts.some(p => p.url.includes("api/act")), txt("#busyf").slice(0, 300));
+      await sleep(400);
+      check("busy: after the answer it stays there while the server reports the job", !$(`#r-${free}`) && /checking the subtitle timing/.test(txt(`#b-${free}`)) && /waiting its turn/.test(txt(`#b-${free}`)), txt("#busyf").slice(0, 300));
+    }
   }
   if (EDGE === "signin") {
     check("signin: no Sign out when the home network let you in", $("#logout").classList.contains("hidden"));

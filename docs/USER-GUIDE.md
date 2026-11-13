@@ -71,7 +71,7 @@ Three steps. **1 Connect your apps**: press **Find my apps** and Auditarr looks 
 | 📦 **Rewrap the file** | the video is an MP4 file under a .mkv name, so its default audio and subtitles cannot be set and some players misread it. Puts the same video, audio and subtitles in a real Matroska file, nothing re-encoded | Trash → Put back |
 | ⏱️ **Fix the time bar** | the file claims the wrong length, so players show a wrong time bar. Rewrites the container losslessly | Undo, or Trash → Put back |
 | 🎚️ **Fix audio delay** | audio starts late: removes the delay losslessly. Hidden when the delay is intentional | Undo, or Trash → Put back |
-| ⏳ *(any row showing* **working**) | a job is running for that file (AI subtitles, a content check). It leaves Needs you at once, its buttons are hidden, and it clears by itself when the job lands. If the job gives up, the row comes back. | — |
+| ⏳ **Being fixed now** *(box above the findings)* | files a button was pressed for, or a job is running or waiting for (AI subtitles, a subtitle search, a timing or content check). They leave the list at once, show what is happening and since when, and leave the box by themselves when the job lands - fixed, or back in the list with what is left. If the job gives up, the row comes back. | — |
 | 🧐 **Check the episode** / **Check the movie** | compares the dialogue with the neighbouring episodes and the TVDB descriptions (for a movie: with its synopsis) and says whether this really is what it claims to be. The result replaces the sentence on the row | **Check again** runs it again |
 | 🔍 **Search now** | for a missing episode or movie: asks the arr to search right now | — |
 | 📺 **Refresh in Plex** | asks Plex to rescan that folder | — |

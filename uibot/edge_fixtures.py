@@ -78,4 +78,14 @@ for i in range(4):
              plain="This video is an MP4 file under a Matroska name. It plays, but its default audio and subtitles cannot be set and some players misread it. 'Rewrap the file' fixes that without re-encoding."); rows.append(f)
 g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "MP4_IN_MKV"][:30]
 write("mp4mkv", g)
+# 9. busy: a fix was queued or is running for some rows (2026-11-12: the rows kept their buttons, so a press looked like it did nothing).
+# Rows being worked on leave the list for 'Being fixed now'; a row whose button was just pressed moves there at once.
+g = copy.deepcopy(base); tpl = next(f for f in base["state"]["findings"] if f["app"] == "sonarr"); rows = []
+for i, (extra, det) in enumerate([({"busy": {"what": "making AI subtitles", "state": "running", "mins": 2}}, "embedded track 3: subtitles drift | lang=en | src=embedded:3"),
+                                  ({}, "[working: AI subtitles queued 21:00] || embedded track 3: subtitles drift | lang=en | src=embedded:3"),
+                                  ({}, "embedded track 3: subtitles 3.5s late (3/3 samples agree) | fix: shift | lang=en | src=embedded:3")]):
+    f = dict(tpl); f.update(id=f"busy{i}", check="SUBS_OUT_OF_SYNC", name="Subtitles out of sync", severity="medium", sev_name="waiting", library="Anime", title=f"Harbor Tales S00E3{i}",
+             path=f"/data/media/anime/Harbor Tales/Season 00/Harbor Tales - S00E3{i}.mkv", show="Harbor Tales", detail=det, plain="The subtitles run late through the whole file.", **extra); rows.append(f)
+g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "SUBS_OUT_OF_SYNC"][:30]
+write("busy", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

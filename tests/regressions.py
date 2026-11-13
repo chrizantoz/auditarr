@@ -101,7 +101,7 @@ try:
     item = {"path": mkv, "mtime": 1000.0, "missing": False, "intent": {"ignore": False}, "app": "sonarr", "fid": 1, "label": "Show S01E01", "probe": {"streams": [{"codec_type": "audio"}]}}
     audit.do_track_prefs(conn, [item]); audit.do_track_prefs(conn, [item]); audit.do_track_prefs(conn, [item])
     check("a failed default-flags edit is not retried on every pass (one try, then a day's wait)", len(calls) == 1, calls)
-    conn.execute("UPDATE trackprefs SET ts=ts-90000 WHERE path=?", (mkv,)); audit.do_track_prefs(conn, [item])
+    conn.execute("UPDATE fixfail SET last=last-90000 WHERE kind='fixdefaults' AND path=?", (mkv,)); audit.do_track_prefs(conn, [item])
     check("after a day it is tried again", len(calls) == 2, calls)
     audit.do_track_prefs(conn, [dict(item, mtime=2000.0)])
     check("a changed file is tried again at once", len(calls) == 3, calls)
@@ -223,6 +223,36 @@ try:
     check("the repair runs only once", n6 == 0 and len(q5) == 1)
     c5.close()
 except Exception as e: check("audit clean-up case runs", False, repr(e))
+
+# #40 (lesson of #35): one back-off for every nightly fix - 1 day, 3 days, 7 days, then give up until the file changes, and Today says so
+try:
+    import tempfile as _tf
+    c6 = audit.db(); d6 = _tf.mkdtemp(); P6 = os.path.join(d6, "Show - S01E01.mkv"); open(P6, "wb").write(b"x"); T = 2_000_000_000.0
+    check("back-off: a file that never failed goes ahead", audit.fix_wait(c6, "fixheader", P6, now=T) is None)
+    audit.fix_failed(c6, "fixheader", P6, "mkvmerge: broken", now=T)
+    check("back-off: after the 1st failure it waits a day", audit.fix_wait(c6, "fixheader", P6, now=T + 3600) and audit.fix_wait(c6, "fixheader", P6, now=T + 86400 + 1) is None)
+    audit.fix_failed(c6, "fixheader", P6, "mkvmerge: broken", now=T + 86400 + 1)
+    check("back-off: after the 2nd it waits 3 days", audit.fix_wait(c6, "fixheader", P6, now=T + 86400 + 2 * 86400) and audit.fix_wait(c6, "fixheader", P6, now=T + 86400 + 3 * 86400 + 2) is None)
+    audit.fix_failed(c6, "fixheader", P6, "mkvmerge: broken", now=T + 5 * 86400)
+    check("back-off: after the 3rd it gives up, even a month later", (audit.fix_wait(c6, "fixheader", P6, now=T + 40 * 86400) or "").startswith("gave up after 3"))
+    check("back-off: Today lists it once given up, with the error", [(k, p_) for k, p_, t, e in audit.gave_up(c6)] == [("fixheader", P6)])
+    os.utime(P6, (T + 50 * 86400, T + 50 * 86400))
+    check("back-off: a changed file starts over at once", audit.fix_wait(c6, "fixheader", P6, now=T + 50 * 86400) is None and not audit.gave_up(c6))
+    audit.fix_failed(c6, "subtag", P6, "x", now=T); audit.fix_ok(c6, "subtag", P6)
+    check("back-off: a success clears the record", audit.fix_wait(c6, "subtag", P6, now=T + 1) is None)
+    check("back-off: one kind of fix waiting does not hold up another on the same file", (audit.fix_failed(c6, "whisper", P6, "x", now=T), audit.fix_wait(c6, "fixdefaults", P6, now=T + 1))[1] is None)
+    for _ in range(3): audit.fix_failed(c6, "dedupe", P6 + ".gone", "x", mtime=1.0, now=T)
+    check("back-off: a given-up file that is gone is dropped from Today", all(p_ != P6 + ".gone" for _, p_, _, _ in audit.gave_up(c6)))
+    src6 = open(os.path.join(ROOT, "audit.py")).read()
+    check("back-off: every nightly fix uses it (time bar, subtitle labels, default tracks, AI subtitles, duplicates)",
+          all(f'fix_wait(conn, "{k}"' in src6 and f'fix_failed(conn, "{k}"' in src6 for k in ("fixheader", "subtag", "fixdefaults", "whisper", "dedupe")))
+    check("back-off: the nightly time-bar repair skips waiting files instead of taking the 10 oldest every night", 'if not fix_wait(conn, "fixheader", r_[1] or "")][:10]' in src6)
+    for _ in range(3): audit.fix_failed(c6, "fixheader", P6, "mkvmerge: broken", now=T + 60 * 86400)
+    nd = [n for n in audit.today_summary(c6).get("needs", []) if n.get("check") == "GAVEUP"]
+    check("back-off: Today says how many files the night gave up on, names one, and says it retries once the file changes", nd and nd[0]["title"].startswith("1 file(s): the night gave up after 3") and "Show - S01E01.mkv" in nd[0]["why"] and "once the file changes" in nd[0]["why"], nd)
+    check("back-off: the Today notice is a Today-only kind, never a finding row", "GAVEUP" in audit.TODAY_ONLY and "GAVEUP" not in audit.ROW_MAKER)
+    c6.close()
+except Exception as e: check("back-off case runs", False, repr(e))
 
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

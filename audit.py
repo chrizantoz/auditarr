@@ -318,7 +318,7 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "RUNTIME_SHORT": "Too short", "RUNTIME_LONG": "Too long", "RUNTIME_DISAGREE": "Length changed", "SAMPLE_FILE": "Sample, not the episode", "TITLE_MISMATCH": "Title names another episode",
  "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "JOBFAIL": "A job failed", "PLEX_MISSING": "Not in Plex",
  "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video", "MP4_IN_MKV": "File type does not match its name",
- "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "UNFOUND": "Nothing found for weeks",
+ "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "GAVEUP": "The night gave up on a fix", "UNFOUND": "Nothing found for weeks",
  "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
 SEV_NAMES = {"critical": "Won't play", "high": "Wrong", "medium": "Waiting", "low": "FYI"}
 # F4: what common players can direct-play. True = plays as-is, False = Plex has to transcode (or it fails). Edit freely; this is a best-effort table.
@@ -792,6 +792,7 @@ def db():
     CREATE TABLE IF NOT EXISTS action(ts REAL, mode TEXT, kind TEXT, app TEXT, target TEXT, label TEXT, detail TEXT, result TEXT);
     CREATE TABLE IF NOT EXISTS rescan_log(app TEXT, parent_id INTEGER, ts REAL, PRIMARY KEY(app, parent_id));
     CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
+    CREATE TABLE IF NOT EXISTS fixfail(kind TEXT, path TEXT, mtime REAL, tries INTEGER, last REAL, error TEXT, PRIMARY KEY(kind, path));
     CREATE TABLE IF NOT EXISTS upcoming(app TEXT, fid INTEGER, label TEXT, ts REAL, PRIMARY KEY(app, fid));
     CREATE TABLE IF NOT EXISTS flake(ts REAL, service TEXT, what TEXT, error TEXT);
     """)
@@ -1350,6 +1351,7 @@ def do_dedupe(conn, items, run_started):
     for fid, path, label, seen_runs, detail in rows:
         if done >= mx: break
         if (seen_runs or 1) < min_runs: skipped += 1; continue
+        if fix_wait(conn, "dedupe", path or ""): skipped += 1; continue
         m = re.search(r"s(\d{1,2})e(\d{1,3})", os.path.basename(path).lower())
         if not m or not os.path.exists(path): skipped += 1; continue
         twins = [it for it in managed.get(os.path.dirname(os.path.normpath(path)), [])
@@ -1363,10 +1365,38 @@ def do_dedupe(conn, items, run_started):
         try:
             dest, moved = quarantine(conn, path, f"dedupe twin={twin['path']}", "dedupe"); queue_plex(path)
             record_action(conn, "on", "dedupe", "disk", fid, label, plan, f"moved {len(moved)} file(s) to {dest}"); done += 1
-            conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid))
-        except Exception as e: record_action(conn, "on", "dedupe", "disk", fid, label, plan, err_result(e))
+            conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); fix_ok(conn, "dedupe", path)
+        except Exception as e: record_action(conn, "on", "dedupe", "disk", fid, label, plan, err_result(e)); fix_failed(conn, "dedupe", path, repr(e))
     if skipped: log(f"dedupe: {skipped} duplicates skipped (not seen {min_runs}+ runs, missing, or no healthy twin)")
     return done
+# #40 (lesson of #35: one season failed the same nightly fix every pass, 88 errors a day). One back-off for every nightly fix:
+# after a failure the file waits 1 day, then 3, then 7; after the 3rd failure the night gives up on it until the file changes, and Today says so.
+BACKOFF_DAYS = (1, 3, 7); GIVE_UP_AFTER = 3
+FIX_WORDS = {"fixheader": "fix the time bar", "subtag": "label the subtitles", "fixdefaults": "set the default tracks", "whisper": "make AI subtitles", "dedupe": "move the duplicate to the trash"}
+def _mt(path, mtime=None):
+    if mtime is not None: return float(mtime)
+    try: return os.stat(path).st_mtime
+    except OSError: return 0.0
+def fix_wait(conn, kind, path, mtime=None, now=None):
+    """None = go ahead; else why this file waits. A changed file (other mtime) starts over."""
+    r = conn.execute("SELECT mtime, tries, last FROM fixfail WHERE kind=? AND path=?", (kind, path)).fetchone()
+    if not r: return None
+    if abs((r[0] or 0) - _mt(path, mtime)) >= 1: conn.execute("DELETE FROM fixfail WHERE kind=? AND path=?", (kind, path)); return None
+    if r[1] >= GIVE_UP_AFTER: return f"gave up after {r[1]} tries"
+    due = r[2] + BACKOFF_DAYS[min(r[1], len(BACKOFF_DAYS)) - 1] * 86400
+    return None if (now or time.time()) >= due else f"waiting after {r[1]} failed {'try' if r[1] == 1 else 'tries'}"
+def fix_failed(conn, kind, path, error, mtime=None, now=None):
+    r = conn.execute("SELECT mtime, tries FROM fixfail WHERE kind=? AND path=?", (kind, path)).fetchone(); m = _mt(path, mtime)
+    tries = (r[1] if r and abs((r[0] or 0) - m) < 1 else 0) + 1
+    conn.execute("INSERT OR REPLACE INTO fixfail VALUES(?,?,?,?,?,?)", (kind, path, m, tries, now or time.time(), str(error)[-200:])); return tries
+def fix_ok(conn, kind, path): conn.execute("DELETE FROM fixfail WHERE kind=? AND path=?", (kind, path))
+def gave_up(conn):
+    """Files the night stopped trying: [(kind, path, tries, error)], newest first. Rows for files that are gone are dropped."""
+    out = []
+    for kind, path, tries, err in conn.execute("SELECT kind, path, tries, error FROM fixfail WHERE tries >= ? ORDER BY last DESC", (GIVE_UP_AFTER,)).fetchall():
+        if not os.path.exists(path): conn.execute("DELETE FROM fixfail WHERE kind=? AND path=?", (kind, path)); continue
+        out.append((kind, path, tries, err))
+    return out
 def do_subtag(conn, items, found):
     """Label untagged embedded subtitle tracks so Plex/Bazarr/this audit can see them. Only touches metadata, never the streams.
     Only files whose checks complained about subtitles; each file+mtime is judged once (subtag_seen)."""
@@ -1378,6 +1408,7 @@ def do_subtag(conn, items, found):
         if not it.get("und_subs") or not (it.get("path") or "").lower().endswith(".mkv") or it["intent"]["ignore"]: continue
         if not (found.get((it["app"], it["fid"]), set()) & {"NO_SUBS", "UND_AUDIO_NO_SUBS"}): continue
         if abs((seen.get(it["path"]) or 0) - (it.get("mtime") or 0)) < 1: continue      # already judged this exact file
+        if fix_wait(conn, "subtag", it["path"], it.get("mtime")): continue
         looked += 1
         if mode == "dryrun": record_action(conn, "dryrun", "subtag", it["app"], it["fid"], it["label"], f"{it['und_subs']} untagged subtitle track(s)", "would sniff + tag"); done += 1; continue
         try:
@@ -1386,8 +1417,8 @@ def do_subtag(conn, items, found):
                 conn.execute("DELETE FROM probe WHERE path=?", (it["path"],)); it["needs_rescan"] = True; queue_plex(it["path"]); done += 1
                 conn.execute("UPDATE finding SET resolved_at=? WHERE resolved_at IS NULL AND app=? AND fid=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (time.time(), it["app"], it["fid"]))
             record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], f"{it['und_subs']} untagged subtitle track(s)", note[:200])
-            conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", (it["path"], os.stat(it["path"]).st_mtime if os.path.exists(it["path"]) else it.get("mtime"), note[:200], time.time()))
-        except Exception as e: record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], "subtitle tagging", err_result(e))
+            conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", (it["path"], os.stat(it["path"]).st_mtime if os.path.exists(it["path"]) else it.get("mtime"), note[:200], time.time())); fix_ok(conn, "subtag", it["path"])
+        except Exception as e: record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], "subtitle tagging", err_result(e)); fix_failed(conn, "subtag", it["path"], repr(e), it.get("mtime"))
     conn.commit(); return done
 def do_remediation(conn, apps, items, run_started):
     mode = gate(cfg("REMEDIATE", REMEDIATE), "REMEDIATE"); mx = int(cfg("REMEDIATE_MAX", REMEDIATE_MAX))
@@ -1557,13 +1588,13 @@ def do_track_prefs(conn, items):
     mode = gate(setting("TRACK_PREFS"), "TRACK_PREFS")
     if mode == "off": return 0, 0
     mx = int(setting("TRACK_PREFS_MAX")); seen = {r[0]: r[1] for r in conn.execute("SELECT path, mtime FROM trackprefs")}; done = 0; planned = 0
-    failed = {r[0]: (r[1], r[2]) for r in conn.execute("SELECT path, mtime, ts FROM trackprefs WHERE note LIKE 'failed:%'")}   # a failure waits a day (or a changed file) before the next try
+    failed = {r[0] for r in conn.execute("SELECT path FROM trackprefs WHERE note LIKE 'failed:%'")}   # a failure follows the shared back-off (#40) instead of the 'seen' rule
     for it in items:
         if done >= mx: break
         pth = it.get("path") or ""
         if not pth.lower().endswith(".mkv") or it.get("missing") or it["intent"]["ignore"] or it["app"] == "whisparr": continue
         if pth in failed:
-            if abs((failed[pth][0] or 0) - (it.get("mtime") or 0)) < 1 and failed[pth][1] > time.time() - 86400: continue
+            if fix_wait(conn, "fixdefaults", pth, it.get("mtime")): continue
         elif abs((seen.get(pth) or 0) - (it.get("mtime") or 0)) < 1: continue
         if not is_matroska(it):   # an MP4 saved with a .mkv name: mkvpropedit cannot edit it, so remember and skip instead of failing every night
             conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), "skipped: MP4 inside a .mkv name")); continue
@@ -1577,11 +1608,11 @@ def do_track_prefs(conn, items):
         if ok:
             try: mt = os.stat(pth).st_mtime
             except OSError: mt = it.get("mtime")
-            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, mt, time.time(), why)); conn.execute("DELETE FROM probe WHERE path=?", (pth,)); queue_plex(pth); done += 1
+            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, mt, time.time(), why)); conn.execute("DELETE FROM probe WHERE path=?", (pth,)); queue_plex(pth); done += 1; fix_ok(conn, "fixdefaults", pth)
             record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, "mkvpropedit ok")
         else:
             record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, f"ERROR {msg}")
-            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), f"failed: {msg[-120:]}"))
+            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), f"failed: {msg[-120:]}")); fix_failed(conn, "fixdefaults", pth, msg, it.get("mtime"))
     conn.commit()
     if done or planned: log(f"track prefs: {done} files' default flags set ({planned} needed it)")
     return done, planned
@@ -1887,12 +1918,14 @@ def run_once():
     # night automation: fix lying headers (lossless), queue content checks for new runtime/title findings
     auto_fixed = 0
     if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off":
-        for fid_, in conn.execute("SELECT id FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen LIMIT 10").fetchall():
+        picked = [r_ for r_ in conn.execute("SELECT id, path FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen").fetchall() if not fix_wait(conn, "fixheader", r_[1] or "")][:10]   # a file that keeps failing waits, so it never blocks the rest
+        for fid_, fpath_ in picked:
             if setting("AUTO_FIXHEADER") == "dryrun": record_action(conn, "dryrun", "fixheader", "nightly", fid_, finding_row(conn, fid_)["label"], "would repair the container header", "dryrun"); continue
             try:
                 code_, obj_ = ui_act(conn, {"id": fid_, "action": "fixheader"}, "nightly"); auto_fixed += 1 if code_ == 200 else 0
-                if code_ != 200: record_action(conn, "on", "fixheader", "nightly", fid_, finding_row(conn, fid_)["label"], "auto repair", f"not done: {obj_.get('error', '')[:120]}")
-            except Exception as e: log("auto fixheader:", repr(e))
+                if code_ != 200: record_action(conn, "on", "fixheader", "nightly", fid_, finding_row(conn, fid_)["label"], "auto repair", f"not done: {obj_.get('error', '')[:120]}"); fix_failed(conn, "fixheader", fpath_ or "", obj_.get("error", ""))
+                else: fix_ok(conn, "fixheader", fpath_ or "")
+            except Exception as e: log("auto fixheader:", repr(e)); fix_failed(conn, "fixheader", fpath_ or "", repr(e))
     auto_verified = 0
     if gate(setting("AUTO_VERIFY"), "AUTO_VERIFY") == "on" and apps:
         up_ = upcoming_set(conn); cand_ = conn.execute("SELECT id, app, fid, label, path FROM finding WHERE resolved_at IS NULL AND check_code IN ('RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH') AND detail NOT LIKE '[verified%' AND app IN ('sonarr','whisparr','radarr') ORDER BY first_seen DESC LIMIT 300").fetchall()
@@ -2063,7 +2096,7 @@ ROW_MAKER = {**{c: "check" for c in ("AUDIO_OFFSET", "BAD_DURATION_HEADER", "COR
                                      "UND_AUDIO_NO_SUBS", "WRONG_LANGUAGE", "ZERO_SIZE", "MP4_IN_MKV", "HI10P", "AV1", "DV_PROFILE5", "DV_PROFILE7")},
              **{c: "audit" for c in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE", "ORPHAN_FILE", "DUPLICATE_VIDEO")},
              **{c: "job" for c in JOB_MADE}}
-TODAY_ONLY = {"HEALTH", "JOBFAIL", "SELFTEST", "SPACE", "TRASH", "UNFOUND"}   # notices on the Today page, never rows in the finding table
+TODAY_ONLY = {"HEALTH", "JOBFAIL", "SELFTEST", "SPACE", "TRASH", "UNFOUND", "GAVEUP"}   # notices on the Today page, never rows in the finding table
 SWEEPS = {"check": {"audit", "import", "gone"}, "audit": {"audit", "gone"}}
 def sweep_may_close(sweep, code, f_path=None, cur_path=None):
     """May the blanket clean-up `sweep` ('audit' | 'import' | 'gone') close an open row of kind `code`? An unknown kind is never closed by a sweep."""
@@ -2152,12 +2185,12 @@ def do_auto_whisper(conn, apps, plan=None):
     mode = gate(setting("AUTO_WHISPER"), "AUTO_WHISPER")
     if mode == "off" or not apps or not bazarr_conf()[1]: return 0
     mx = int(setting("AUTO_WHISPER_MAX")); days = float(setting("AUTO_WHISPER_DAYS")); now = time.time(); n = 0
-    recent = {l for (l,) in conn.execute("SELECT label FROM action WHERE kind='whisper' AND ts > ?", (now - 7 * 86400,))}   # one try a week per title (errors included)
+    recent = {l for (l,) in conn.execute("SELECT label FROM action WHERE kind='whisper' AND ts > ?", (now - 86400,))}   # at most one try a day per title; failures follow the shared back-off (#40)
     up_ = upcoming_set(conn); rows_ = conn.execute("SELECT id, app, fid, label, path, detail FROM finding WHERE resolved_at IS NULL AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS') AND app IN ('sonarr','radarr') AND first_seen < ? ORDER BY first_seen", (now - days * 86400,)).fetchall()
     rows_.sort(key=lambda r_: 0 if (r_[1], r_[2]) in up_ else 1)   # F2: subtitles for what is about to be watched come first
     for fid_, app_, afid_, label_, path_, detail_ in rows_:
         if n >= mx: break
-        if label_ in recent or app_ not in apps or "not in Bazarr wanted list" in (detail_ or ""): continue   # not wanted = language-profile problem, Whisper cannot land it
+        if label_ in recent or app_ not in apps or "not in Bazarr wanted list" in (detail_ or "") or fix_wait(conn, "whisper", path_ or ""): continue   # not wanted = language-profile problem, Whisper cannot land it
         try: info = arr_file_info(apps, app_, afid_, path_)
         except Exception: continue
         if plan is not None: plan.append(dict(label=label_, why="Bazarr found nothing for days - make AI subtitles")); n += 1; continue
@@ -2921,9 +2954,9 @@ def _whisper_job(job):
         if job.get("path"):
             if result.startswith("whisper subtitle") or result.startswith("skipped - a Whisper subtitle was already made"):
                 for (fid_,) in conn.execute("SELECT id FROM finding WHERE resolved_at IS NULL AND path=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (job["path"],)).fetchall(): resolve_finding(conn, fid_, "AI subtitles made")
-                recheck_timing(conn, job["path"], "re-check after AI subtitles")
+                recheck_timing(conn, job["path"], "re-check after AI subtitles"); fix_ok(conn, "whisper", job["path"])
                 conn.execute("DELETE FROM probe WHERE path=?", (job["path"],)); conn.commit(); refresh_reports(conn)
-            elif not result.startswith("submitted to Bazarr"): clear_working(conn, path=job["path"]); refresh_reports(conn)
+            elif not result.startswith("submitted to Bazarr"): clear_working(conn, path=job["path"]); fix_failed(conn, "whisper", job["path"], result); conn.commit(); refresh_reports(conn)
             plex_refresh(job["path"])
     finally: conn.close()
 def recheck_timing(conn, path, why):
@@ -3708,6 +3741,10 @@ def today_summary(conn, since=None):
     if uf:
         top = ", ".join(f"{s_} ({n_})" for s_, n_ in sorted(uf.items(), key=lambda kv: -kv[1])[:3])
         needs.append(dict(kind="unfound", sev="low", check="UNFOUND", title=f"{sum(uf.values())} released item(s) not found in 14+ days", why=f"your indexers have nothing: {top} - 'search all missing' on the show, or check Prowlarr"))
+    gu = gave_up(conn)   # #40: files the night stopped trying after 3 failures
+    if gu:
+        ex = "; ".join(f"{os.path.basename(p_)[:60]} ({FIX_WORDS.get(k_, k_)}: {(e_ or '').strip()[:80]})" for k_, p_, t_, e_ in gu[:3])
+        needs.append(dict(kind="gaveup", sev="low", check="GAVEUP", title=f"{len(gu)} file(s): the night gave up after {GIVE_UP_AFTER} failed tries", why=f"{ex}{' …' if len(gu) > 3 else ''}. It tries again by itself once the file changes; Actions has each error"))
     t_soon = [t for t in trash_list() if t["purge_on"] <= (datetime.date.today() + datetime.timedelta(days=1)).isoformat()]
     if t_soon: needs.append(dict(kind="trash", sev="low", check="TRASH", title=f"{len(t_soon)} file(s) purge within 24 h ({sum(t['size'] for t in t_soon)/1e9:.1f} GB)", why="restore anything you still want from the Trash tab"))
     ts_ = tests_status()

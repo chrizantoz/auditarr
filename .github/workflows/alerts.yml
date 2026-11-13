@@ -1,0 +1,30 @@
+name: alerts
+# Every morning: each open code-scanning (CodeQL) alert becomes one issue labelled `security`, never twice.
+# The issue says where and why; it is closed by the fix (with a test) or the alert is dismissed on GitHub with a reason.
+# Dependabot opens its own pull requests (label `dependencies`), so it needs no copy here.
+on:
+  schedule: [{cron: "17 6 * * *"}]
+  workflow_dispatch:
+permissions:
+  contents: read
+  security-events: read
+  issues: write
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: open an issue per new code-scanning alert
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          gh api "repos/$REPO/code-scanning/alerts?state=open&per_page=100" --paginate \
+            --jq '.[] | [.number, (.rule.security_severity_level // .rule.severity // "note"), .rule.id, .rule.description, .most_recent_instance.location.path, .most_recent_instance.location.start_line, .html_url] | @tsv' > alerts.tsv || { echo "code scanning is not readable here"; exit 0; }
+          echo "$(wc -l < alerts.tsv) open alert(s)"
+          while IFS=$'\t' read -r num sev rule desc path line url; do
+            tag="code-scanning/$num"
+            if gh issue list -R "$REPO" --state all --search "\"$tag\" in:body" --json number --jq 'length' | grep -qv '^0$'; then continue; fi
+            body=$(printf 'GitHub code scanning (CodeQL) found this. Severity: **%s**.\n\n- Rule: `%s`: %s\n- Where: `%s:%s`\n- Alert: %s\n\nTo do: fix it with a test, or dismiss the alert on GitHub with the reason written there (false positive / used in tests / will not fix).\n\n<sub>%s · opened by the alerts workflow</sub>' "$sev" "$rule" "$desc" "$path" "$line" "$url" "$tag")
+            gh issue create -R "$REPO" --title "Security alert: $desc ($path:$line)" --label security --body "$body"
+          done < alerts.tsv

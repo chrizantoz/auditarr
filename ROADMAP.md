@@ -10,6 +10,8 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - **The board** across both apps: https://github.com/users/chrizantoz/projects/1 (cards grouped by status, app, area or phase).
 - **GitHub Issues** is the inbox and the day-to-day list. Anything found along the way becomes one issue with one label: `bug`, `bot` (the test bots), `feature`, `ux` (friendlier wording, navigation, flow), `design` (look and feel), `idea`, `owner-step`. Milestones match the phases here.
 - **Rule:** an idea is written down the moment it comes up, as an issue, not remembered. When an issue ships, this file gets its line and the issue closes.
+- **GitHub's own bots count too (added 2026-11-12).** Code scanning (CodeQL), Dependabot and secret scanning alerts become issues labelled `security`, opened by the `alerts` workflow every morning (one issue per alert, never twice). Each one is fixed with a test, or dismissed on GitHub with a written reason; never left open without a look.
+- **Every bug teaches something.** When a bug is fixed, its lesson goes under *What bugs taught us* below: the pattern behind it, the guard that now stops it (a test or a bot world), and any idea it gave for later (filed as an `idea` issue).
 
 ## 🚧 Now: solid testing + a friendlier interface
 
@@ -187,6 +189,18 @@ A companion app, not a feature of Auditarr: for every media file it says whether
 - 🔴 **N4** Save Vault (lowest priority, in phases, starts after Dedupearr phase 2): **SV1** server-side inventory of game saves over the existing SMB shares of the gaming PCs (no agent), nightly versioned snapshots (rsync link-dest), Ludusavi's manifest for the save locations; **SV2** per-game timeline page and one-click restore of any version to any machine; **SV3** small agent for machines without a share (Ally on Bazzite), conflict detection when two machines changed the same save; **SV4** Unraid template and demo.
 
 Order of work: Auditarr's agreed list first (Q40, U21 with U24, F16, F21, F6, Q36, Q38), then N1.
+
+## 📚 What bugs taught us (added 2026-11-12)
+
+Each line: the pattern → the guard that stops it now → the idea it left for later.
+
+- **A file's name can lie about what it is** (#32, #35: MP4 files named .mkv failed every night). → The file's first bytes decide, and MP4_IN_MKV gets its own finding and *Rewrap the file* (F35). → 💡 Check the other way round too (.mp4/.avi names on Matroska files) and say so in the same finding.
+- **An automatic fix that fails must back off, not retry every pass** (#35: 88 errors a day from 8 files). → Failed default-flag edits wait a day unless the file changed. → 💡 One shared back-off for every nightly fixer, with a "gave up after N tries" line in Today.
+- **A button must show that it worked, until the job is done** (#37, #38). → *Being fixed now* box; AI subtitles trigger a timing re-check. → 💡 After every fix, a follow-up check that closes the row or says what is left, so no fix ends silently.
+- **Each arr has its own shapes** (#27, #28, #29: Sportarr files, ids and languages). → Sportarr cases in the regression corpus. → 💡 A small fixture per supported arr in the page bot, not only Sonarr/Radarr.
+- **A page opened straight on a tab can run before its data** (#34). → The `deeplink` bot world. → 💡 The bot opens every tab directly, not only #setup.
+- **A status line must read the same data as the check behind it** (#31: "a self-test is failing" while all passed). → Today reads the self-test result itself. → 💡 Lint: every status sentence names the field it comes from.
+- **Same name, two meanings breaks things quietly** (2026-11-12: a new `INFLIGHT` would have replaced the deploy's request counter). → Caught by review; the busy marks use `PRESSING`. → 💡 A lint that refuses a second top-level assignment of the same name in audit.py.
 
 ## ✅ Recently done (2026-11-10/11)
 

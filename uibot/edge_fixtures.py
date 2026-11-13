@@ -88,4 +88,15 @@ for i, (extra, det) in enumerate([({"busy": {"what": "making AI subtitles", "sta
              path=f"/data/media/anime/Harbor Tales/Season 00/Harbor Tales - S00E3{i}.mkv", show="Harbor Tales", detail=det, plain="The subtitles run late through the whole file.", **extra); rows.append(f)
 g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] != "SUBS_OUT_OF_SYNC"][:30]
 write("busy", g)
+# subsgroup (2026-11-13): a show's subtitle rows get group buttons - AI subtitles, Re-time and Check timing again for all of them at once
+g = copy.deepcopy(base); tpl = next(f for f in base["state"]["findings"] if f["app"] == "sonarr"); rows = []
+for i, (code, det) in enumerate([("SUBS_OUT_OF_SYNC", "external 'a.en.srt': subtitles drift: +0.4s at 25% -> +3.5s at 73% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=sidecar:/a.en.srt"),
+                                 ("SUBS_OUT_OF_SYNC", "external 'b.en.srt': subtitles drift: +0.4s at 25% -> +3.5s at 73% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=sidecar:/b.en.srt | bazarr=tried"),
+                                 ("SUBS_OUT_OF_SYNC", "external 'c.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/c.en.srt"),
+                                 ("SUBS_OUT_OF_SYNC", "embedded track 3: subtitles drift: +0.1s at 20% -> +4.0s at 80% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=embedded:3"),
+                                 ("NO_SUBS", "audio=['jpn'] embedded_subs=[] external=[] | Bazarr still searching"), ("NO_SUBS", "audio=['jpn'] embedded_subs=[] external=[] | Bazarr still searching")]):
+    f = dict(tpl); f.update(id=f"sg{i}", app="sonarr", check=code, severity="medium", sev_name="waiting", library="Anime", title=f"Tide Runners S01E0{i + 1}", show="Tide Runners",
+             path=f"/data/media/anime/Tide Runners/Season 01/Tide Runners - S01E0{i + 1}.mkv", detail=det, plain="Subtitles need work."); f.pop("busy", None); rows.append(f)
+g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] not in ("SUBS_OUT_OF_SYNC", "NO_SUBS")][:30]
+write("subsgroup", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

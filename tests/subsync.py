@@ -38,6 +38,23 @@ check("verdict: early", audit.decide_sync(W([-1.6, -1.5, -1.7]))[0] == "early")
 st, off, note = audit.decide_sync(W([0.3, 1.4, 2.9])); check("verdict: drift when the offset grows through the file", st == "drift" and "drift:" in note and "85%" in note, (st, note))
 check("verdict: unknown with one usable sample", audit.decide_sync([(0.15, 2.0, 1.0, 8), (0.5, None, 0, 0), (0.85, None, 0, 0)])[0] == "unknown")
 check("verdict: unknown when matches are thin", audit.decide_sync(W([2.0, 2.0, 2.0], sup=0.3, n=2))[0] == "unknown")
+# 2026-11-13: one noisy sample made a third of the open timing rows 'drift'; Bazarr's re-time then changed nothing, pressed 5 times
+L = lambda offs, more: audit.decide_sync_looked(W(offs), more)
+asked = []
+st, off, note, ws = L([0.2, 3.1, 0.2], lambda near: asked.extend(near) or [(near[0] - 0.04, 0.3, 1.0, 8), (near[0] + 0.04, 0.2, 1.0, 8)])
+check("second look: one odd sample, the two extra samples agree with the rest -> in sync, the odd one ignored", st == "in sync" and "odd sample ignored" in note and asked == [0.5], (st, note, asked))
+st, off, note, ws = L([0.2, 3.1, 0.2], lambda near: [(near[0] - 0.04, 3.0, 1.0, 8), (near[0] + 0.04, 3.2, 1.0, 8)])
+check("second look: the extra samples hear the same jump -> drift stays, confirmed", st == "drift" and "confirmed by a second look" in note, (st, note))
+st, off, note, ws = L([0.2, 3.1, 0.2], lambda near: [(near[0], None, 0, 0)])
+check("second look: the extra samples hear too little -> unsure, never 'drift'", st == "unknown" and note.startswith("unsure:"), (st, note))
+st, off, note, ws = L([2.4, 2.5, 6.0], lambda near: [(0.8, 2.4, 1.0, 8), (0.9, 2.6, 1.0, 8)])
+check("second look: a stray last sample on a late file -> late, and the shift fixes it", st == "late" and abs(off - 2.5) < 0.2, (st, off, note))
+called = []
+st, off, note, ws = L([0.3, 1.4, 2.9], lambda near: called.append(near) or [])
+check("a steady slide through the file is real drift and needs no second look", st == "drift" and not called, (st, called))
+st, off, note, ws = audit.decide_sync_looked([(0.15, None, 0, 0), (0.5, 0.4, 1.0, 8), (0.85, 3.2, 1.0, 8)], lambda near: called.append(sorted(near)) or [(0.15, 0.4, 1.0, 8), (0.67, 0.5, 1.0, 8)])
+check("two disagreeing samples: listen where the missing one was and halfway, the majority decides", st == "in sync" and called and called[-1][0] == 0.15 and abs(called[-1][1] - 0.675) < 0.01, (st, note, called))
+check("an in-sync verdict never takes a second look", audit.decide_sync_looked(W([0.1, 0.2, 0.0]), lambda near: 1 / 0)[0] == "in sync")
 
 d = tempfile.mkdtemp(); src = os.path.join(d, "a.en.srt"); open(src, "w").write(srt); dst = os.path.join(d, "a.out.srt")
 audit.shift_subtitle_file(src, 1.25, dst); cues = audit.parse_sub_cues(open(dst).read())

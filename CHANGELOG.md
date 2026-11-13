@@ -3,6 +3,9 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Fix: the same episodes were re-timed again and again because Bazarr's re-time changed nothing. A file Bazarr already re-timed that still drifts now offers **Make AI subtitles** and **Find subtitles** instead, and a second Bazarr re-time is refused with the reason. The timing check takes a second look before it says "drift": when one sample disagrees with the others, it listens twice more next to it, and an unconfirmed drift closes as "not sure". On start, every open timing row gets a fresh check (#48).
+- New: group buttons per show for subtitles: **Make AI subtitles ×N**, **Re-time ×N** and **Check timing again ×N**. Bazarr's re-time now runs in the background, so a group press doesn't hold the page (#48).
+- Fix: **Make AI subtitles for a whole show** now closes each episode's no-subtitle rows and re-checks its timing when its subtitles land (#48).
 - New: one back-off for every nightly fix (time bar, subtitle labels, default tracks, AI subtitles, duplicates). A file that fails waits 1 day, then 3, then 7; after the 3rd failure the night stops trying until the file changes, and Today lists it with the error. A failing file no longer holds up the others behind it (#40).
 - Safety: every kind of row now says who may close it, and the three blanket clean-ups ask before closing anything; `tests/row_owners.py` checks every place that closes rows (#47).
 - Fix: every audit run closed every "Subtitles out of sync" row without fixing it. Timing rows now stay open until their own check, a fix or a new file closes them; on start, the rows closed by mistake in the last 14 days get a fresh timing check (#46).

@@ -84,6 +84,20 @@ async function edgeChecks(S) {
     $(".confirm button.primary").click(); await sleep(120);
     check("mp4mkv: saying yes posts Rewrap for that finding", posts.slice(n0).some(p => p.url.includes("api/act") && JSON.parse(p.body).action === "remuxmkv" && JSON.parse(p.body).id === ids[0]), posts.slice(n0).map(p => p.url + " " + p.body).join(" | "));
   }
+  if (EDGE === "subsgroup") {
+    $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
+    const ids = b => (($(`button[data-bulk=${b}]`) || {}).dataset || {}).ids || "";
+    check("subsgroup: one Make AI subtitles for the show: its rows without subtitles plus the timing rows Re-time cannot help", ids("whisper") === "sg1,sg3,sg4,sg5", ids("whisper"));
+    check("subsgroup: one Re-time for the timing rows Re-time can still fix", ids("subsync_fix") === "sg0,sg2", ids("subsync_fix"));
+    check("subsgroup: one Check timing again for every timing row", ids("subsync") === "sg0,sg1,sg2,sg3", ids("subsync"));
+    check("subsgroup: a row Bazarr already re-timed offers AI subtitles, not Re-time", !$('button[data-act=subsync_fix][data-id="sg1"]') && !!$('button.primary[data-act=whisper][data-id="sg1"]'));
+    const b = $("button[data-bulk=whisper]");
+    if (b) {
+      const n0 = posts.length; b.click(); await sleep(20); $(".confirm button.primary").click(); await sleep(150);
+      const p = posts.slice(n0).find(p => p.url.includes("api/act_bulk"));
+      check("subsgroup: saying yes posts one group request with all its rows", p && JSON.parse(p.body).action === "whisper" && JSON.parse(p.body).ids.join(",") === ids("whisper"), posts.slice(n0).map(p => p.url + " " + p.body).join(" | "));
+    }
+  }
   if (EDGE === "busy") {
     $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
     const ids = S.findings.filter(f => /^busy/.test(f.id)).map(f => f.id), [run, marked, free] = ids;

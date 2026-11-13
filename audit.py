@@ -412,6 +412,7 @@ def plain_sentence(code, sev, label, detail, app=None):
     if code == "ORPHAN_FILE": return "A video file nobody manages: neither Sonarr nor Radarr knows about it, and Plex may not either."
     if code == "BAD_DURATION_HEADER": return "The file claims the wrong length, so players show a wrong time bar and may stop early. 'Fix the time bar' repairs it without re-downloading."
     if code == "SUBS_OUT_OF_SYNC":
+        if "bazarr=tried" in d: return "The subtitles slide out of step during the file, and Bazarr already re-timed them without a change: its re-time moves the whole file by one amount. 'Find subtitles' gets a different file; 'Make AI subtitles' makes one from the audio."
         if "drift:" in d and "src=embedded" in d: return "The subtitles built into the file start close but slide further out as the file goes on. Bazarr cannot re-time a built-in track: 'Find subtitles' gets a separate file that fits, or 'Make AI subtitles' makes one."
         if "drift:" in d: return "The subtitles start close but slide further out as the file goes on. 'Re-time the subtitles' has Bazarr fit them to the audio again."
         m_ = re.search(r"(\d+(?:\.\d+)?)s (late|early)", d); secs = f"about {round(float(m_.group(1)))} second{'s' if round(float(m_.group(1))) != 1 else ''} {m_.group(2)}" if m_ else "out of step"
@@ -2559,7 +2560,7 @@ def remux_to_mkv(conn, f, apps, actor):
     return 200, {"ok": True, "note": f"now a real MKV ({what}); default tracks are set on the next audit; original in the trash for {TRASH_DAYS} days"}
 PRESSING = {}   # finding id -> (what, started): a button press the server is still working on (re-time, rewrap, fix the time bar ... run inside the request)
 SUB_CODES = ("NO_SUBS", "UND_AUDIO_NO_SUBS", "SUBS_OUT_OF_SYNC")
-JOB_BUSY = {"whisper": ("making AI subtitles", SUB_CODES), "subsearch": ("searching for subtitles", SUB_CODES), "subsync": ("checking the subtitle timing", ("SUBS_OUT_OF_SYNC",)),
+JOB_BUSY = {"whisper": ("making AI subtitles", SUB_CODES), "subsearch": ("searching for subtitles", SUB_CODES), "subsync": ("checking the subtitle timing", ("SUBS_OUT_OF_SYNC",)), "bazarrsync": ("Bazarr is re-timing the subtitles", ("SUBS_OUT_OF_SYNC",)),
             "langdetect": ("listening to the audio", None), "verify": ("checking what the file really is", None), "followup": ("checking that the fix worked", None)}
 def _jload(raw):
     try: v = json.loads(raw); return v if isinstance(v, dict) else {}
@@ -2979,10 +2980,14 @@ def ui_whisper(conn, body, actor):
         base, key, _ = apps["sonarr"]; srs = next((x for x in api(base, key, "series") if x["title"].lower().startswith(q)), None)
         if not srs: return 404, {"error": f"no Sonarr series starting with {q!r}"}
         eps = bazarr_call(f"episodes?seriesid[]={srs['id']}").get("data", [])
+        try:   # our path for each episode (Bazarr's own mounts differ), so the job can close the file's rows and re-check its timing
+            fpath = {x["id"]: x.get("path") for x in api(base, key, f"episodefile?seriesId={srs['id']}") or []}
+            ep_path = {x["id"]: fpath.get(x.get("episodeFileId")) for x in api(base, key, f"episode?seriesId={srs['id']}") or []}
+        except Exception as e: log("whisper show paths:", repr(e)); ep_path = {}
         for e in sorted(eps, key=lambda e: (e["season"], e["episode"])):
             if season not in (None, "", 0) and int(e["season"]) != int(season): continue
             if not e.get("path"): continue
-            jobs.append(dict(type="whisper", kind="series", app="sonarr", seriesid=srs["id"], episodeid=e["sonarrEpisodeId"], label=f"{srs['title']} S{e['season']:02d}E{e['episode']:02d}", path=None, actor=actor))
+            jobs.append(dict(type="whisper", kind="series", app="sonarr", seriesid=srs["id"], episodeid=e["sonarrEpisodeId"], label=f"{srs['title']} S{e['season']:02d}E{e['episode']:02d}", path=ep_path.get(e["sonarrEpisodeId"]), actor=actor))
     if not jobs: return 404, {"error": "nothing matched (no files in Bazarr for that selection)"}
     ahead = SUB_Q.qsize()
     for j in jobs: enqueue(j)
@@ -3245,6 +3250,35 @@ def decide_sync(windows):
     if spread > 0.7: return "drift", med, f"drift: {good[0][1]:+.1f}s at {good[0][0]:.0%} -> {good[-1][1]:+.1f}s at {good[-1][0]:.0%} ({len(good)}/{len(windows)} samples)"
     if abs(med) < SUBSYNC_MIN_S: return "in sync", med, f"within {abs(med):.1f}s ({len(good)}/{len(windows)} samples agree)"
     return ("late" if med > 0 else "early"), med, f"{abs(med):.1f}s {'late' if med > 0 else 'early'} ({len(good)}/{len(windows)} samples agree)"
+def _usable(w): return w[1] is not None and w[2] >= 0.5 and w[3] >= 3
+def _agreeing(offs, tol=0.7):
+    """The largest group of offsets that lie within `tol` seconds of each other."""
+    s = sorted(offs); best = []
+    for i in range(len(s)):
+        grp = [o for o in s[i:] if o - s[i] <= tol]
+        if len(grp) > len(best): best = grp
+    return best
+def decide_sync_looked(windows, more):
+    """decide_sync, with a second look when the samples disagree. 2026-11-13: one noisy sample (a song, a loud scene) made a third of the open
+    timing rows 'drift'; Bazarr's re-time then changed nothing and the person pressed it five times. A 'drift' verdict now needs to survive this:
+    - one sample disagrees with the rest -> listen twice more next to it; if those agree with the rest, the odd one was noise
+    - only two usable samples, disagreeing -> listen where the missing one was (and halfway), so a majority decides
+    - the samples slide steadily (each one further out) -> real drift, no second look needed
+    more(positions) -> extra windows (position 0..1, offset, support, matched) near those positions. -> (status, offset, note, windows)"""
+    st, off, note = decide_sync(windows)
+    if st != "drift": return st, off, note, windows
+    good = sorted((w for w in windows if _usable(w)), key=lambda w: w[0]); agree = _agreeing([w[1] for w in good])
+    if len(good) >= 3 and len(agree) == len(good) - 1: near = [next(w[0] for w in good if w[1] not in agree)]
+    elif len(good) == 2: near = [w[0] for w in windows if not _usable(w)] + [(good[0][0] + good[1][0]) / 2]
+    else: return st, off, note, windows
+    extra = [w for w in (more(near) or []) if w]; allw = sorted(windows + extra, key=lambda w: w[0])
+    g2 = [w for w in allw if _usable(w)]; agree2 = _agreeing([w[1] for w in g2])
+    if not any(_usable(w) for w in extra): return "unknown", None, f"unsure: the samples disagree ({note[len('drift: '):]}) and a second look heard too little speech to settle it", allw
+    if len(g2) >= 3 and len(agree2) >= max(3, len(g2) - 1):
+        st2, off2, note2 = decide_sync([w for w in g2 if w[1] in agree2]); stray = len(g2) - len(agree2)
+        return st2, off2, note2 + (f"; {stray} odd sample ignored after a second look" if stray else "; after a second look"), allw
+    st3, off3, note3 = decide_sync(g2)
+    return st3, off3, note3 + " (confirmed by a second look)", allw
 def asr_segments_from(raw):
     """Speech segments (start, end) from whatever the Whisper endpoint answered: whisper-asr-webservice json, subgen's srt/vtt text, or json lines."""
     txt = (raw or "").strip()
@@ -3312,12 +3346,20 @@ def subtitle_sync_check(path, pr=None):
     asr_lang = TWO_LETTER.get(alang) if alang not in ("und", "") else None
     if kind == "sidecar": all_cues = parse_sub_cues(open(ref, encoding="utf-8-sig", errors="replace").read())
     else: all_cues = parse_sub_cues(subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-map", f"0:{ref}", "-f", "srt", "-"], capture_output=True, text=True, timeout=600).stdout)   # the whole track once; cue times are absolute
-    windows = []
-    for start, wlen in pick_windows(dur, [s_ for s_, e_ in all_cues]):
+    def sample(start, wlen):
         subs = [s_ - start for s_, e_ in all_cues if start <= s_ <= start + wlen + 5]
         asr = [s_ for s_, e_ in _asr_segments(path, start, wlen, audio_stream, asr_lang)]
-        off, support, matched = estimate_offset(subs, asr); windows.append((start / dur, off, support, matched))
-    status, off, note = decide_sync(windows)
+        off, support, matched = estimate_offset(subs, asr); return (start / dur, off, support, matched)
+    picked = pick_windows(dur, [s_ for s_, e_ in all_cues]); wl = picked[0][1]
+    windows = [sample(start, wlen) for start, wlen in picked]
+    def more(near):   # two more samples a window and a half either side of each position
+        out = []
+        for p in near:
+            for st_ in (p * dur - 1.5 * wl, p * dur + 1.5 * wl):
+                st_ = max(0.0, min(dur - wl, st_))
+                if sum(1 for c_, e_ in all_cues if st_ <= c_ <= st_ + wl) >= 4: out.append(sample(st_, wl))
+        return out
+    status, off, note, windows = decide_sync_looked(windows, more)
     return dict(status=status, offset=off, note=note, source=src, windows=windows, lang2=lang2)
 def _subsync_job(job):
     """Background job: check one file; out of sync -> a SUBS_OUT_OF_SYNC finding (or refresh it); in sync -> clear it."""
@@ -3329,7 +3371,8 @@ def _subsync_job(job):
         code = "SUBS_OUT_OF_SYNC"; fidh = hashlib.sha1(f"{job['app']}|{job['fid']}|{code}".encode()).hexdigest()[:16]; src = r.get("source"); now = time.time()
         src_txt = f"external '{os.path.basename(src[1])}'" if src and src[0] == "sidecar" else f"embedded track {src[1]}" if src else "no subtitles"
         if r["status"] in ("late", "early", "drift"):
-            detail = f"{src_txt}: subtitles {r['note']} | {'fix: re-time in Bazarr' if r['status'] == 'drift' else 'fix: shift'} | lang={r.get('lang2')} | src={src[0]}:{src[1]}"
+            tried = r["status"] == "drift" and src and src[0] == "sidecar" and bazarr_tried(conn, job["app"], job["fid"], now)
+            detail = f"{src_txt}: subtitles {r['note']} | {'fix: re-time in Bazarr' if r['status'] == 'drift' else 'fix: shift'} | lang={r.get('lang2')} | src={src[0]}:{src[1]}" + (" | bazarr=tried" if tried else "")
             if ignored(load_ignores(), code, job["label"], fidh): res = f"OUT OF SYNC but ignored by rule: {r['note']}"
             else:
                 upsert_finding(conn, fidh, job["app"], job["fid"], code, "medium", job["label"], job["path"], detail, now)
@@ -3343,10 +3386,41 @@ def _subsync_job(job):
         elif r["status"] == "in sync":
             if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "subtitles in sync")
             res = f"in sync: {r['note']}"
+        elif str(r.get("note") or "").startswith("unsure:"):   # a 'drift' the second look could not confirm is not a job for anyone
+            if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "drift not confirmed by a second look")
+            res = f"not sure, row closed: {r['note']}"
         else: res = f"could not judge: {r['note']}"
         record_action(conn, "on", "subsync", job["app"], job["fid"], job["label"], f"subtitle timing check by {job['actor']} ({src_txt}, {time.time() - t0:.0f}s)", res[:300])
         conn.commit(); refresh_reports(conn)
     finally: conn.close()
+def bazarr_tried(conn, app, fid, now=None, days=30):
+    """Did Bazarr re-time this file's subtitles lately? Its re-time moves the whole file by one amount, so a file still out of sync after it
+    will not get better from pressing it again (2026-11-13: five presses on one episode, the same numbers every time)."""
+    return bool(conn.execute("SELECT 1 FROM action WHERE kind='subsync-fix' AND app=? AND CAST(target AS TEXT)=? AND ts > ? AND (detail LIKE 'Bazarr sync%' OR result LIKE 'asked Bazarr%')",
+                             (app, str(fid), (now or time.time()) - days * 86400)).fetchone())
+BAZARR_TRIED_ERR = ("Bazarr already re-timed these subtitles and the timing did not change: its re-time moves the whole file by one amount, which cannot fix "
+                    "subtitles that slide. 'Find subtitles' gets a different file; 'Make AI subtitles' makes one from the audio.")
+def _bazarrsync_job(job):
+    """Background job: Bazarr re-times one external subtitle against the audio (it can take minutes), then the timing is checked again."""
+    from urllib.parse import urlencode
+    try: bazarr_call(f"subtitles?{urlencode(dict(action='sync', language=job['lang2'], path=job['bpath'], type=job['btype'], id=job['bid']))}", data={}, method="PATCH", timeout=900); res = "Bazarr re-timed it against the audio; the timing is checked again now"
+    except Exception as e: res = err_result(e)
+    conn = db()
+    try:
+        record_action(conn, "on", "subsync-fix", job["app"], job["fid"], job["label"], f"Bazarr sync of {os.path.basename(job['bpath'])} by {job['actor']}", res[:300])
+        if not res.startswith("ERROR"): enqueue(dict(type="subsync", fid=job["fid"], app=job["app"], path=job["path"], label=job["label"], actor="re-check after Bazarr sync", prio=3))
+        else: clear_working(conn, path=job["path"])
+        conn.commit(); refresh_reports(conn)
+    finally: conn.close()
+def recheck_open_timing(conn):
+    """One time (2026-11-13): every open timing row gets a fresh check with the second look, so rows made by one noisy sample close by themselves."""
+    if conn.execute("SELECT 1 FROM kv WHERE k='timing_second_look_v1'").fetchone(): return 0
+    n = 0
+    for app, afid, label, path in conn.execute("SELECT app, fid, label, path FROM finding WHERE check_code='SUBS_OUT_OF_SYNC' AND resolved_at IS NULL").fetchall():
+        if path and os.path.exists(path): enqueue(dict(type="subsync", fid=afid, app=app, path=path, label=label, actor="re-check: timing check with a second look", prio=6)); n += 1
+    conn.execute("INSERT OR REPLACE INTO kv(k, v) VALUES('timing_second_look_v1', ?)", (str(n),)); conn.commit()
+    if n: log(f"subtitle timing: {n} open row(s) get a fresh check with the second look")
+    return n
 def shift_subtitle_file(src, seconds, dst):
     """Rewrite an SRT / VTT / ASS file with every time moved by -seconds (subtitles that run late are pulled earlier)."""
     txt = open(src, encoding="utf-8-sig", errors="replace").read()
@@ -3368,22 +3442,20 @@ def bazarr_sub_path(kind, id_, lang2):
     return None
 def subsync_fix(conn, f, apps, actor, body):
     """Re-time the subtitles named in a SUBS_OUT_OF_SYNC finding: a constant offset is fixed here (external file rewritten, embedded track remuxed losslessly); drift is handed to Bazarr's sync."""
-    from urllib.parse import urlencode
     d = (conn.execute("SELECT detail FROM finding WHERE id=?", (f["id"],)).fetchone() or [""])[0] or ""
     m = re.search(r"src=(sidecar|embedded):(.+?)(?: \||$)", d); off_m = re.search(r"(\d+(?:\.\d+)?)s (late|early)", d)
     if not m: return 400, {"error": "this finding has no subtitle source recorded - press 'Check subtitle timing' again first"}
     kind, ref = m.group(1), m.group(2); drift = "drift:" in d; path = f["path"]; lang2 = (re.search(r"lang=(\w\w)", d) or [None, "en"])[1]
     if drift or body.get("bazarr"):
         if kind != "sidecar": return 400, {"error": "the drifting subtitles are inside the video file and Bazarr can only re-time an external one - 'Find subtitles' or 'Make AI subtitles' gives you a file that fits"}
+        if "bazarr=tried" in d: return 409, {"error": BAZARR_TRIED_ERR}
         if not bazarr_conf()[1]: return 400, {"error": "no Bazarr API key - cannot ask Bazarr to re-time"}
         try: info = arr_file_info(apps, f["app"], f["fid"], path)
         except Exception as e: return 409, {"error": str(e)}
         ids = dict(type="episode", id=info["ep_ids"][0]) if info["kind"] == "series" and info["ep_ids"] else dict(type="movie", id=info["parent_id"])
         bpath = bazarr_sub_path(ids["type"], ids["id"], lang2) or ref
-        bazarr_call(f"subtitles?{urlencode(dict(action='sync', language=lang2, path=bpath, **ids))}", data={}, method="PATCH", timeout=900)
-        record_action(conn, "on", "subsync-fix", f["app"], f["fid"], f["label"], f"Bazarr sync of {os.path.basename(ref)} by {actor}", "asked Bazarr to re-time it against the audio; the timing is checked again afterwards")
-        enqueue(dict(type="subsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor="re-check after Bazarr sync", prio=3)); refresh_reports(conn)
-        return 200, {"ok": True, "queued": True, "note": "Bazarr is re-timing the subtitles against the audio; the timing is checked again when it is done"}
+        enqueue(dict(type="bazarrsync", fid=f["fid"], app=f["app"], path=path, label=f["label"], actor=actor, lang2=lang2, bpath=bpath, btype=ids["type"], bid=ids["id"]))   # a queued job: a group press must not hold the page for minutes
+        return 200, {"ok": True, "queued": True, "note": "Bazarr re-times the subtitles against the audio in the background; the timing is checked again when it is done"}
     if not off_m: return 400, {"error": "no offset recorded on this finding"}
     seconds = float(off_m.group(1)) * (1 if off_m.group(2) == "late" else -1)
     if kind == "sidecar":
@@ -3594,7 +3666,7 @@ def sub_worker(q=None):
         finally: conn.close()
         try:
             if E("JOBS", "on") == "off": st = "skipped"   # staging copy: record, never run (would hit the real Bazarr/Whisper)
-            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job, "langdetect": _langdetect_job, "followup": _followup_job}.get(job.get("type"), _subsearch))(job); st = "done"
+            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job, "bazarrsync": _bazarrsync_job, "langdetect": _langdetect_job, "followup": _followup_job}.get(job.get("type"), _subsearch))(job); st = "done"
         except Exception as e: note_error("sub worker:", repr(e)); st = "failed"
         finally:
             conn = db()
@@ -3691,7 +3763,7 @@ def ui_state(conn):
     try: latest["space"] = space_view(conn)
     except Exception as e: latest["space"] = {"error": repr(e)}
     return latest
-JOB_WORDS = {"whisper": "AI subtitles", "subsearch": "Bazarr search", "verify": "content check", "subsync": "subtitle timing check"}
+JOB_WORDS = {"whisper": "AI subtitles", "subsearch": "Bazarr search", "verify": "content check", "subsync": "subtitle timing check", "bazarrsync": "Bazarr re-time"}
 def failed_jobs(conn, hours=24):
     """Background jobs that ended in an error in the last `hours` hours, with no later success or retry for the same title. -> [dict(title, why, job_id, kind, label)]"""
     out = []; seen = set(); cut = time.time() - hours * 3600
@@ -4220,7 +4292,7 @@ def daemon():
     if E("AUTH_RESET") == "1" and E("AUTH_USER") and E("AUTH_PASSWORD"):
         c1 = db(); save_account(c1, E("AUTH_USER"), E("AUTH_PASSWORD")); c1.close(); log("AUTH_RESET: password replaced from env - remove AUTH_RESET now")
     try:
-        c_ = db(); recheck_swept_timing(c_); c_.close()
+        c_ = db(); recheck_swept_timing(c_); recheck_open_timing(c_); c_.close()
     except Exception as e: log("timing re-check:", repr(e))
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))

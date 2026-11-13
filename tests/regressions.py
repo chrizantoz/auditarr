@@ -254,5 +254,39 @@ try:
     c6.close()
 except Exception as e: check("back-off case runs", False, repr(e))
 
+# 2026-11-13: the person re-timed the same five episodes five times each: Bazarr re-wrote the file, the numbers stayed the same, the button stayed
+try:
+    import tempfile as _tf
+    c7 = audit.db(); T7 = time.time()
+    check("re-timed lately: no Bazarr re-time yet -> not tried", not audit.bazarr_tried(c7, "sonarr", 701, T7))
+    c7.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (T7 - 3600, "on", "subsync-fix", "sonarr", "701", "Show S03E02", "Bazarr sync of x.en.srt by ui", "Bazarr re-timed it against the audio; the timing is checked again now"))
+    c7.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (T7 - 40 * 86400, "on", "subsync-fix", "sonarr", "702", "Show S03E03", "Bazarr sync of y.en.srt by ui", "asked Bazarr to re-time it"))
+    check("re-timed lately: a Bazarr re-time an hour ago counts (number or text id)", audit.bazarr_tried(c7, "sonarr", 701, T7) and audit.bazarr_tried(c7, "sonarr", "701", T7))
+    check("re-timed lately: one 40 days ago does not", not audit.bazarr_tried(c7, "sonarr", 702, T7))
+    f7 = {"id": "rt1", "app": "sonarr", "fid": 701, "label": "Show S03E02", "path": "/x.mkv"}
+    c7.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('rt1','sonarr',701,'SUBS_OUT_OF_SYNC','medium','Show S03E02','/x.mkv',?,0,0,NULL,0,1,0)",
+               ("external 'x.en.srt': subtitles drift: +0.4s at 25% -> +3.5s at 73% (3/3 samples) | fix: re-time in Bazarr | lang=en | src=sidecar:/x.en.srt | bazarr=tried",))
+    code7, obj7 = audit.subsync_fix(c7, f7, {}, "test", {})
+    check("a second Bazarr re-time is refused with the reason and what to do instead", code7 == 409 and "Find subtitles" in obj7.get("error", "") and "Make AI subtitles" in obj7.get("error", ""), (code7, obj7))
+    pl7 = audit.plain_sentence("SUBS_OUT_OF_SYNC", "medium", "Show S03E02", c7.execute("SELECT detail FROM finding WHERE id='rt1'").fetchone()[0], "sonarr")
+    check("…and the row says so in plain words", "already re-timed" in pl7, pl7)
+    src7 = open(os.path.join(ROOT, "audit.py")).read()
+    check("the timing check tags a file Bazarr already re-timed", 'bazarr_tried(conn, job["app"], job["fid"], now)' in src7 and '" | bazarr=tried" if tried' in src7)
+    check("Bazarr's re-time is a queued job, so a group press never holds the page for minutes", 'enqueue(dict(type="bazarrsync"' in src7 and '"bazarrsync": _bazarrsync_job' in src7 and '"bazarrsync": ("Bazarr is re-timing the subtitles"' in src7)
+    check("a drift the second look cannot confirm closes the row", 'resolve_finding(conn, fidh, "drift not confirmed by a second look")' in src7)
+    check("AI subtitles for a whole show know each file, so its rows close and its timing is re-checked", 'path=ep_path.get(e["sonarrEpisodeId"])' in src7 and "path=None, actor=actor))" not in src7)
+    ui7 = open(os.path.join(ROOT, "ui.html")).read()
+    check("a show offers Make AI subtitles, Re-time and Check timing again for all its rows at once", all(f'data-bulk="{a}"' in ui7 for a in ("whisper", "subsync_fix", "subsync")))
+    check("rows Bazarr already re-timed offer AI subtitles instead of Re-time", "src=embedded|bazarr=tried" in ui7 and "noRetime(f)?B('subsearch')+B('whisper','primary')" in ui7)
+    q7 = []; real7 = audit.enqueue; audit.enqueue = q7.append
+    try:
+        d7 = _tf.mkdtemp(); P7 = os.path.join(d7, "a.mkv"); open(P7, "wb").write(b"x")
+        c7.execute("UPDATE finding SET path=? WHERE id='rt1'", (P7,)); c7.commit()
+        n7 = audit.recheck_open_timing(c7); n8 = audit.recheck_open_timing(c7)
+    finally: audit.enqueue = real7
+    check("one time: every open timing row gets a fresh check with the second look", n7 >= 1 and n8 == 0 and all(j["type"] == "subsync" for j in q7), (n7, n8, q7))
+    c7.close()
+except Exception as e: check("re-time case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

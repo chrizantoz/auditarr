@@ -318,6 +318,7 @@ try:
     check("wrong track: no track in the original language -> Bazarr's choice stands", audit.whisper_wanted_track(J9, W9("translate Portuguese audio -> English SRT"), A("por"), "jpn") is None)
     check("wrong track: unknown original language -> Bazarr's choice stands", audit.whisper_wanted_track(J9, W9("translate Portuguese audio -> English SRT"), A("jpn", "por"), "und") is None)
     open(os.path.join(d9, "Show - S01E13.en.srt"), "w").write("1\n00:00:01,000 --> 00:00:02,000\nfrom the dub\n")
+    real_trash9 = audit.TRASH_DIR; audit.TRASH_DIR = os.path.join(d9, "trash")   # never the real trash (CI has no /data at this step)
     calls9 = []; real_run, real_post = audit.subprocess.run, audit._asr_post
     class _R: stdout = b"\x00\x00" * 16000
     audit.subprocess.run = lambda cmd, **k: (calls9.append(cmd), _R())[1]
@@ -329,6 +330,7 @@ try:
     trashed9 = [os.path.join(r_, n_) for r_, _, ns_ in os.walk(audit.TRASH_DIR) for n_ in ns_ if n_ == "Show - S01E13.en.srt" and os.path.basename(d9) in r_]
     check("own AI subtitles: the new file replaces the old one, which goes to the trash", "from the Japanese" in open(os.path.join(d9, "Show - S01E13.en.srt")).read()
           and len(trashed9) == 1 and "from the dub" in open(trashed9[0]).read(), trashed9)
+    audit.TRASH_DIR = real_trash9
     check("own AI subtitles: the result reads like a landed subtitle, so rows close and timing is re-checked", res9.startswith("whisper subtitle") and "Japanese track" in res9, res9)
     src9 = open(os.path.join(ROOT, "audit.py")).read()
     check("the AI subtitles job checks the track before taking Bazarr's subtitle", "own = whisper_wanted_track(job, w) if w else None" in src9 and "own_ai_subtitle(c_, job[\"path\"]" in src9)

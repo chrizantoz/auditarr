@@ -2868,10 +2868,17 @@ def _whisper_job(job):
         if job.get("path"):
             if result.startswith("whisper subtitle") or result.startswith("skipped - a Whisper subtitle was already made"):
                 for (fid_,) in conn.execute("SELECT id FROM finding WHERE resolved_at IS NULL AND path=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (job["path"],)).fetchall(): resolve_finding(conn, fid_, "AI subtitles made")
+                recheck_timing(conn, job["path"], "re-check after AI subtitles")
                 conn.execute("DELETE FROM probe WHERE path=?", (job["path"],)); conn.commit(); refresh_reports(conn)
             elif not result.startswith("submitted to Bazarr"): clear_working(conn, path=job["path"]); refresh_reports(conn)
             plex_refresh(job["path"])
     finally: conn.close()
+def recheck_timing(conn, path, why):
+    """2026-11-12: AI subtitles landed for a file whose subtitles were out of sync, and the row stayed open with the old verdict. A new external
+    subtitle is what the timing check judges first, so check again: the row clears if the new file fits."""
+    rows = conn.execute("SELECT app, fid, label FROM finding WHERE resolved_at IS NULL AND path=? AND check_code='SUBS_OUT_OF_SYNC'", (path,)).fetchall()
+    for app_, afid_, label_ in rows: enqueue(dict(type="subsync", fid=afid_, app=app_, path=path, label=label_, actor=why, prio=3))
+    return len(rows)
 def ui_whisper(conn, body, actor):
     """{show, season?} -> queue a Whisper subtitle for every episode of that show (or season); {movie} for a Radarr title."""
     apps = arr_apps(); q = (body.get("show") or body.get("movie") or "").strip().lower(); season = body.get("season")

@@ -156,5 +156,18 @@ try:
     check("busy: the page lists rows being fixed apart and moves a pressed row there before the server answers", "drawBusy(" in ui and "LB[id]=" in ui and "list=all.filter(f=>!busyOf(f))" in ui)
 except Exception as e: check("busy case runs", False, repr(e))
 
+# 2026-11-12: AI subtitles landed for an episode whose built-in subtitles drift; the row kept the old verdict because nothing checked the timing again
+try:
+    c3 = audit.db(); P3 = "/data/media/anime/Show/Show - S00E30.mkv"
+    c3.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('sync1','sonarr','77','SUBS_OUT_OF_SYNC','medium','Show S00E30',?,'drift',0,0,NULL,0,1,0)", (P3,)); c3.commit()
+    q3 = []; real_enq = audit.enqueue; audit.enqueue = q3.append
+    try: n3 = audit.recheck_timing(c3, P3, "re-check after AI subtitles"); n0 = audit.recheck_timing(c3, "/data/other.mkv", "x")
+    finally: audit.enqueue = real_enq
+    check("AI subtitles landing on an out-of-sync file queue a timing check of it", n3 == 1 and q3 and q3[0]["type"] == "subsync" and str(q3[0]["fid"]) == "77" and q3[0]["path"] == P3, q3)
+    check("files with no open timing finding are left alone", n0 == 0 and len(q3) == 1)
+    check("the Whisper worker calls it when a subtitle lands", 'recheck_timing(conn, job["path"], "re-check after AI subtitles")' in open(os.path.join(ROOT, "audit.py")).read())
+    c3.close()
+except Exception as e: check("AI-subtitles re-check case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

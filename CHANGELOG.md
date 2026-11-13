@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Safety: every kind of row now says who may close it, and the three blanket clean-ups ask before closing anything; `tests/row_owners.py` checks every place that closes rows (#47).
 - Fix: every audit run closed every "Subtitles out of sync" row without fixing it. Timing rows now stay open until their own check, a fix or a new file closes them; on start, the rows closed by mistake in the last 14 days get a fresh timing check (#46).
 - New: **Refresh in Plex** and **Rescan the folder** no longer end with "clears on the next audit". Auditarr looks again after about 1½, 4 and 10 minutes; the row closes once Plex or the arr lists the file (proof in Actions), or Actions says what is still missing. The rows wait under *Being fixed now* meanwhile (#41).
 - Tests: every CI run checks that each deliberate-bug check still finds its line (`mutation_check.py anchors`).

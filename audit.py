@@ -1877,7 +1877,7 @@ def run_once():
     answered = {it["app"] for it in items} | ({"disk"} if ORPHAN_SCAN and roots else set()); resolved = 0
     cur_path = {(it["app"], str(it["fid"])): it.get("path") for it in items}
     for fid, app, code, afid, fpath in conn.execute("SELECT id, app, check_code, fid, path FROM finding WHERE resolved_at IS NULL").fetchall():
-        if fid in seen or app not in answered or code in skip_codes or kept_for_its_job(code, fpath, cur_path.get((app, str(afid)))): continue
+        if fid in seen or app not in answered or code in skip_codes or not sweep_may_close("audit", code, fpath, cur_path.get((app, str(afid)))): continue
         conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (started, fid)); resolved += 1
     conn.commit()
     progress("actions", "rescans / remediation / handoff")
@@ -2054,6 +2054,22 @@ def clear_working(conn, path=None, app=None, afid=None):
     if rows: conn.commit()
     return len(rows)
 JOB_MADE = {"SUBS_OUT_OF_SYNC"}   # findings a background check makes (subtitle timing), never the audit's own checks
+# Who makes each kind of row, and so which blanket clean-up may close it (2026-11-13, lesson of #46). A fix or the row's own check always may.
+#   "check": the per-file checks in check()        -> closed by the end-of-audit clean-up, the import re-check, or the file being gone
+#   "audit": made only by a whole audit run         -> the end-of-audit clean-up, or the file being gone (an import re-check never looks at it)
+#   "job":   made by a background check (JOB_MADE)  -> only when the file is gone or replaced
+ROW_MAKER = {**{c: "check" for c in ("AUDIO_OFFSET", "BAD_DURATION_HEADER", "CORRUPT_HEADER", "DUB_NOT_WANTED", "DUB_ONLY", "INTERLACED", "MISSING_FILE", "NO_AUDIO", "NO_SUBS",
+                                     "NO_VIDEO", "RES_MISLABELED", "RUNTIME_DISAGREE", "RUNTIME_LONG", "RUNTIME_SHORT", "SAMPLE_FILE", "TITLE_MISMATCH", "TRUEHD_ONLY",
+                                     "UND_AUDIO_NO_SUBS", "WRONG_LANGUAGE", "ZERO_SIZE", "MP4_IN_MKV", "HI10P", "AV1", "DV_PROFILE5", "DV_PROFILE7")},
+             **{c: "audit" for c in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE", "ORPHAN_FILE", "DUPLICATE_VIDEO")},
+             **{c: "job" for c in JOB_MADE}}
+TODAY_ONLY = {"HEALTH", "JOBFAIL", "SELFTEST", "SPACE", "TRASH", "UNFOUND"}   # notices on the Today page, never rows in the finding table
+SWEEPS = {"check": {"audit", "import", "gone"}, "audit": {"audit", "gone"}}
+def sweep_may_close(sweep, code, f_path=None, cur_path=None):
+    """May the blanket clean-up `sweep` ('audit' | 'import' | 'gone') close an open row of kind `code`? An unknown kind is never closed by a sweep."""
+    maker = ROW_MAKER.get(code)
+    if maker == "job": return not kept_for_its_job(code, f_path, cur_path)
+    return maker is not None and sweep in SWEEPS[maker]
 def kept_for_its_job(code, f_path, cur_path):
     """2026-11-13: every audit closed every 'Subtitles out of sync' row, because the audit never makes one itself. Such a row stays open until its
     own check, a fix, or a new file (another path) closes it."""
@@ -2442,7 +2458,7 @@ def audit_one(app, parent_id, path, reason):
         for it in targets:   # an import re-check also clears this file's earlier findings that are gone now (a replaced or re-tagged file), instead of leaving them until the night
             still = {c for _, c, l, _ in out if l == it["label"]}
             for old_id, old_code, old_path in conn.execute("SELECT id, check_code, path FROM finding WHERE resolved_at IS NULL AND app=? AND fid=?", (app, it["fid"])).fetchall():
-                if old_code not in still and old_code not in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE") and not kept_for_its_job(old_code, old_path, it.get("path")): resolve_finding(conn, old_id, "cleared by the import re-check")
+                if old_code not in still and sweep_may_close("import", old_code, old_path, it.get("path")): resolve_finding(conn, old_id, "cleared by the import re-check")
         conn.commit(); label = targets[0]["label"] if targets else str(parent_id)
         bad = [x for x in out if x[0] in ("high", "critical")]
         record_action(conn, "on", "import-check", app, parent_id, label, f"checked right after import ({reason})", (f"{len(out)} finding(s): " + ", ".join(sorted({check_name(c) for _, c, _, _ in out}))) if out else "clean")
@@ -3601,8 +3617,8 @@ def ui_purge(conn, body, actor):
     return 200, {"ok": True, "deleted": n, "freed_gb": round(freed / 1e9, 1)}
 def reconcile_disk_findings(conn):
     n = 0
-    for fid, path in conn.execute("SELECT id,path FROM finding WHERE resolved_at IS NULL AND app='disk'").fetchall():
-        if path and not os.path.exists(path): conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); n += 1
+    for fid, path, code in conn.execute("SELECT id, path, check_code FROM finding WHERE resolved_at IS NULL AND app='disk'").fetchall():
+        if path and not os.path.exists(path) and sweep_may_close("gone", code, path, path): conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (time.time(), fid)); n += 1
     if n: conn.commit(); log(f"reconcile: cleared {n} disk findings whose file is gone"); refresh_reports(conn)
     return n
 def ui_state(conn):

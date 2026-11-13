@@ -210,7 +210,7 @@ try:
     check("a timing row whose file is gone is not kept", not audit.kept_for_its_job("SUBS_OUT_OF_SYNC", P5 + ".gone", P5 + ".gone"))
     check("every other kind of row is cleaned up as before", not audit.kept_for_its_job("NO_SUBS", P5, P5) and not audit.kept_for_its_job("WRONG_LANGUAGE", P5, P5))
     src5 = open(os.path.join(ROOT, "audit.py")).read()
-    check("the end-of-audit clean-up and the import re-check both ask kept_for_its_job", src5.count("kept_for_its_job(") >= 3 and "kept_for_its_job(code, fpath, cur_path.get((app, str(afid))))" in src5 and "kept_for_its_job(old_code, old_path, it.get(\"path\"))" in src5)
+    check("the end-of-audit clean-up and the import re-check both ask who may close the row", 'not sweep_may_close("audit", code, fpath, cur_path.get((app, str(afid))))' in src5 and 'sweep_may_close("import", old_code, old_path, it.get("path"))' in src5 and "return not kept_for_its_job(code, f_path, cur_path)" in src5)
     t_run = 1_900_000_000.25
     c5.execute("INSERT INTO run(started, finished, files) VALUES(?, ?, 1)", (t_run, t_run + 100))
     c5.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('sw1','sonarr',30,'SUBS_OUT_OF_SYNC','medium','Show S00E30',?,'3.8s late',0,0,?,0,1,0)", (P5, t_run))

@@ -302,5 +302,39 @@ try:
     check("a job already waiting is not put in line twice when the restart re-queue runs after it", len(seen8) == 1 and seen8.count(seen8[0]) == 1, seen8)
 except Exception as e: check("double re-queue case runs", False, repr(e))
 
+# #51 (2026-11-13): Bazarr made AI subtitles from the wrong audio track: "translate Portuguese" on a Japanese + Portuguese anime file, and the English dub on Japanese + English ones
+try:
+    import tempfile as _tf
+    d9 = _tf.mkdtemp(); V9 = os.path.join(d9, "Show - S01E13.mkv"); open(V9, "wb").write(b"x")
+    A = lambda *langs: {"streams": [{"index": i + 1, "codec_type": "audio", "tags": {"language": l}} for i, l in enumerate(langs)]}
+    J9 = dict(type="whisper", kind="series", seriesid=1, episodeid=13, path=V9)
+    W9 = lambda info: {"release_info": [info]}
+    r9 = audit.whisper_wanted_track(J9, W9("translate Portuguese audio -> English SRT"), A("jpn", "por"), "jpn")
+    check("wrong track: Japanese + Portuguese file, Bazarr says Portuguese -> use the Japanese track", r9 == (1, "jpn", "Portuguese"), r9)
+    check("wrong track: Bazarr says Japanese -> Bazarr's subtitle is fine", audit.whisper_wanted_track(J9, W9("translate Japanese audio -> English SRT"), A("jpn", "por"), "jpn") is None)
+    r9 = audit.whisper_wanted_track(J9, W9("transcribe English audio -> English SRT"), A("eng", "jpn"), "jpn")
+    check("wrong track: Japanese + English dub, Bazarr would transcribe the dub -> use the Japanese track (stream 2)", r9 == (2, "jpn", "English"), r9)
+    check("wrong track: an English show transcribed from English is fine", audit.whisper_wanted_track(J9, W9("transcribe English audio -> English SRT"), A("eng", "spa"), "eng") is None)
+    check("wrong track: no track in the original language -> Bazarr's choice stands", audit.whisper_wanted_track(J9, W9("translate Portuguese audio -> English SRT"), A("por"), "jpn") is None)
+    check("wrong track: unknown original language -> Bazarr's choice stands", audit.whisper_wanted_track(J9, W9("translate Portuguese audio -> English SRT"), A("jpn", "por"), "und") is None)
+    open(os.path.join(d9, "Show - S01E13.en.srt"), "w").write("1\n00:00:01,000 --> 00:00:02,000\nfrom the dub\n")
+    calls9 = []; real_run, real_post = audit.subprocess.run, audit._asr_post
+    class _R: stdout = b"\x00\x00" * 16000
+    audit.subprocess.run = lambda cmd, **k: (calls9.append(cmd), _R())[1]
+    audit._asr_post = lambda audio, q, timeout=900: (calls9.append(q), "1\n00:00:01,500 --> 00:00:02,500\nfrom the Japanese\n")[1]
+    try:
+        c9 = audit.db(); res9 = audit.own_ai_subtitle(c9, V9, 1, "jpn", "Bazarr would have used the Portuguese track"); c9.commit()
+    finally: audit.subprocess.run, audit._asr_post = real_run, real_post
+    check("own AI subtitles: the Japanese track (stream 1) is the one sent, translated from Japanese", any("0:1" in c_ for c_ in calls9 if isinstance(c_, list)) and any("task=translate" in c_ and "language=ja" in c_ for c_ in calls9 if isinstance(c_, str)), calls9)
+    trashed9 = [os.path.join(r_, n_) for r_, _, ns_ in os.walk(audit.TRASH_DIR) for n_ in ns_ if n_ == "Show - S01E13.en.srt" and os.path.basename(d9) in r_]
+    check("own AI subtitles: the new file replaces the old one, which goes to the trash", "from the Japanese" in open(os.path.join(d9, "Show - S01E13.en.srt")).read()
+          and len(trashed9) == 1 and "from the dub" in open(trashed9[0]).read(), trashed9)
+    check("own AI subtitles: the result reads like a landed subtitle, so rows close and timing is re-checked", res9.startswith("whisper subtitle") and "Japanese track" in res9, res9)
+    src9 = open(os.path.join(ROOT, "audit.py")).read()
+    check("the AI subtitles job checks the track before taking Bazarr's subtitle", "own = whisper_wanted_track(job, w) if w else None" in src9 and "own_ai_subtitle(c_, job[\"path\"]" in src9)
+    check("one time: wrong-track AI subtitles are made again (redo skips the 24 h rule), never on the staging copy", "redo_wrong_track_subs(c_)" in src9 and 'not job.get("redo") and whisper_done_since' in src9 and "wrong_track_redo_v1" in src9)
+    c9.close()
+except Exception as e: check("wrong-track case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

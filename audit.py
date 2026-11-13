@@ -2917,6 +2917,81 @@ def bazarr_call(path, data=None, method=None, timeout=900):
     req = urllib.request.Request(f"{base}/api/{path}", data=body, method=method or ("POST" if body is not None else "GET"), headers={"X-API-KEY": key, "Content-Type": "application/x-www-form-urlencoded"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read(); return json.loads(raw) if raw.strip() else None
+# 2026-11-13 (#51): Bazarr's AI subtitles used the wrong audio track on files with a dub. Its list of a file's audio languages has no fixed order:
+# a Japanese + Portuguese file was "translated from Portuguese" (Bazarr sent the first track, Japanese, and told Whisper it was Portuguese), and on
+# Japanese + English files it transcribed the English dub. Auditarr now checks the track first and makes the subtitle itself from the right one.
+def whisper_wanted_track(job, w, pr=None, orig=None):
+    """Would Bazarr's whisperai candidate `w` use the wrong audio? -> None (fine, or nothing better) or (stream index, wanted code3, Bazarr's word)."""
+    path = job.get("path")
+    if not path or not os.path.exists(path): return None
+    if orig is None: orig = job_original_lang(job)
+    if not orig or orig in ("und", ""): return None
+    if pr is None:
+        ok, pr = ffprobe(path)
+        if not ok: return None
+    want = [s_ for s_ in pr.get("streams", []) if s_.get("codec_type") == "audio" and canon((s_.get("tags") or {}).get("language", "und") or "und") == orig]
+    if not want: return None   # no track in the original language: Bazarr's choice is as good as any
+    info = (w.get("release_info") or [""]); info = info[0] if isinstance(info, list) else str(info)
+    m = re.search(r"([A-Za-z ]+?) audio ->", info or "")
+    if not m: return None
+    said = LANG_NAMES.get(m.group(1).strip().split()[-1].lower(), "")
+    if said == orig: return None
+    return (want[0]["index"], orig, m.group(1).strip().split()[-1])
+def job_original_lang(job):
+    """The original language of the job's show or movie, from the arr (code3), or None."""
+    try:
+        apps = arr_apps()
+        if job.get("kind") == "series" and job.get("seriesid"): base, key, _ = apps["sonarr"]; x = api(base, key, f"series/{job['seriesid']}")
+        elif job.get("radarrid"): base, key, _ = apps["radarr"]; x = api(base, key, f"movie/{job['radarrid']}")
+        else: return None
+        return canon(LANG_NAME.get((x.get("originalLanguage") or {}).get("name"), "")) or None
+    except Exception as e: log("original language:", repr(e)); return None
+def _asr_post(audio, query, timeout=900):
+    """POST raw 16 kHz mono s16le audio to the Whisper endpoint (the same call Bazarr makes) -> the answer text."""
+    import uuid; bnd = uuid.uuid4().hex; last = None
+    body = (f"--{bnd}\r\nContent-Disposition: form-data; name=\"audio_file\"; filename=\"a.pcm\"\r\nContent-Type: application/octet-stream\r\n\r\n").encode() + audio + f"\r\n--{bnd}--\r\n".encode()
+    for base_url in SUBGEN_URLS:
+        try:
+            req = urllib.request.Request(f"{base_url.rstrip('/')}/asr?{query}", data=body, method="POST", headers={"Content-Type": f"multipart/form-data; boundary={bnd}"})
+            with urllib.request.urlopen(req, timeout=timeout) as r: return r.read().decode("utf-8", "replace")
+        except Exception as e: last = e; log("own whisper:", base_url, repr(e))
+    raise last or RuntimeError("no whisper endpoint")
+def own_ai_subtitle(conn, path, stream_index, orig, why):
+    """Make English AI subtitles from one chosen audio track and save them next to the video (an existing .en.srt goes to the trash first)."""
+    t0 = time.time(); lang2 = TWO_LETTER.get(orig)
+    pcm = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-map", f"0:{stream_index}", "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-acodec", "pcm_s16le", "-"], capture_output=True, timeout=1800, check=True).stdout
+    q = f"task={'transcribe' if orig == 'eng' else 'translate'}&output=srt&encode=false" + (f"&language={lang2}" if lang2 else "")
+    srt = _asr_post(pcm, q, timeout=3600)
+    if "-->" not in srt: raise RuntimeError(f"the Whisper endpoint answered without subtitle lines: {srt[:80]!r}")
+    dest = os.path.splitext(path)[0] + ".en.srt"; tmp = dest + ".tmp"
+    open(tmp, "w", encoding="utf-8").write(srt)
+    if os.path.exists(dest): quarantine(conn, dest, f"AI subtitles redone from the {lang_word(orig)} track: {why}", "regrab", sidecars=False)
+    os.rename(tmp, dest)
+    try: st0 = os.stat(path); os.chmod(dest, 0o664); os.chown(dest, st0.st_uid, st0.st_gid)
+    except OSError: pass
+    return f"whisper subtitle made by Auditarr from the {lang_word(orig)} track in {(time.time() - t0) / 60:.1f} min ({why})"
+def redo_wrong_track_subs(conn, now=None):
+    """One time (#51): AI subtitles Bazarr made from the wrong audio track are made again from the original-language track. Only the latest AI
+    subtitle of each episode or movie counts, and only when the file really has a track in the original language. Returns how many were queued."""
+    if conn.execute("SELECT 1 FROM kv WHERE k='wrong_track_redo_v1'").fetchone(): return 0
+    apps = arr_apps(); seen = set(); n = 0
+    for app, target, label, res in conn.execute("SELECT app, target, label, result FROM action WHERE kind='whisper' AND result LIKE 'whisper subtitle%' ORDER BY ts DESC").fetchall():
+        if (app, str(target)) in seen or app not in ("sonarr", "radarr") or app not in apps: continue
+        seen.add((app, str(target))); m = re.search(r"\(([^()]*audio -> [^()]*)\)", res or "")
+        if not m: continue
+        try:
+            base, key, _ = apps[app]
+            if app == "sonarr":
+                ep = api(base, key, f"episode/{target}"); fpath = (api(base, key, f"episodefile/{ep['episodeFileId']}") or {}).get("path") if ep.get("episodeFileId") else None
+                job = dict(type="whisper", kind="series", app=app, seriesid=ep["seriesId"], episodeid=int(target), label=label, path=fpath)
+            else:
+                mv = api(base, key, f"movie/{target}"); job = dict(type="whisper", kind="movie", app=app, radarrid=int(target), label=label, path=(mv.get("movieFile") or {}).get("path"))
+            if whisper_wanted_track(job, {"release_info": [m.group(1)]}):
+                job.update(redo=True, actor="redo: the AI subtitles were made from the wrong audio track"); enqueue(job); n += 1
+        except Exception as e: log("wrong-track redo:", label, repr(e))
+    conn.execute("INSERT OR REPLACE INTO kv(k, v) VALUES('wrong_track_redo_v1', ?)", (str(n),)); conn.commit()
+    if n: log(f"AI subtitles: {n} made from the wrong audio track are made again")
+    return n
 def _whisper_job(job):
     """Ask Bazarr for the whisperai candidate of one episode/movie and download it (this is the slow part: Whisper runs on the whole episode)."""
     kind = job["kind"]; t0 = time.time()
@@ -2937,12 +3012,17 @@ def _whisper_job(job):
         except Exception: return None
         return {(r.get("id"), r.get("parsed_timestamp") or r.get("timestamp"), r.get("subtitles_path")) for r in rows if r.get("provider") == "whisperai"}
     try:
-        if whisper_done_since(time.time() - 86400): result = "skipped - a Whisper subtitle was already made for this in the last 24 h"
+        if not job.get("redo") and whisper_done_since(time.time() - 86400): result = "skipped - a Whisper subtitle was already made for this in the last 24 h"
         else:
             rows = bazarr_call(f"providers/episodes?episodeid={job['episodeid']}" if kind == "series" else f"providers/movies?radarrid={job['radarrid']}", timeout=900)
             rows = rows if isinstance(rows, list) else (rows or {}).get("data", [])
             w = next((r for r in rows if r.get("provider") == "whisperai"), None)
+            own = whisper_wanted_track(job, w) if w else None
             if not w: result = "Bazarr offered no whisperai candidate (is the provider enabled / subgen up?)"
+            elif own:
+                c_ = db()
+                try: result = own_ai_subtitle(c_, job["path"], own[0], own[1], f"Bazarr would have used the {own[2]} track"); c_.commit()
+                finally: c_.close()
             else:
                 form = {"hi": "false", "forced": "false", "original_format": "false", "provider": "whisperai", "subtitle": w["subtitle"]}
                 before = whisper_rows() or set()
@@ -4303,6 +4383,9 @@ def daemon():
     except Exception as e: log("timing re-check:", repr(e))
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))
+    if E("JOBS", "on") != "off":   # the staging copy never queues real work
+        try: c_ = db(); redo_wrong_track_subs(c_); c_.close()
+        except Exception as e: log("wrong-track redo:", repr(e))
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")

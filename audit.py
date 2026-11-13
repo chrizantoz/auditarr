@@ -2016,6 +2016,21 @@ def rescan_for_path(apps, path):
                         r = api(base, key, "command", "POST", {"name": "RescanMovie", "movieId": m["id"]}, timeout=60); return f"{app} RescanMovie {m['title']} (cmd {(r or {}).get('id')})"
         except Exception as e: log("rescan_for_path:", app, repr(e))
     return "no arr owns this path"
+def arr_lists_path(apps, path):
+    """#41: which arr now lists `path` as one of its files ('sonarr', ...), or None. Asks only the series/movie whose folder holds it."""
+    n = os.path.normpath(path)
+    for app, (base, key, kind) in apps.items():
+        try:
+            if kind == "series":
+                for s in api(base, key, "series"):
+                    if s.get("path") and n.startswith(os.path.normpath(s["path"]) + os.sep):
+                        if any(os.path.normpath(f.get("path") or "") == n for f in api(base, key, f"episodefile?seriesId={s['id']}") or []): return app
+            else:
+                for m in api(base, key, "movie"):
+                    if m.get("path") and n.startswith(os.path.normpath(m["path"]) + os.sep):
+                        if os.path.normpath(((m.get("movieFile") or {}).get("path")) or "") == n: return app
+        except Exception as e: log("arr_lists_path:", app, repr(e))
+    return None
 def finding_row(conn, fid):
     r = conn.execute("SELECT id,app,fid,check_code,severity,label,path,detail FROM finding WHERE id=?", (fid,)).fetchone()
     return dict(zip(("id", "app", "fid", "check", "severity", "label", "path", "detail"), r)) if r else None
@@ -2477,7 +2492,7 @@ def remux_to_mkv(conn, f, apps, actor):
 PRESSING = {}   # finding id -> (what, started): a button press the server is still working on (re-time, rewrap, fix the time bar ... run inside the request)
 SUB_CODES = ("NO_SUBS", "UND_AUDIO_NO_SUBS", "SUBS_OUT_OF_SYNC")
 JOB_BUSY = {"whisper": ("making AI subtitles", SUB_CODES), "subsearch": ("searching for subtitles", SUB_CODES), "subsync": ("checking the subtitle timing", ("SUBS_OUT_OF_SYNC",)),
-            "langdetect": ("listening to the audio", None), "verify": ("checking what the file really is", None)}
+            "langdetect": ("listening to the audio", None), "verify": ("checking what the file really is", None), "followup": ("checking that the fix worked", None)}
 def _jload(raw):
     try: v = json.loads(raw); return v if isinstance(v, dict) else {}
     except Exception: return {}
@@ -2556,11 +2571,14 @@ def _ui_act(conn, body, actor):
     if action == "arrrescan":
         if f["app"] != "disk" or not path: return 400, {"error": "rescan in the arr is for unknown files"}
         r = rescan_for_path(apps, path); record_action(conn, "on", "rescan", "disk", fid, f["label"], f"{f['check']} via UI by {actor}", r)
-        return (200, {"ok": True, "note": f"{r} - the row clears on the next audit if the arr adopts the file"}) if r != "no arr owns this path" else (409, {"error": "no arr lists a folder that holds this file any more"})
+        if r == "no arr owns this path": return 409, {"error": "no arr lists a folder that holds this file any more"}
+        enqueue(dict(type="followup", what="arr", finding=fid, app="disk", fid=f["fid"], path=path, label=f["label"], after="the arr rescan", actor=actor))
+        return 200, {"ok": True, "queued": True, "note": f"{r} - Auditarr looks again in a minute or two: the row closes once the arr lists the file, or Actions says it did not"}
     if action == "plexrefresh":
         if not path: return 400, {"error": "no path"}
         plx = plex_refresh(path); record_action(conn, "on", "plex-refresh", "plex", fid, f["label"], f"{f['check']} via UI by {actor}", plx)
-        return 200, {"ok": True, "plex": plx, "note": "Plex is rescanning that folder; the finding clears on the next audit run if Plex picks the file up"}
+        if f["check"] == "PLEX_MISSING": enqueue(dict(type="followup", what="plex", finding=fid, app=f["app"], fid=f["fid"], path=path, label=f["label"], after="the Plex rescan", actor=actor))
+        return 200, {"ok": True, "plex": plx, "queued": f["check"] == "PLEX_MISSING", "note": "Plex is rescanning that folder; Auditarr looks again in a minute or two: the row closes once Plex lists the file, or Actions says it did not" if f["check"] == "PLEX_MISSING" else "Plex is rescanning that folder"}
     if action == "subsearch":
         if f["app"] not in ("sonarr", "radarr"): return 400, {"error": "Bazarr only handles Sonarr and Radarr"}
         if not bazarr_conf()[1]: return 400, {"error": "no Bazarr API key (mount config.yaml at /arr/bazarr.yaml)"}
@@ -2791,8 +2809,8 @@ def _ui_act(conn, body, actor):
     return 400, {"error": f"unknown action {action}"}
 # ---------- Bazarr subtitle search (sequential background queue so a bulk click does not hammer Bazarr) ----------
 import queue
-SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue()
-def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q, "langdetect": VERIFY_Q}.get(job.get("type"), SUB_Q)   # three lanes: Bazarr searches never wait behind Whisper
+SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue(); FOLLOW_Q = queue.PriorityQueue()
+def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q, "langdetect": VERIFY_Q, "followup": FOLLOW_Q}.get(job.get("type"), SUB_Q)   # follow-ups wait on their own lane, so their pauses hold nothing else up   # three lanes: Bazarr searches never wait behind Whisper
 import itertools; _SEQ = itertools.count()
 def _put(job): _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job))   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
 def _subsearch(job):
@@ -3475,6 +3493,30 @@ def _verify_job(job):
             conn.execute("UPDATE finding SET severity=CASE WHEN severity='high' THEN 'medium' ELSE severity END WHERE id=? AND resolved_at IS NULL", (job["finding"],))
         conn.commit(); refresh_reports(conn)
     finally: conn.close()
+FOLLOW_WAITS = (90, 240, 600)   # seconds before each look: Plex and the arrs take a minute or more to pick a file up
+FOLLOW_WHAT = {"plex": ("Plex lists the file now", "Plex still does not list it"), "arr": ("the arr lists the file now", "no arr lists it yet")}
+def _followup_job(job, sleep=time.sleep):
+    """#41: after 'Ask Plex to rescan' / 'Ask the arr to rescan', look again until the file shows up (the row closes, with proof in Actions)
+    or the looks run out (the row stays, and Actions says what is still missing). Never ends silently."""
+    what = job.get("what"); path = job.get("path") or ""; yes, no = FOLLOW_WHAT.get(what, ("done", "not yet"))
+    for i, wait in enumerate(job.get("waits") or FOLLOW_WAITS):
+        sleep(wait)
+        conn = db()
+        try:
+            row = conn.execute("SELECT resolved_at FROM finding WHERE id=?", (job.get("finding"),)).fetchone()
+            if not row or row[0] is not None: return "already closed"
+        finally: conn.close()
+        try: found = (os.path.normpath(path) in plex_inventory()) if what == "plex" else bool(arr_lists_path(arr_apps(), path)) if what == "arr" else False
+        except Exception as e: found = False; log("follow-up:", repr(e))
+        if found:
+            conn = db()
+            try: resolve_finding(conn, job["finding"], yes); record_action(conn, "on", "followup", job.get("app", ""), job.get("fid", 0), job.get("label", ""), f"checked after {job.get('after', 'the fix')}", f"verified: {yes} (look {i + 1})"); refresh_reports(conn)
+            finally: conn.close()
+            return "verified"
+    conn = db()
+    try: record_action(conn, "on", "followup", job.get("app", ""), job.get("fid", 0), job.get("label", ""), f"checked after {job.get('after', 'the fix')}", f"not yet: {no} after {sum(job.get('waits') or FOLLOW_WAITS) // 60} min - the row stays; the next audit looks again"); refresh_reports(conn)
+    finally: conn.close()
+    return "not yet"
 def sub_worker(q=None):
     q = q or SUB_Q
     while True:
@@ -3484,7 +3526,7 @@ def sub_worker(q=None):
         finally: conn.close()
         try:
             if E("JOBS", "on") == "off": st = "skipped"   # staging copy: record, never run (would hit the real Bazarr/Whisper)
-            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job, "langdetect": _langdetect_job}.get(job.get("type"), _subsearch))(job); st = "done"
+            else: ({"whisper": _whisper_job, "verify": _verify_job, "subsync": _subsync_job, "langdetect": _langdetect_job, "followup": _followup_job}.get(job.get("type"), _subsearch))(job); st = "done"
         except Exception as e: note_error("sub worker:", repr(e)); st = "failed"
         finally:
             conn = db()
@@ -3608,7 +3650,7 @@ def today_summary(conn, since=None):
     did = {}
     for k, m, r, l in acts:
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
-        key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "remuxmkv": "MP4 files rewrapped as MKV", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
+        key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "remuxmkv": "MP4 files rewrapped as MKV", "followup": "fixes checked afterwards", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
                "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "langdetect": "spoken languages detected", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
@@ -4107,7 +4149,7 @@ def daemon():
         c1 = db(); save_account(c1, E("AUTH_USER"), E("AUTH_PASSWORD")); c1.close(); log("AUTH_RESET: password replaced from env - remove AUTH_RESET now")
     try: requeue_jobs()
     except Exception as e: log("requeue:", repr(e))
-    for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
+    for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")
     if E("RUN_ON_START", "1") == "1": threading.Thread(target=guarded_run, daemon=True).start()

@@ -3,6 +3,8 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- New: **Refresh in Plex** and **Rescan the folder** no longer end with "clears on the next audit". Auditarr looks again after about 1½, 4 and 10 minutes; the row closes once Plex or the arr lists the file (proof in Actions), or Actions says what is still missing. The rows wait under *Being fixed now* meanwhile (#41).
+- Tests: every CI run checks that each deliberate-bug check still finds its line (`mutation_check.py anchors`).
 - Fix: AI subtitles made for a file whose subtitles were out of sync now trigger a new timing check, so the row clears when the new file fits instead of keeping the old verdict (#38).
 - Fix: a row whose fix was queued or still running kept its buttons, so a press looked like it did nothing. Such rows now move to **Being fixed now** above the findings, saying what is happening and since when; a pressed row moves there at once and comes back with a message if the press fails (#37).
 - New: **Rewrap the file** for videos that are MP4 files under a .mkv name (finding "File type does not match its name", FYI). Same video, audio and subtitles in a real Matroska file, nothing re-encoded; the new file is checked (Matroska, same tracks, same length) before the original moves to the trash. One button per file, one per show.

@@ -17,7 +17,7 @@ jobs:
       - run: python tests/synthetic_media.py
       - run: python tests/plain_language.py && python tests/contract.py && python tests/regressions.py && python tests/authz.py && python tests/remux.py && python tests/watch_priority.py && python tests/errors_log.py && python tests/subsync.py && python tests/shapes_check.py && python tests/settings_types.py && python tests/lang_rule.py && python tests/sandbox_mode.py && python tests/fix_during_run.py && python tests/hardsub.py && python tests/golden_digest.py && python tests/perf_budget.py
       - run: python tests/fuzz_detectors.py 3000 7 && python tests/fuzz_detectors.py 1500 ${{ github.run_number }}
-      - run: python tests/mutation_check.py   # one rotating mutant per day; 'all' locally
+      - run: python tests/mutation_check.py anchors && python tests/mutation_check.py   # every mutant's line exists (every run) + one rotating mutant per day; 'all' locally
       - uses: actions/setup-node@v7
         with: { node-version: "24" }
       - run: cd uibot && npm install --silent && node ui_bot.js ../ui.html fixtures

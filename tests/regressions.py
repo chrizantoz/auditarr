@@ -169,5 +169,36 @@ try:
     c3.close()
 except Exception as e: check("AI-subtitles re-check case runs", False, repr(e))
 
+# #41 (2026-11-12): 'Ask Plex to rescan' and 'Ask the arr to rescan' ended with "clears on the next audit" - up to a day with no news. A follow-up now looks again.
+try:
+    c4 = audit.db(); P4 = "/data/media/tv/Show/Season 01/Show - S01E04.mkv"
+    def add4(id_, code, app="sonarr"):
+        c4.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,'medium','Show S01E04',?,'x',0,0,NULL,0,1,0)", (id_, app, 44, code, P4)); c4.commit()
+    add4("pm1", "PLEX_MISSING"); looks = []
+    real_inv, real_lists = audit.plex_inventory, audit.arr_lists_path
+    audit.plex_inventory = lambda: ({os.path.normpath(P4): 1} if len(looks) >= 2 else {}) if not looks.append(1) else {}
+    r4 = audit._followup_job(dict(type="followup", what="plex", finding="pm1", app="sonarr", fid=44, path=P4, label="Show S01E04", after="the Plex rescan", waits=(0, 0, 0)), sleep=lambda s_: None)
+    row4 = c4.execute("SELECT resolved_at FROM finding WHERE id='pm1'").fetchone()
+    check("follow-up: once Plex lists the file, the row closes and Actions says it was verified", r4 == "verified" and row4[0] is not None and len(looks) == 2, (r4, row4, looks))
+    check("follow-up: the proof is in the action log", any(k == "followup" and (res or "").startswith("verified: Plex lists the file now") for k, res in c4.execute("SELECT kind, result FROM action")))
+    add4("pm2", "PLEX_MISSING"); audit.plex_inventory = lambda: {}
+    r5 = audit._followup_job(dict(type="followup", what="plex", finding="pm2", app="sonarr", fid=44, path=P4, label="Show S01E04", waits=(0, 0)), sleep=lambda s_: None)
+    check("follow-up: if Plex never lists it, the row stays and Actions says what is still missing", r5 == "not yet" and c4.execute("SELECT resolved_at FROM finding WHERE id='pm2'").fetchone()[0] is None
+          and any(k == "followup" and "not yet: Plex still does not list it" in (res or "") for k, res in c4.execute("SELECT kind, result FROM action")), r5)
+    audit.resolve_finding(c4, "pm2"); r6 = audit._followup_job(dict(type="followup", what="plex", finding="pm2", path=P4, waits=(0,)), sleep=lambda s_: None)
+    check("follow-up: a row closed meanwhile (the audit, or a person) stops the looks", r6 == "already closed", r6)
+    add4("or1", "ORPHAN_FILE", "disk"); audit.arr_lists_path = lambda apps, p_: "sonarr" if p_ == P4 else None; real_apps = audit.arr_apps; audit.arr_apps = lambda: {}
+    r7 = audit._followup_job(dict(type="followup", what="arr", finding="or1", app="disk", fid=44, path=P4, waits=(0,)), sleep=lambda s_: None)
+    check("follow-up: once the arr lists a rescanned file, its row closes", r7 == "verified" and c4.execute("SELECT resolved_at FROM finding WHERE id='or1'").fetchone()[0] is not None, r7)
+    audit.plex_inventory, audit.arr_lists_path, audit.arr_apps = real_inv, real_lists, real_apps
+    q4 = []; real_enq, real_px = audit.enqueue, audit.plex_refresh; audit.enqueue = q4.append; audit.plex_refresh = lambda p_: "plex refresh queued"
+    try: add4("pm3", "PLEX_MISSING"); code4, obj4 = audit._ui_act(c4, {"id": "pm3", "action": "plexrefresh"}, "test")
+    finally: audit.enqueue, audit.plex_refresh = real_enq, real_px
+    check("Ask Plex to rescan on a 'not in Plex' row queues the follow-up and says so", code4 == 200 and q4 and q4[0]["type"] == "followup" and q4[0]["what"] == "plex" and q4[0]["finding"] == "pm3" and "looks again" in obj4["note"], (code4, obj4, q4))
+    check("the follow-up waits on its own lane, so its pauses hold no subtitle job up", audit._lane({"type": "followup"}) is audit.FOLLOW_Q and audit.FOLLOW_Q is not audit.VERIFY_Q)
+    check("while it waits the row shows under Being fixed now", audit.busy_marks([dict(id="pm3", check="PLEX_MISSING", path=P4)], [("queued", q4[0], None)])[0].get("busy", {}).get("what") == "checking that the fix worked")
+    c4.close()
+except Exception as e: check("follow-up case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

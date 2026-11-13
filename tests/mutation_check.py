@@ -14,8 +14,11 @@ MUTANTS = [   # (name, exact text in audit.py, replacement that silently breaks 
     ("read-only guard disabled", "    if not READ_ONLY: return\n    WRITE_LEDGER.append", "    if True: return\n    WRITE_LEDGER.append"),
 ]
 arg = sys.argv[1] if len(sys.argv) > 1 else str(datetime.date.today().timetuple().tm_yday % len(MUTANTS))
-todo = MUTANTS if arg == "all" else [MUTANTS[int(arg) % len(MUTANTS)]]
+todo = MUTANTS if arg == "all" else [] if arg == "anchors" else [MUTANTS[int(arg) % len(MUTANTS)]]
 src = open(os.path.join(ROOT, "audit.py")).read(); bad = 0
+if arg == "anchors":   # every run: each mutant must still find its line (2026-11-12: Dedupearr lost one to a refactor; the one-a-day rotation would not have said so for weeks)
+    miss = [n for n, old, _ in MUTANTS if old not in src]
+    print(f"{len(MUTANTS) - len(miss)} of {len(MUTANTS)} mutant anchors found" + (": missing " + ", ".join(miss) if miss else "")); sys.exit(1 if miss else 0)
 for name, old, new in todo:
     if old not in src: print(f"FAIL mutant '{name}': anchor text not found in audit.py (update the mutant)"); bad += 1; continue
     tmp = tempfile.mkdtemp(prefix="auditarr-mut-")

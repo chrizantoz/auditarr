@@ -74,7 +74,7 @@ Three steps. **1 Connect your apps**: press **Find my apps** and Auditarr looks 
 | ⏳ **Being fixed now** *(box above the findings)* | files a button was pressed for, or a job is running or waiting for (AI subtitles, a subtitle search, a timing or content check). They leave the list at once, show what is happening and since when, and leave the box by themselves when the job lands - fixed, or back in the list with what is left. If the job gives up, the row comes back. | — |
 | 🧐 **Check the episode** / **Check the movie** | compares the dialogue with the neighbouring episodes and the TVDB descriptions (for a movie: with its synopsis) and says whether this really is what it claims to be. The result replaces the sentence on the row | **Check again** runs it again |
 | 🔍 **Search now** | for a missing episode or movie: asks the arr to search right now | — |
-| 📺 **Refresh in Plex** | asks Plex to rescan that folder | — |
+| 📺 **Refresh in Plex** | asks Plex to rescan that folder. On a "not in Plex" row, Auditarr then looks again after about 1½, 4 and 10 minutes: the row closes once Plex lists the file, or Actions says it still does not. **Rescan the folder** does the same with the arr | — |
 | 📦 **Archive** (Space tab) | unmonitor the season and move it to the trash with a 30-day grace period | Trash → Put back within 30 days |
 
 Every button asks **"sure?"** inline before it does anything. Hover a button to see the technical name it had before (re-grab, fix tag, ...).

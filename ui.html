@@ -248,8 +248,8 @@ function renderFindings(){
   const rm=fs.filter(f=>f.check==='MP4_IN_MKV'&&/\.mkv$/i.test(f.path||'')); if(rm.length>1)grpAct+=` <button class="b primary" data-bulk="remuxmkv" data-ids="${rm.map(f=>f.id).join(',')}" title="${esc(BTN.remuxmkv[1])}">Rewrap all ${rm.length} files</button>`;
   const fh=fs.filter(f=>f.check==='BAD_DURATION_HEADER'&&/\.mkv$/i.test(f.path||'')); if(fh.length>1)grpAct+=` <button class="b primary" data-bulk="fixheader" data-ids="${fh.map(f=>f.id).join(',')}">${BL('fixheader',' ×'+fh.length)}</button>`;
   const arrS=f=>['sonarr','radarr'].includes(f.app), ts=fs.filter(f=>f.check==='SUBS_OUT_OF_SYNC'&&arrS(f));   // 2026-11-13: subtitles a whole show at a time, not one row at a time
-  const wh=fs.filter(f=>arrS(f)&&(['NO_SUBS','UND_AUDIO_NO_SUBS'].includes(f.check)||(f.check==='SUBS_OUT_OF_SYNC'&&noRetime(f)))); if(wh.length>1)grpAct+=` <button class="b primary" data-bulk="whisper" data-ids="${wh.map(f=>f.id).join(',')}">${BL('whisper',' ×'+wh.length)}</button>`;
-  const rt=ts.filter(f=>!noRetime(f)); if(rt.length>1)grpAct+=` <button class="b primary" data-bulk="subsync_fix" data-ids="${rt.map(f=>f.id).join(',')}">${BL('subsync_fix',' ×'+rt.length)}</button>`;
+  const wh=fs.filter(f=>arrS(f)&&f.ai!=='pieces'&&((['NO_SUBS','UND_AUDIO_NO_SUBS'].includes(f.check)&&!f.ai)||(f.check==='SUBS_OUT_OF_SYNC'&&(f.ai==='made'||noRetime(f))))); if(wh.length>1)grpAct+=` <button class="b primary" data-bulk="whisper" data-ids="${wh.map(f=>f.id).join(',')}">${BL('whisper',' ×'+wh.length)}</button>`;
+  const rt=ts.filter(f=>!noRetime(f)&&!f.ai); if(rt.length>1)grpAct+=` <button class="b primary" data-bulk="subsync_fix" data-ids="${rt.map(f=>f.id).join(',')}">${BL('subsync_fix',' ×'+rt.length)}</button>`;
   if(ts.length>1)grpAct+=` <button class="b" data-bulk="subsync" data-ids="${ts.map(f=>f.id).join(',')}">Check timing again ×${ts.length}</button>`;
   const px=fs.filter(f=>f.check==='PLEX_MISSING'); if(px.length>1)grpAct+=` <button class="b" data-bulk="plexrefresh" data-ids="${px.map(f=>f.id).join(',')}">${BL('plexrefresh',' ×'+px.length)}</button>`;
   const wl=fs.filter(f=>f.check==='WRONG_LANGUAGE'&&['sonarr','radarr','whisparr','sportarr'].includes(f.app)); if(by==='show'&&wl.length>0){const al=(wl[0].detail.match(/audio=\['(\w{3})/)||[])[1]||'';if(al)grpAct+=` <button class="b" data-act="acceptlang" data-id="${wl[0].id}" data-lang="${al}" title="one click: tags the show in its arr, clears all its language findings">${esc(al)} is correct for this show</button>`;}
@@ -267,7 +267,7 @@ function row(f){const working=/^\[working:/.test(f.detail||''), agree=/^\[two re
  if(isArr&&f.check==='AV1')acts+=B('regrab','danger');
  if(isArr&&f.check==='HI10P'&&f.library!=='Anime')acts+=B('regrab','danger');
  if(isArr&&f.check==='WRONG_LANGUAGE'&&f.severity==='high')acts+=B('regrab','danger');
- if(['sonarr','radarr'].includes(f.app)&&['NO_SUBS','UND_AUDIO_NO_SUBS'].includes(f.check))acts+=B('subsearch')+B('whisper','primary');
+ if(['sonarr','radarr'].includes(f.app)&&['NO_SUBS','UND_AUDIO_NO_SUBS'].includes(f.check))acts+=B('subsearch',f.ai?'primary':'')+(f.ai?'':B('whisper','primary'));
  if(f.check==='NO_SUBS'&&/untagged text subtitle/.test(f.detail)&&mkv)acts+=B('subtag','primary');
  if(['MISSING_EPISODE','MISSING_MOVIE','MISSING_SCENE'].includes(f.check))acts+=B('search','primary');
  if(isArr&&['RUNTIME_LONG','RUNTIME_SHORT','TITLE_MISMATCH','SAMPLE_FILE'].includes(f.check))acts+=B('verify','',/\[verified/.test(f.detail)?'Check again':f.app==='radarr'?'Check the movie':undefined);
@@ -275,7 +275,7 @@ function row(f){const working=/^\[working:/.test(f.detail||''), agree=/^\[two re
  if(f.check==='MP4_IN_MKV'&&mkv)acts+=B('remuxmkv','primary');
  if(f.check==='PLEX_MISSING')acts+=B('plexrefresh');
  if(f.check==='AUDIO_OFFSET'&&mkv&&!/intentional/.test(f.detail))acts+=B('fixsync','danger');
- if(f.check==='SUBS_OUT_OF_SYNC'&&isArr)acts+=(noRetime(f)?B('subsearch')+B('whisper','primary'):B('subsync_fix','primary'))+B('subsync','','Check again');   // Bazarr cannot re-time a track inside the file, and a second re-time changes nothing: offer a new file instead
+ if(f.check==='SUBS_OUT_OF_SYNC'&&isArr)acts+=(f.ai==='pieces'?B('subsearch','primary'):f.ai==='made'?B('whisper','primary','Make AI subtitles again in pieces')+B('subsearch'):noRetime(f)?B('subsearch')+B('whisper','primary'):B('subsync_fix','primary'))+B('subsync','','Check again');   // #53: AI subtitles once, then once more in pieces, then a new file   // Bazarr cannot re-time a track inside the file, and a second re-time changes nothing: offer a new file instead
  if(f.check==='UND_AUDIO_NO_SUBS'&&isArr)acts+=B('langdetect','primary');
  if(/burned into the picture/.test(f.detail||''))acts+=` <a class="b" href="api/frame?id=${f.id}" target="_blank" rel="noopener" title="one frame from the lower part of the picture, taken where the painted text was seen">Show me a frame</a>`;
  if(f.check==='WRONG_LANGUAGE'&&isArr){const al=(f.detail.match(/audio=\['(\w{3})/)||[])[1]||'';if(al)acts+=` <button class="b" data-act="acceptlang" data-id="${f.id}" data-lang="${al}" title="${esc(BTN.acceptlang[1])} (audit-lang-${al})">${esc(al)} is correct</button>`;}

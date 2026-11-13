@@ -87,10 +87,14 @@ async function edgeChecks(S) {
   if (EDGE === "subsgroup") {
     $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
     const ids = b => (($(`button[data-bulk=${b}]`) || {}).dataset || {}).ids || "";
-    check("subsgroup: one Make AI subtitles for the show: its rows without subtitles plus the timing rows Re-time cannot help", ids("whisper") === "sg1,sg3,sg4,sg5", ids("whisper"));
+    check("subsgroup: one Make AI subtitles for the show: its rows without subtitles plus the timing rows Re-time cannot help", ids("whisper") === "sg1,sg3,sg4,sg5,sg6", ids("whisper"));
     check("subsgroup: one Re-time for the timing rows Re-time can still fix", ids("subsync_fix") === "sg0,sg2", ids("subsync_fix"));
-    check("subsgroup: one Check timing again for every timing row", ids("subsync") === "sg0,sg1,sg2,sg3", ids("subsync"));
+    check("subsgroup: one Check timing again for every timing row", ids("subsync") === "sg0,sg1,sg2,sg3,sg6,sg7", ids("subsync"));
     check("subsgroup: a row Bazarr already re-timed offers AI subtitles, not Re-time", !$('button[data-act=subsync_fix][data-id="sg1"]') && !!$('button.primary[data-act=whisper][data-id="sg1"]'));
+    const w6 = $('button[data-act=whisper][data-id="sg6"]');
+    check("subsgroup: a timing row whose AI subtitles still drift offers them once more, in pieces, and no Re-time", w6 && /again in pieces/.test(w6.textContent) && !$('button[data-act=subsync_fix][data-id="sg6"]'), w6 ? w6.textContent : "none");
+    check("subsgroup: a row whose AI subtitles were made in pieces offers Find subtitles, never AI subtitles or Re-time again", !$('button[data-act=whisper][data-id="sg7"]') && !$('button[data-act=subsync_fix][data-id="sg7"]') && !!$('button[data-act=subsearch][data-id="sg7"]'));
+    check("subsgroup: a no-subtitles row whose AI subtitles are on their way offers no second press", !$('button[data-act=whisper][data-id="sg8"]'));
     const b = $("button[data-bulk=whisper]");
     if (b) {
       const n0 = posts.length; b.click(); await sleep(20); $(".confirm button.primary").click(); await sleep(150);

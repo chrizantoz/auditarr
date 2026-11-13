@@ -146,10 +146,11 @@ while time.time() - t3 < 60:
 check("the imported file is checked within a minute and the problem shows up", hit is not None and hit["severity"] == "high", hit)
 ns = next((f for f in byt.get("NO_SUBS", []) if "S01E03" in f["title"]), None)
 if ns:
-    s, j = api("/api/act", {"id": ns["id"], "action": "whisper"}); check("Make AI subtitles queues a job", s == 200 and j.get("queued"), (s, j))
+    s, j = api("/api/act", {"id": ns["id"], "action": "whisper"}); refused = s == 409 and "already made" in (j.get("error") or "")   # #53: the whole-show AI subtitles above already made this one: a second press is refused at once
+    check("Make AI subtitles queues a job, or is refused at once when AI subtitles were just made for the file", (s == 200 and j.get("queued")) or refused, (s, j))
     s, st = api("/api/state"); wf = next((f for f in st.get("findings", []) if f["id"] == ns["id"]), None); t_click = time.time()
     done_fast = any(a.get("kind") == "whisper" and "S01E03" in a.get("title", "") and a.get("ts", "") >= time.strftime("%Y-%m-%d %H:%M", time.localtime(t_click - 60)) for a in st.get("actions", []))
-    check("the row is flagged 'working' right away and leaves Needs you", (wf and wf["detail"].startswith("[working:") and not any(n.get("id") == ns["id"] for n in (st.get("today") or {}).get("needs", []))) or done_fast, (wf or {}).get("detail"))
+    check("the row is flagged 'working' right away and leaves Needs you", refused or (wf and wf["detail"].startswith("[working:") and not any(n.get("id") == ns["id"] for n in (st.get("today") or {}).get("needs", []))) or done_fast, (wf or {}).get("detail"))
     mock.calls.clear(); s, j = api("/api/act", {"id": ns["id"], "action": "subsearch"}); time.sleep(3)
     check("Find subtitles reaches Bazarr (PATCH subtitles)", s == 200 and any(c["app"] == "bazarr" and c["method"] == "PATCH" for c in mock.calls), [(c["app"], c["method"], c["path"]) for c in mock.calls][:5])
     t4 = time.time(); wf2 = wf
@@ -158,7 +159,7 @@ if ns:
     side3 = os.path.splitext(W["files"][2]["path"])[0] + ".en.srt"
     check("AI subtitles land: the job reads Bazarr's real-shaped history, the subtitle file appears and the row clears itself", wf2 is None and os.path.exists(side3), (wf2 or {}).get("detail") or ("no sidecar" if not os.path.exists(side3) else ""))
     s, st = api("/api/state"); was = [a for a in st.get("actions", []) if a.get("kind") == "whisper" and "S01E03" in a.get("title", "") and a.get("ts", "") >= time.strftime("%Y-%m-%dT%H", time.localtime(t4 - 3600))]
-    check("…and one job says the subtitle landed while a second one for the same title says it was already made", any("landed" in json.dumps(a) for a in was) and any("already made" in json.dumps(a) for a in was), [a.get("result") for a in was])
+    check("…and one job says the subtitle landed while a second press for the same title is refused or says it was already made", any("landed" in json.dumps(a) for a in was) and (refused or any("already made" in json.dumps(a) for a in was)), [a.get("result") for a in was])
 mock.calls.clear(); s, j = api("/api/search_show", {"show": "Alpha Show"})
 check("Search all missing sends one EpisodeSearch with the missing ids", s == 200 and any(c["body"].get("name") == "EpisodeSearch" and 104 in (c["body"].get("episodeIds") or []) for c in mock.calls if c["path"] == "/api/v3/command"), (s, j, [c["body"] for c in mock.calls][:3]))
 s, j = api("/api/plan"); check("tonight's plan answers", s == 200 and "regrab" in j, j)

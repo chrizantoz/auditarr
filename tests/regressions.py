@@ -340,5 +340,37 @@ try:
     c9.close()
 except Exception as e: check("wrong-track case runs", False, repr(e))
 
+# #53 (2026-11-13): 'Make AI subtitles' pressed 4 times on one episode (each refused, each re-checking the timing), and AI subtitles that drift (+5.5 s early, +0.5 s late)
+try:
+    import tempfile as _tf
+    st10 = audit.stitch_pieces([(0.0, "1\n00:00:01,000 --> 00:00:02,000\nA\n\n2\n00:09:59,000 --> 00:10:03,000\nB\n"), (600.0, "1\n00:00:00,500 --> 00:00:01,500\nC\n")])
+    cues10 = audit.srt_cues(st10)
+    check("pieces: each piece's times move by where it starts, in order, renumbered", [(round(a, 1), t) for a, b, t in cues10] == [(1.0, "A"), (599.0, "B"), (600.5, "C")] and st10.startswith("1\n") and "\n3\n" in st10, st10)
+    check("pieces: a line never runs into the next piece", abs(cues10[1][1] - 600.0) < 0.01, cues10[1])
+    d10 = _tf.mkdtemp(); V10 = os.path.join(d10, "Show - S02E02.mkv"); open(V10, "wb").write(b"x"); sent10 = []
+    real_run, real_post, real_piece, real_trash = audit.subprocess.run, audit._asr_post, audit.PIECE_S, audit.TRASH_DIR
+    class _R10: stdout = b"\x00\x00" * 16000 * 5   # 5 s of audio
+    audit.subprocess.run = lambda cmd, **k: _R10(); audit.PIECE_S = 2; audit.TRASH_DIR = os.path.join(d10, "trash")
+    audit._asr_post = lambda audio, q, timeout=900: (sent10.append(len(audio)), "1\n00:00:00,500 --> 00:00:01,000\nline\n")[1]
+    try: c10 = audit.db(); res10 = audit.own_ai_subtitle(c10, V10, 1, "jpn", "test")
+    finally: audit.subprocess.run, audit._asr_post, audit.PIECE_S, audit.TRASH_DIR = real_run, real_post, real_piece, real_trash
+    got10 = [round(a, 1) for a, b, t in audit.srt_cues(open(os.path.join(d10, "Show - S02E02.en.srt")).read())]
+    check("own AI subtitles go in pieces: 5 s of audio in 2 s pieces = 3 requests, the lines put back at 0.5, 2.5 and 4.5 s", sent10 == [64000, 64000, 32000] and got10 == [0.5, 2.5, 4.5] and "3 pieces" in res10, (sent10, got10, res10))
+    c10.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (time.time() - 600, "on", "whisper", "sonarr", "1", "Show S02E02", "x", "whisper subtitle landed after 4.7 min (translate Japanese audio -> English SRT)"))
+    c10.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (time.time() - 60, "on", "whisper", "sonarr", "2", "Show S02E03", "x", res10))
+    c10.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (time.time() - 30, "on", "whisper", "sonarr", "1", "Show S02E04", "x", "skipped - a Whisper subtitle was already made for this in the last 24 h")); c10.commit()
+    m10 = audit.ai_made_map(c10)
+    check("the page learns which titles had AI subtitles, and which were made in pieces; a refused press counts for nothing", m10.get("Show S02E02") == "made" and m10.get("Show S02E03") == "pieces" and "Show S02E04" not in m10, m10)
+    for fid_, code_, lab_ in (("ai1", "SUBS_OUT_OF_SYNC", "Show S02E03"), ("ai2", "NO_SUBS", "Show S02E02")):
+        c10.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?, 'sonarr', 9, ?, 'medium', ?, ?, 'x', 0, 0, NULL, 0, 1, 0)", (fid_, code_, lab_, V10))
+    c10.commit()
+    k1, o1 = audit.ui_act(c10, {"id": "ai1", "action": "whisper"}, "test"); k2, o2 = audit.ui_act(c10, {"id": "ai2", "action": "whisper"}, "test")
+    check("a press on a file whose AI subtitles were already made in pieces is refused with what to do instead", k1 == 409 and "Find subtitles" in o1.get("error", ""), (k1, o1))
+    check("a press on a no-subtitles row whose AI subtitles were just made is refused (they are on their way)", k2 == 409 and "already made" in o2.get("error", ""), (k2, o2))
+    src10 = open(os.path.join(ROOT, "audit.py")).read()
+    check("a refused press re-checks nothing; drifting AI subtitles are made again in pieces", 'if result.startswith("whisper subtitle"): recheck_timing(' in src10 and "if made: job.update(pieces=True, redo=True)" in src10 and 'own = whisper_track_for(job)' in src10)
+    c10.close()
+except Exception as e: check("AI subtitles in pieces case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

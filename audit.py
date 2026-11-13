@@ -2627,11 +2627,15 @@ def _ui_act(conn, body, actor):
         refresh_reports(conn); return 200, {"ok": True, "dest": dest, "plex": plx, "note": f"tracked: if nothing is imported in {cfg('REGRAB_WAIT_DAYS', REGRAB_WAIT_DAYS):g} days the original comes back automatically"}
     if action == "whisper":
         if f["app"] not in ("sonarr", "radarr"): return 400, {"error": "AI subtitles go through Bazarr, which only handles Sonarr and Radarr"}
+        made = ai_made(conn, f["label"])   # #53: four presses on one episode in 15 minutes, each refused but each re-checking the timing
+        if made == "pieces": return 409, {"error": "AI subtitles were already made for this file in 10-minute pieces, the most careful way. If they still drift, 'Find subtitles' looks for a release that fits."}
+        if made and f["check"] != "SUBS_OUT_OF_SYNC": return 409, {"error": "AI subtitles were already made for this file lately; the row closes when Plex and Bazarr see them."}
         if not bazarr_conf()[1]: return 400, {"error": "no Bazarr API key (mount config.yaml at /arr/bazarr.yaml)"}
         try: info = arr_file_info(apps, f["app"], f["fid"], f["path"])
         except LookupError as e:
             resolve_finding(conn, fid); refresh_reports(conn); return 409, {"error": str(e)}
         job = dict(type="whisper", kind=info["kind"], app=f["app"], label=f["label"], path=info["path"], actor=actor)
+        if made: job.update(pieces=True, redo=True)   # AI subtitles that still drift: made again in 10-minute pieces
         if info["kind"] == "series":
             if not info["ep_ids"]: return 400, {"error": "no episode id for this file"}
             job.update(seriesid=info["parent_id"], episodeid=info["ep_ids"][0])
@@ -2937,6 +2941,24 @@ def whisper_wanted_track(job, w, pr=None, orig=None):
     said = LANG_NAMES.get(m.group(1).strip().split()[-1].lower(), "")
     if said == orig: return None
     return (want[0]["index"], orig, m.group(1).strip().split()[-1])
+def whisper_track_for(job):
+    """The original-language track of the job's file (or its first audio track): (stream index, code3, 'own choice'), or None."""
+    ok, pr = ffprobe(job["path"])
+    if not ok: return None
+    a = [s_ for s_ in pr.get("streams", []) if s_.get("codec_type") == "audio"]
+    if not a: return None
+    orig = job_original_lang(job); hit = next((s_ for s_ in a if orig and canon((s_.get("tags") or {}).get("language", "und") or "und") == orig), None) or a[0]
+    return (hit["index"], orig or canon((hit.get("tags") or {}).get("language", "und") or "und"), "own choice")
+def ai_made(conn, label, days=30, now=None):
+    """'' | 'made' | 'pieces': were AI subtitles made for this title lately, and were they made in pieces (#53)?"""
+    r = conn.execute("SELECT result FROM action WHERE kind='whisper' AND label=? AND result LIKE 'whisper subtitle%' AND ts > ? ORDER BY ts DESC LIMIT 1", (label, (now or time.time()) - days * 86400)).fetchone()
+    return "" if not r else ("pieces" if " pieces," in r[0] else "made")
+def ai_made_map(conn, days=30, now=None):
+    """{title: 'made' | 'pieces'} for every title with AI subtitles in the last `days` (the newest one counts), in one query."""
+    out = {}
+    for label, res in conn.execute("SELECT label, result FROM action WHERE kind='whisper' AND result LIKE 'whisper subtitle%' AND ts > ? ORDER BY ts", ((now or time.time()) - days * 86400,)):
+        out[label] = "pieces" if " pieces," in res else "made"
+    return out
 def job_original_lang(job):
     """The original language of the job's show or movie, from the arr (code3), or None."""
     try:
@@ -2956,20 +2978,46 @@ def _asr_post(audio, query, timeout=900):
             with urllib.request.urlopen(req, timeout=timeout) as r: return r.read().decode("utf-8", "replace")
         except Exception as e: last = e; log("own whisper:", base_url, repr(e))
     raise last or RuntimeError("no whisper endpoint")
+PIECE_S = 600   # #53: AI subtitles in 10-minute pieces - Whisper's timestamps slide over a long file (seen 2026-11-13: +5.5 s early in an episode, +0.5 s late)
+def srt_cues(txt):
+    """[(start, end, text)] from SRT text."""
+    out = []
+    for blk in re.split(r"\n\s*\n", (txt or "").replace("\r", "")):
+        m = re.search(r"(\d+:\d\d:\d\d[,.]\d{1,3})\s*-->\s*(\d+:\d\d:\d\d[,.]\d{1,3})[^\n]*\n?(.*)", blk.strip(), re.S)
+        if m and m.group(3).strip(): out.append((_ts(m.group(1)), _ts(m.group(2)), m.group(3).strip()))
+    return out
+def srt_text(cues):
+    def f(t): t = max(0.0, t); ms = int(round(t * 1000)); return f"{ms // 3600000:02d}:{ms // 60000 % 60:02d}:{ms // 1000 % 60:02d},{ms % 1000:03d}"
+    return "".join(f"{i}\n{f(a)} --> {f(b)}\n{t}\n\n" for i, (a, b, t) in enumerate(cues, 1))
+def stitch_pieces(pieces):
+    """pieces: [(offset seconds, srt text)] -> one SRT: each piece's times moved by its offset, in order, a cue never running into the next piece."""
+    cues = []
+    for i, (off, txt) in enumerate(pieces):
+        nxt = pieces[i + 1][0] if i + 1 < len(pieces) else None
+        for a, b, t in srt_cues(txt):
+            a, b = a + off, b + off
+            if nxt is not None: b = min(b, nxt)
+            if b > a: cues.append((a, b, t))
+    return srt_text(sorted(cues))
 def own_ai_subtitle(conn, path, stream_index, orig, why):
-    """Make English AI subtitles from one chosen audio track and save them next to the video (an existing .en.srt goes to the trash first)."""
+    """Make English AI subtitles from one chosen audio track, in 10-minute pieces, and save them next to the video (an existing .en.srt goes to the trash first)."""
     t0 = time.time(); lang2 = TWO_LETTER.get(orig)
     pcm = subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-i", path, "-map", f"0:{stream_index}", "-vn", "-ac", "1", "-ar", "16000", "-f", "s16le", "-acodec", "pcm_s16le", "-"], capture_output=True, timeout=1800, check=True).stdout
     q = f"task={'transcribe' if orig == 'eng' else 'translate'}&output=srt&encode=false" + (f"&language={lang2}" if lang2 else "")
-    srt = _asr_post(pcm, q, timeout=3600)
-    if "-->" not in srt: raise RuntimeError(f"the Whisper endpoint answered without subtitle lines: {srt[:80]!r}")
+    step = PIECE_S * 32000; pieces = []   # 16 kHz, 16-bit mono = 32000 bytes a second
+    for i in range(0, max(len(pcm), 1), step):
+        part = pcm[i:i + step]
+        if len(part) < 32000: continue   # under a second of audio: nothing to say
+        pieces.append((i / 32000, _asr_post(part, q, timeout=1800)))
+    srt = stitch_pieces(pieces)
+    if "-->" not in srt: raise RuntimeError(f"the Whisper endpoint answered without subtitle lines: {(pieces[0][1] if pieces else '')[:80]!r}")
     dest = os.path.splitext(path)[0] + ".en.srt"; tmp = dest + ".tmp"
     open(tmp, "w", encoding="utf-8").write(srt)
     if os.path.exists(dest): quarantine(conn, dest, f"AI subtitles redone from the {lang_word(orig)} track: {why}", "regrab", sidecars=False)
     os.rename(tmp, dest)
     try: st0 = os.stat(path); os.chmod(dest, 0o664); os.chown(dest, st0.st_uid, st0.st_gid)
     except OSError: pass
-    return f"whisper subtitle made by Auditarr from the {lang_word(orig)} track in {(time.time() - t0) / 60:.1f} min ({why})"
+    return f"whisper subtitle made by Auditarr from the {lang_word(orig)} track in {len(pieces)} pieces, {(time.time() - t0) / 60:.1f} min ({why})"
 def redo_wrong_track_subs(conn, now=None):
     """One time (#51): AI subtitles Bazarr made from the wrong audio track are made again from the original-language track. Only the latest AI
     subtitle of each episode or movie counts, and only when the file really has a track in the original language. Returns how many were queued."""
@@ -3018,6 +3066,7 @@ def _whisper_job(job):
             rows = rows if isinstance(rows, list) else (rows or {}).get("data", [])
             w = next((r for r in rows if r.get("provider") == "whisperai"), None)
             own = whisper_wanted_track(job, w) if w else None
+            if w and not own and job.get("pieces") and job.get("path"): own = whisper_track_for(job)   # #53: the AI subtitles drifted - make them again in pieces
             if not w: result = "Bazarr offered no whisperai candidate (is the provider enabled / subgen up?)"
             elif own:
                 c_ = db()
@@ -3041,7 +3090,8 @@ def _whisper_job(job):
         if job.get("path"):
             if result.startswith("whisper subtitle") or result.startswith("skipped - a Whisper subtitle was already made"):
                 for (fid_,) in conn.execute("SELECT id FROM finding WHERE resolved_at IS NULL AND path=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (job["path"],)).fetchall(): resolve_finding(conn, fid_, "AI subtitles made")
-                recheck_timing(conn, job["path"], "re-check after AI subtitles"); fix_ok(conn, "whisper", job["path"])
+                if result.startswith("whisper subtitle"): recheck_timing(conn, job["path"], "re-check after AI subtitles")   # #53: a skipped press changed nothing: nothing to re-check
+                fix_ok(conn, "whisper", job["path"])
                 conn.execute("DELETE FROM probe WHERE path=?", (job["path"],)); conn.commit(); refresh_reports(conn)
             elif not result.startswith("submitted to Bazarr"): clear_working(conn, path=job["path"]); fix_failed(conn, "whisper", job["path"], result); conn.commit(); refresh_reports(conn)
             plex_refresh(job["path"])
@@ -3836,6 +3886,9 @@ def ui_state(conn):
         res_ = conn.execute("SELECT result FROM action WHERE kind=? AND label=? AND ts>=? ORDER BY ts DESC LIMIT 1", (kind, jb.get("label", ""), (started_ or ts_) - 1)).fetchone() if st_ not in ("queued", "running") else None   # the outcome, so the jobs table does not say only DONE
         recent.append(dict(type=kind, status=st_, label=jb.get("label", ""), result=(res_[0] if res_ else ""), queued=datetime.datetime.fromtimestamp(ts_).isoformat(timespec="minutes"), done=datetime.datetime.fromtimestamp(done_).isoformat(timespec="minutes") if done_ else "", running_for=int(time.time() - started_) if (st_ == "running" and started_) else None))
     busy_marks(latest.get("findings") or [], [(st_, _jload(raw), started_ or ts_) for st_, raw, ts_, _d, started_ in rows_ if st_ in ("queued", "running")], PRESSING)
+    aim = ai_made_map(conn)   # #53: the page offers 'Make AI subtitles' once, then 'again in pieces' once, then neither
+    for f_ in latest.get("findings") or []:
+        if f_.get("check") in SUB_CODES: f_["ai"] = aim.get(f_.get("title") or f_.get("label") or "", "")
     latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user"), "local_no_login": local_no_login(conn), "local_no_login_env": LOCAL_NO_LOGIN_ENV in ("0", "1")}
     latest["sandbox"] = SANDBOX

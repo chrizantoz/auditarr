@@ -2881,7 +2881,13 @@ import queue
 SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue(); FOLLOW_Q = queue.PriorityQueue()
 def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q, "langdetect": VERIFY_Q, "followup": FOLLOW_Q}.get(job.get("type"), SUB_Q)   # follow-ups wait on their own lane, so their pauses hold nothing else up   # three lanes: Bazarr searches never wait behind Whisper
 import itertools; _SEQ = itertools.count()
-def _put(job): _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job))   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
+_PUT_IDS = set()   # job ids already waiting in a lane in this process (2026-11-13: a startup repair queued 23 checks, then requeue_jobs queued them again)
+def _put(job):
+    jid = job.get("_id")
+    if jid is not None:
+        if jid in _PUT_IDS: return False
+        _PUT_IDS.add(jid)
+    _lane(job).put((int(job.get("prio", 5)), next(_SEQ), job)); return True   # lower runs first: 1 = someone is watching this (F31), 5 = everything else; ties keep arrival order
 def _subsearch(job):
     base, key = bazarr_conf(); lang2 = TWO_LETTER.get(sorted(PREF_SUBS)[0], sorted(PREF_SUBS)[0][:2]); results = []
     from urllib.parse import urlencode
@@ -3010,10 +3016,11 @@ def requeue_jobs():
     conn = db()
     try: rows = conn.execute("SELECT id, job FROM jobs WHERE status IN ('queued','running') ORDER BY id").fetchall()
     finally: conn.close()
+    n = 0
     for jid, raw in rows:
-        try: j = json.loads(raw); j["_id"] = jid; _put(j)
+        try: j = json.loads(raw); j["_id"] = jid; n += 1 if _put(j) else 0
         except Exception: pass
-    if rows: log(f"re-queued {len(rows)} subtitle job(s) from before the restart")
+    if n: log(f"re-queued {n} subtitle job(s) from before the restart")
 # ---------- verify content: does the dialogue match the episode? ----------
 STOP = {"the", "and", "that", "this", "with", "have", "from", "they", "their", "them", "will", "what", "when", "where", "which", "while", "about", "after", "before", "into", "than", "then",
         "there", "here", "been", "being", "were", "was", "are", "his", "her", "she", "him", "you", "your", "but", "not", "for", "who", "how", "all", "one", "two", "out", "has", "had", "can",

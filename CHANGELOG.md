@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- Fix: jobs queued at startup (the one-time repairs) were put in line twice, so each file was checked twice. A waiting job is now never queued again (#50).
 - Fix: the same episodes were re-timed again and again because Bazarr's re-time changed nothing. A file Bazarr already re-timed that still drifts now offers **Make AI subtitles** and **Find subtitles** instead, and a second Bazarr re-time is refused with the reason. The timing check takes a second look before it says "drift": when one sample disagrees with the others, it listens twice more next to it, and an unconfirmed drift closes as "not sure". On start, every open timing row gets a fresh check (#48).
 - New: group buttons per show for subtitles: **Make AI subtitles ×N**, **Re-time ×N** and **Check timing again ×N**. Bazarr's re-time now runs in the background, so a group press doesn't hold the page (#48).
 - Fix: **Make AI subtitles for a whole show** now closes each episode's no-subtitle rows and re-checks its timing when its subtitles land (#48).

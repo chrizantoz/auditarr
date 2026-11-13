@@ -288,5 +288,19 @@ try:
     c7.close()
 except Exception as e: check("re-time case runs", False, repr(e))
 
+# 2026-11-13: the startup repair queued 23 timing checks, then requeue_jobs put the same 23 in line again: every file was checked twice
+try:
+    seen8 = []; real8 = audit._lane
+    class _Q8:
+        def put(self, x): seen8.append(x[2]["_id"])
+    audit._lane = lambda job: _Q8()
+    try:
+        audit.enqueue(dict(type="subsync", fid=801, app="sonarr", path="/nope.mkv", label="Show S01E01", actor="test", prio=6))
+        if audit.E("JOBS", "on") != "off": audit.requeue_jobs()
+        else: audit._put(dict(type="subsync", _id=seen8[0]))
+    finally: audit._lane = real8
+    check("a job already waiting is not put in line twice when the restart re-queue runs after it", len(seen8) == 1 and seen8.count(seen8[0]) == 1, seen8)
+except Exception as e: check("double re-queue case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

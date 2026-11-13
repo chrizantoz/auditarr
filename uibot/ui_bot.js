@@ -139,7 +139,8 @@ async function edgeChecks(S) {
 (async () => {
   await sleep(400);
   const S = JSON.parse(data.state), F = S.findings;
-  if (EDGE && EDGE !== "tidy") return edgeChecks(S);   // tidy = a clean library: it must pass the full suite, not a reduced one
+  const FL = F.filter(f => !(f.busy || /^\[working: .+? \d\d:\d\d\]/.test(f.detail || "")));   // rows in the list: being-fixed rows sit in their own box (2026-11-13: 8 AI-subtitle redos running made the live check fail)
+  if (EDGE && EDGE !== "tidy" && EDGE !== "livebusy") return edgeChecks(S);   // tidy = a clean library, livebusy = every row of some kinds being fixed (seen live 2026-11-13): both must pass the full suite
   check("header shows last run + files", /last run/.test($("#s-run").textContent) && /files/.test($("#s-run").textContent), $("#s-run").textContent.slice(0, 90));
   const appsSeen = Object.entries((S.run || {}).files_by_app || {}).filter(([, n]) => n > 0).map(([a]) => a);   // only the apps this install has (a demo may run without Whisparr)
   if (appsSeen.length) check("header shows per-app counts", appsSeen.every(a => new RegExp(a + " \\d+").test($("#s-run").textContent)), $("#s-run").textContent.slice(0, 120));
@@ -149,9 +150,9 @@ async function edgeChecks(S) {
   const libs = [...new Set(F.map(f => f.library))].sort();
   check("library dropdown lists every library", $$("#f-lib option").length === libs.length + 1, $$("#f-lib option").map(o => o.textContent).join(" | "));
   const kinds = [...new Set(F.map(f => f.check))]; check("check dropdown lists every kind of problem", $$("#f-check option").length === kinds.length + 1, $$("#f-check option").length + " options for " + kinds.length + " kinds");
-  const shows = new Set(F.map(f => (f.title || "").replace(/ S\d+E\d+.*$/, "").replace(/ \(\d{4}\)$/, "")));
+  const shows = new Set(FL.map(f => (f.title || "").replace(/ S\d+E\d+.*$/, "").replace(/ \(\d{4}\)$/, "")));
   const groups0 = $$("#findings details.grp-d").length; check("findings grouped by show", groups0 > 0 && groups0 <= shows.size && (shows.size < 2 || groups0 > 1), `${groups0} groups for ${shows.size} titles`);
-  const plexN = F.filter(f => f.plex && f.severity !== "low").length, arrN = F.filter(f => f.arr && f.severity !== "low").length, plexLinks = $$("#findings a[title='open in Plex']").length, anyLinks = $$("#findings a[title^='open in']").length;
+  const plexN = FL.filter(f => f.plex && f.severity !== "low").length, arrN = FL.filter(f => f.arr && f.severity !== "low").length, plexLinks = $$("#findings a[title='open in Plex']").length, anyLinks = $$("#findings a[title^='open in']").length;
   check("rows have Plex + arr links when the data has them", (plexN === 0 || plexLinks > 0) && (arrN === 0 || anyLinks > 0), `${plexLinks} plex links for ${plexN} findings with one`);
   // severity filter: 'low' is unchecked by default -> enabling it adds rows
   const rows0 = $$("#findings tr[id^=r-]").length; $$(".sev").find(c => c.value === "low").click(); $$(".sev").find(c => c.value === "low").dispatchEvent(new w.Event("change")); await sleep(50);
@@ -163,9 +164,9 @@ async function edgeChecks(S) {
   sel.value = ""; sel.dispatchEvent(new w.Event("change")); await sleep(50);
   // group by library
   $("#f-group").value = "library"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(50);
-  check("group by library -> one section per library", $$("#findings details.grp-d").length === libs.length, $$("#findings details.grp-d").length + " vs " + libs.length);
+  const libsL = new Set(FL.map(f => f.library)).size; check("group by library -> one section per library", $$("#findings details.grp-d").length === libsL, $$("#findings details.grp-d").length + " vs " + libsL);
   $("#f-group").value = "check"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(50);
-  check("group by check works", $$("#findings details.grp-d").length === new Set(F.map(f => f.check)).size);
+  const kindsL = new Set(FL.map(f => f.check)).size; check("group by check works", $$("#findings details.grp-d").length === kindsL, $$("#findings details.grp-d").length + " vs " + kindsL);
   $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(50);
   // check-specific buttons
   const has = code => F.some(f => f.check === code);

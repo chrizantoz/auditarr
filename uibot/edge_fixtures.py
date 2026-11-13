@@ -29,6 +29,11 @@ s["findings"] = keep; s["counts"] = {k: sum(1 for f in keep if f["check"] == k) 
 s["by_severity"] = {"critical": 0, "high": 0, "medium": sum(1 for f in keep if f["severity"] == "medium"), "low": sum(1 for f in keep if f["severity"] == "low")}
 s["by_library"] = {}; s["today"] = dict(s.get("today") or {}, needs=[], errors=[])
 write("tidy", t)
+# livebusy (2026-11-13): the full suite on a library where every row of two kinds is being fixed (8 AI-subtitle redos made the live check count rows that had left the list)
+lb = copy.deepcopy(base); kinds_ = sorted({f["check"] for f in lb["state"]["findings"]})[:2]
+for f in lb["state"]["findings"]:
+    if f["check"] in kinds_: f["busy"] = {"what": "making AI subtitles", "state": "waiting", "mins": 3}
+write("livebusy", lb)
 
 # 2. huge: one show with 2000 findings of one kind (row cap, grouping, performance)
 h = copy.deepcopy(base); s = h["state"]; tpl = next(f for f in base["state"]["findings"] if f["app"] == "sonarr")

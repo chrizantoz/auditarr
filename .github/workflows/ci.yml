@@ -22,7 +22,7 @@ jobs:
         with: { node-version: "24" }
       - run: cd uibot && npm install --silent && node ui_bot.js ../ui.html fixtures
       - run: cd uibot && node fuzz_ui.js ../ui.html fixtures 250 ${{ github.run_number }}   # Q34: mangled API answers must not break the page; a new seed every run
-      - run: cd uibot && python3 lint_checks.py && python3 lint_buttons.py && python3 edge_fixtures.py && for c in empty tidy huge down errors arrgap signin deeplink mp4mkv busy subsgroup; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
+      - run: cd uibot && python3 lint_checks.py && python3 lint_buttons.py && python3 edge_fixtures.py && for c in empty tidy huge down errors arrgap signin deeplink mp4mkv busy subsgroup livebusy; do node ui_bot.js ../ui.html fixtures-edge/$c || exit 1; done
       - run: cd uibot && npx playwright install chromium-headless-shell >/dev/null && node browser_bot.js ../ui.html fixtures
       - run: sudo mkdir -p /data && sudo chown $USER /data && python tests/e2e_stack.py
       - run: python tests/e2e_chaos.py

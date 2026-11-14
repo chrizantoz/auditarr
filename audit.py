@@ -3070,7 +3070,7 @@ def _whisper_job(job):
             if not w: result = "Bazarr offered no whisperai candidate (is the provider enabled / subgen up?)"
             elif own:
                 c_ = db()
-                try: result = own_ai_subtitle(c_, job["path"], own[0], own[1], f"Bazarr would have used the {own[2]} track"); c_.commit()
+                try: result = own_ai_subtitle(c_, job["path"], own[0], own[1], ("made again in 10-minute pieces because the last AI subtitles drifted" if own[2] == "own choice" else f"Bazarr would have used the {own[2]} track")); c_.commit()
                 finally: c_.close()
             else:
                 form = {"hi": "false", "forced": "false", "original_format": "false", "provider": "whisperai", "subtitle": w["subtitle"]}
@@ -3526,6 +3526,9 @@ def _subsync_job(job):
         elif str(r.get("note") or "").startswith("unsure:"):   # a 'drift' the second look could not confirm is not a job for anyone
             if conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone(): resolve_finding(conn, fidh, "drift not confirmed by a second look")
             res = f"not sure, row closed: {r['note']}"
+        elif src and src[0] == "sidecar" and ai_made(conn, job["label"], days=1) and conn.execute("SELECT 1 FROM finding WHERE id=? AND resolved_at IS NULL", (fidh,)).fetchone():
+            resolve_finding(conn, fidh, "new AI subtitles; the timing could not be measured")   # 2026-11-13: the old verdict was about the old file - keeping it open asks for a fix nobody needs
+            res = f"new AI subtitles, row closed (the timing could not be measured: {r['note']})"
         else: res = f"could not judge: {r['note']}"
         record_action(conn, "on", "subsync", job["app"], job["fid"], job["label"], f"subtitle timing check by {job['actor']} ({src_txt}, {time.time() - t0:.0f}s)", res[:300])
         conn.commit(); refresh_reports(conn)

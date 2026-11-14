@@ -372,5 +372,19 @@ try:
     c10.close()
 except Exception as e: check("AI subtitles in pieces case runs", False, repr(e))
 
+# 2026-11-13: new AI subtitles the timing check could not measure kept the old file's 'drift +5.5 s' verdict open
+try:
+    c11 = audit.db(); lab11 = "Show11 S01E01"; P11 = "/nowhere/Show11 - S01E01.mkv"; fh11 = audit.hashlib.sha1(b"sonarr|911|SUBS_OUT_OF_SYNC").hexdigest()[:16]
+    c11.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?, 'sonarr', 911, 'SUBS_OUT_OF_SYNC', 'medium', ?, ?, 'drift', 0, 0, NULL, 0, 1, 0)", (fh11, lab11, P11))
+    c11.execute("INSERT INTO action(ts, mode, kind, app, target, label, detail, result) VALUES(?,?,?,?,?,?,?,?)", (time.time() - 120, "on", "whisper", "sonarr", "911", lab11, "x", "whisper subtitle made by Auditarr from the Japanese track in 3 pieces, 2.6 min (x)")); c11.commit(); c11.close()
+    real11 = audit.subtitle_sync_check
+    audit.subtitle_sync_check = lambda path: dict(status="unknown", note="too little speech or subtitle text to judge (1/3 usable samples)", source=("sidecar", P11[:-4] + ".en.srt"), lang2="en")
+    try: audit._subsync_job(dict(type="subsync", fid=911, app="sonarr", path=P11, label=lab11, actor="test"))
+    finally: audit.subtitle_sync_check = real11
+    c11 = audit.db(); st11 = c11.execute("SELECT resolved_at FROM finding WHERE id=?", (fh11,)).fetchone(); c11.close()
+    check("new AI subtitles the timing check cannot measure close the old out-of-sync row", st11 and st11[0] is not None, st11)
+    check("a drift redo in pieces says so in Actions, not 'Bazarr would have used the own choice track'", "because the last AI subtitles drifted" in open(os.path.join(ROOT, "audit.py")).read())
+except Exception as e: check("unmeasurable new AI subtitles case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

@@ -153,6 +153,7 @@ try:
     check("busy: the deploy's request counter is still its own", audit.INFLIGHT == {"n": 0} or isinstance(audit.INFLIGHT.get("n"), int), audit.INFLIGHT)
     check("busy: odd jobs in the queue do not break the page state", True)
     ui = open(os.path.join(ROOT, "ui.html")).read()
+    check("space: an empty entry in the watched-and-cold or never-watched list is dropped before the page draws it (fuzzer, 2026-11-15)", "S.space.watched_cold=rows(S.space.watched_cold);S.space.never_watched=rows(S.space.never_watched)" in ui and "const rows=a=>arr(a).filter(x=>x&&typeof x==='object'" in ui)
     check("busy: the page lists rows being fixed apart and moves a pressed row there before the server answers", "drawBusy(" in ui and "LB[id]=" in ui and "list=all.filter(f=>!busyOf(f))" in ui)
 except Exception as e: check("busy case runs", False, repr(e))
 

@@ -180,6 +180,72 @@ TRASH_DIR    = E("TRASH_DIR", "/data/media/.media-audit-trash"); TRASH_DAYS = in
 TRASH_DAYS_DEDUPE = int(E("TRASH_DAYS_DEDUPE", "3"))                                                        # duplicates: the managed twin still exists
 TRASH_DAYS_ARCHIVE = int(E("TRASH_DAYS_ARCHIVE", "30"))                                                      # archived (watched & cold) seasons
 TRASH_KEEP = {"dedupe": TRASH_DAYS_DEDUPE, "regrab": TRASH_DAYS, "archive": TRASH_DAYS_ARCHIVE}
+
+# ---------- the lock shared with Dedupearr: one marker per file, in a folder both apps can see ----------
+LOCK_DIR = E("LOCK_DIR", os.path.join(os.path.dirname(TRASH_DIR.rstrip("/")), ".fix-locks")); LOCK_STALE_H = float(E("LOCK_STALE_H", "6")); LOCK_APP = "Auditarr"
+_LOCKS = {}; _LOCKS_GUARD = threading.Lock()   # marker -> how many times this app holds it right now
+class FileBusy(RuntimeError): pass
+def _lock_marker(path):
+    """The marker is named after the file's number on the disk (its inode), not its name: two names of one file share one lock, and the two
+    apps need not see the media under the same folder names."""
+    try: return os.path.join(LOCK_DIR, f"{os.stat(path).st_ino}.lock")
+    except (OSError, TypeError): return None
+def _lock_read(marker):
+    """(what the marker says, its age in seconds), or (None, 0) when there is no marker. A marker still being written reads as {}."""
+    try: age = time.time() - os.stat(marker).st_mtime
+    except OSError: return None, 0
+    try:
+        with open(marker) as fh: info = json.load(fh)
+    except (OSError, ValueError): info = {}
+    return (info if isinstance(info, dict) else {}), age
+def _lock_theirs(info, age): return info is not None and age <= LOCK_STALE_H * 3600 and info.get("app") != LOCK_APP
+def _lock_sentence(info): return f"{info.get('app') or 'Another app'} is working on this file right now ({info.get('what') or 'changing it'}), so nothing was changed; try again in a few minutes"
+def lock_holder(path):
+    """A sentence naming the other app that is changing this file right now, or '' when nobody is."""
+    marker = _lock_marker(path)
+    if not marker: return ""
+    info, age = _lock_read(marker)
+    return _lock_sentence(info) if _lock_theirs(info, age) else ""
+def lock_take(path, what):
+    """Mark the file as being changed by this app. Returns a token for lock_drop; raises FileBusy when the other app holds it.
+    No lock folder (or a read-only one) means no lock: the fix runs as it did before."""
+    marker = _lock_marker(path)
+    if not marker or READ_ONLY: return None
+    with _LOCKS_GUARD:
+        if _LOCKS.get(marker): _LOCKS[marker] += 1; return marker
+        for _ in (0, 1):
+            try:
+                if not os.path.isdir(LOCK_DIR): os.mkdir(LOCK_DIR)
+                fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            except FileExistsError:
+                info, age = _lock_read(marker)
+                if _lock_theirs(info, age): raise FileBusy(_lock_sentence(info)) from None
+                try: os.remove(marker)   # older than LOCK_STALE_H hours, or left behind by this app before a restart
+                except OSError: pass
+                continue
+            except OSError: return None
+            with os.fdopen(fd, "w") as fh: json.dump(dict(app=LOCK_APP, what=what, path=path, since=time.time()), fh)
+            _LOCKS[marker] = 1; return marker
+    raise FileBusy("Another app took this file at the same moment, so nothing was changed; try again in a minute")
+def lock_drop(marker):
+    if not marker: return
+    with _LOCKS_GUARD:
+        n = _LOCKS.get(marker, 0) - 1
+        if n > 0: _LOCKS[marker] = n; return
+        _LOCKS.pop(marker, None)
+        try: os.remove(marker)
+        except OSError: pass
+def lock_sweep():
+    """At start-up: markers this app left behind when it was stopped mean nothing any more."""
+    try: names = os.listdir(LOCK_DIR)
+    except OSError: return 0
+    n = 0
+    for name in names:
+        m = os.path.join(LOCK_DIR, name); info, age = _lock_read(m)
+        if name.endswith(".lock") and info is not None and (info.get("app") == LOCK_APP or age > LOCK_STALE_H * 3600):
+            try: os.remove(m); n += 1
+            except OSError: pass
+    return n
 TAUTULLI_URL = E("TAUTULLI_URL", f"http://{HOST_IP}:8181" if HOST_IP else ""); TAUTULLI_INI = E("TAUTULLI_INI", os.path.join(ARR_DIR, "tautulli.ini"))
 DEDUPE       = E("DEDUPE", "off"); DEDUPE_MAX = int(E("DEDUPE_MAX", "50")); DEDUPE_MIN_RUNS = int(E("DEDUPE_MIN_RUNS", "2"))
 REMEDIATE_MIN_RUNS = int(E("REMEDIATE_MIN_RUNS", "2"))
@@ -965,7 +1031,9 @@ def tag_subs(path, streams=None):
         if per_min < 4 and not is_signs(st): cmd += ["--set", "flag-forced=1"]; what += " (sparse -> forced/signs)"
         changes.append(what)
     if len(cmd) == 2: return [], "; ".join(changes) or "no untagged text subtitle tracks"
-    guard_write(f"{cmd[0]} on a media file"); p = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    guard_write(f"{cmd[0]} on a media file"); tok = lock_take(path, "labelling the subtitles")
+    try: p = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    finally: lock_drop(tok)
     if p.returncode not in (0, 1): return [], f"mkvpropedit failed: {(p.stderr or p.stdout)[-200:]}"
     return [c for c in changes if "=" in c], "; ".join(changes)
 REALDUR_CACHE = {}   # path -> (mtime, dur), loaded per run from the realdur table
@@ -1262,8 +1330,12 @@ def is_gap(f): return f.get("check") == "ORPHAN_FILE" and ARR_GAP in (f.get("det
 
 # ---------- quarantine ----------
 def quarantine(conn, path, why, kind="regrab", sidecars=True):
-    """Move a file (and its sidecars) into TRASH_DIR/<kind>/<date>/<relative path>. Same share -> rename, no copy. Returns dest."""
-    guard_write(f"move to trash {path}")
+    """Move a file (and its sidecars) into TRASH_DIR/<kind>/<date>/<relative path>. Same share -> rename, no copy. Returns dest.
+    Raises FileBusy when Dedupearr is changing the same file at this moment."""
+    guard_write(f"move to trash {path}"); tok = lock_take(path, "moving it to the trash")
+    try: return _quarantine(conn, path, why, kind, sidecars)
+    finally: lock_drop(tok)
+def _quarantine(conn, path, why, kind, sidecars):
     rel = os.path.relpath(path, "/data"); dest = os.path.join(TRASH_DIR, kind, datetime.date.today().isoformat(), rel)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     moved = []
@@ -1363,6 +1435,7 @@ def do_dedupe(conn, items, run_started):
         except OSError: dsize = 0
         plan = f"quarantine {os.path.basename(path)} ({dsize/1e6:.0f} MB); keeping managed {os.path.basename(twin['path'])} ({(twin.get('disk_size') or 0)/1e6:.0f} MB, {twin['app']} {twin['label']})"
         if mode == "dryrun": record_action(conn, "dryrun", "dedupe", "disk", fid, label, plan, "would move to trash"); done += 1; continue
+        if lock_holder(path): skipped += 1; continue   # Dedupearr has the file right now: tomorrow night
         try:
             dest, moved = quarantine(conn, path, f"dedupe twin={twin['path']}", "dedupe"); queue_plex(path)
             record_action(conn, "on", "dedupe", "disk", fid, label, plan, f"moved {len(moved)} file(s) to {dest}"); done += 1
@@ -1409,7 +1482,7 @@ def do_subtag(conn, items, found):
         if not it.get("und_subs") or not (it.get("path") or "").lower().endswith(".mkv") or it["intent"]["ignore"]: continue
         if not (found.get((it["app"], it["fid"]), set()) & {"NO_SUBS", "UND_AUDIO_NO_SUBS"}): continue
         if abs((seen.get(it["path"]) or 0) - (it.get("mtime") or 0)) < 1: continue      # already judged this exact file
-        if fix_wait(conn, "subtag", it["path"], it.get("mtime")): continue
+        if fix_wait(conn, "subtag", it["path"], it.get("mtime")) or lock_holder(it["path"]): continue   # Dedupearr has the file right now: tomorrow night
         looked += 1
         if mode == "dryrun": record_action(conn, "dryrun", "subtag", it["app"], it["fid"], it["label"], f"{it['und_subs']} untagged subtitle track(s)", "would sniff + tag"); done += 1; continue
         try:
@@ -1449,6 +1522,7 @@ def do_remediation(conn, apps, items, run_started):
         if mode == "dryrun": record_action(conn, "dryrun", "regrab", app, it["fid"], label, f"{code}: {plan}", "would do"); continue
         if kind == "series" and not it["ep_ids"]: record_action(conn, "on", "regrab", app, it["fid"], label, plan, "SKIPPED: no episode ids"); continue
         if not path or not os.path.exists(path): record_action(conn, "on", "regrab", app, it["fid"], label, plan, "SKIPPED: file not on disk"); continue
+        if lock_holder(path): continue   # Dedupearr has the file right now: tomorrow night
         try:
             dest, moved = quarantine(conn, path, f"regrab {code} {app}:{label}", "regrab"); queue_plex(path)
             record_regrab(conn, app, kind, it["parent_id"], it["fid"], it["ep_ids"], label, path, dest, code, "nightly")
@@ -1584,7 +1658,10 @@ def apply_defaults(path, ap, sp, n_audio, n_subs):
         for i in range(1, n_audio + 1): cmd += ["--edit", f"track:a{i}", "--set", f"flag-default={1 if i == ap else 0}"]
     if sp is not None:
         for i in range(1, n_subs + 1): cmd += ["--edit", f"track:s{i}", "--set", f"flag-default={1 if i == sp else 0}"]
-    guard_write(f"{cmd[0]} on a media file"); p = subprocess.run(cmd, capture_output=True, text=True, timeout=300); return p.returncode in (0, 1), (p.stderr or p.stdout)[-160:]
+    guard_write(f"{cmd[0]} on a media file"); tok = lock_take(path, "setting the default tracks")
+    try: p = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    finally: lock_drop(tok)
+    return p.returncode in (0, 1), (p.stderr or p.stdout)[-160:]
 def do_track_prefs(conn, items):
     mode = gate(setting("TRACK_PREFS"), "TRACK_PREFS")
     if mode == "off": return 0, 0
@@ -1597,6 +1674,7 @@ def do_track_prefs(conn, items):
         if pth in failed:
             if fix_wait(conn, "fixdefaults", pth, it.get("mtime")): continue
         elif abs((seen.get(pth) or 0) - (it.get("mtime") or 0)) < 1: continue
+        if lock_holder(pth): continue   # Dedupearr has the file right now: tomorrow night
         if not is_matroska(it):   # an MP4 saved with a .mkv name: mkvpropedit cannot edit it, so remember and skip instead of failing every night
             conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, it.get("mtime"), time.time(), "skipped: MP4 inside a .mkv name")); continue
         plan = plan_defaults(it)
@@ -2587,9 +2665,14 @@ def busy_marks(findings, active_jobs, inflight=None):
     return findings
 def ui_act(conn, body, actor):
     """Every button press on a row: while it runs, the row shows as 'Being fixed now' for anyone who loads the page."""
-    fid = body.get("id"); PRESSING[fid] = (ACT_WORDS.get(body.get("action"), "working on it"), time.time())
-    try: return _ui_act(conn, body, actor)
-    finally: PRESSING.pop(fid, None)
+    fid = body.get("id"); PRESSING[fid] = (ACT_WORDS.get(body.get("action"), "working on it"), time.time()); tok = None
+    try:
+        if body.get("action") in ACT_WORDS:   # a press that changes the file: Dedupearr must not move the same file meanwhile, and the other way round
+            f = finding_row(conn, fid) if fid else None
+            if f and f.get("path"): tok = lock_take(f["path"], ACT_WORDS[body["action"]])
+        return _ui_act(conn, body, actor)
+    except FileBusy as e: return 409, {"error": str(e)}
+    finally: lock_drop(tok); PRESSING.pop(fid, None)
 ACT_WORDS = {"subsync_fix": "re-timing the subtitles", "remuxmkv": "rewrapping the file", "fixheader": "fixing the time bar", "fixsync": "fixing the audio delay",
              "fixtag": "labelling the audio", "regrab": "asking for a better copy", "subtag": "labelling the subtitles", "quarantine": "moving it to the trash"}
 def _ui_act(conn, body, actor):
@@ -4393,7 +4476,9 @@ class Handler(SimpleHTTPRequestHandler):
                 else:
                     if str(key_).startswith("••••") or not key_: key_ = conn_value(f"{k_.upper()}_APIKEY" if k_ != "plex" else "PLEX_TOKEN") or ((arr_apps().get(k_) or (None, None))[1] if k_ in ARR_KINDS else bazarr_conf()[1] if k_ == "bazarr" else plex_token())
                     code, obj = 200, test_connection(k_, body.get("url") or "", key_)
-            elif p == "/api/archive": code, obj = ui_archive(conn, body, actor)
+            elif p == "/api/archive":
+                try: code, obj = ui_archive(conn, body, actor)
+                except FileBusy as e: code, obj = 409, {"error": str(e) + ". Files moved before this one stay in the trash; press again to finish."}
             elif p == "/api/whisper_progress":
                 GPU_PROGRESS[str(body.get("container") or "remote")[:40]] = {"lines": [str(l)[:400] for l in (body.get("lines") or [])][-10:], "ts": time.time()}; _WL["ts"] = 0; code, obj = 200, {"ok": True}
             else: code, obj = 404, {"error": "unknown endpoint"}
@@ -4445,6 +4530,7 @@ def daemon():
     if E("JOBS", "on") != "off": threading.Thread(target=_late_repairs, daemon=True).start()   # the staging copy never queues real work
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
+    lock_sweep()   # markers left from before a restart mean nothing now
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")
     if E("RUN_ON_START", "1") == "1": threading.Thread(target=guarded_run, daemon=True).start()
     def _update_checker():

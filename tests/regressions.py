@@ -146,7 +146,7 @@ try:
     seen = {}
     real = audit._ui_act
     audit._ui_act = lambda conn_, body, actor: (seen.setdefault("inflight", dict(audit.PRESSING)), (200, {"ok": True}))[1]
-    try: audit.ui_act(None, {"id": "zz", "action": "subsync_fix"}, "test")
+    try: audit.ui_act(audit.db(), {"id": "zz", "action": "subsync_fix"}, "test")
     finally: audit._ui_act = real
     check("busy: while a button press runs, the server lists it as in progress; afterwards it is gone", "zz" in seen.get("inflight", {}) and "zz" not in audit.PRESSING and seen["inflight"]["zz"][0] == "re-timing the subtitles", seen)
     audit.busy_marks([dict(id="q", check="NO_SUBS", path=P)], [("queued", {}, None), ("running", {"type": "nosuch"}, None)])

@@ -438,5 +438,30 @@ try:
     check("both nightly writers add to the list", 'note_changed(conn, it["path"], "subtag")' in src57 and 'note_changed(conn, pth, "fixdefaults")' in src57)
 except Exception as e: check("changed-files case runs", False, repr(e))
 
+# 2026-11-16 (#59): a drifting built-in subtitle on an up-next episode never got its search: the job's own unsaved finding locked the queue's
+# second connection out for the full wait ("database is locked"). (#60): an app without command/history/blocklist logged 3 errors a night.
+try:
+    c59 = audit.db(); c59.execute("INSERT OR REPLACE INTO upcoming(app, fid, label, ts) VALUES('sonarr', 959, 'Show59 S01E01', 0)"); c59.commit(); c59.close()
+    keep59 = (audit.subtitle_sync_check, audit.arr_file_info, audit.arr_apps, audit._put, audit.db); put59 = []
+    audit.subtitle_sync_check = lambda path: dict(status="drift", note="drift: +7.2s at 16% -> 0.0s at 68%", source=("embedded", 2), lang2="en")
+    audit.arr_file_info = lambda apps, app, fid, path: dict(kind="episode", parent_id=1, ep_ids=[2], path=path)
+    audit.arr_apps = lambda: {}; audit._put = put59.append
+    def db59():
+        c_ = keep59[4](); c_.execute("PRAGMA busy_timeout=1500"); return c_   # a locked queue fails in 1.5 s here, not 60
+    audit.db = db59
+    try: audit._subsync_job(dict(type="subsync", fid=959, app="sonarr", path="/nowhere/Show59 - S01E01.mkv", label="Show59 S01E01", actor="test"))
+    finally: audit.subtitle_sync_check, audit.arr_file_info, audit.arr_apps, audit._put, audit.db = keep59
+    check("a drifting built-in subtitle on an up-next episode gets its search queued (the job's own write does not lock the queue)", [j["type"] for j in put59] == ["subsearch"], put59)
+    real60 = audit.api; logs60 = []; reallog = audit.log
+    def api60(base, key, path, *a, **k):
+        if path.startswith("queue"): return {"records": [{"episodeId": 7, "status": "downloading", "size": 10, "sizeleft": 5}]}
+        raise audit.json.JSONDecodeError("Expecting value", "<html>", 0)
+    audit.api = api60; audit.log = lambda *a: logs60.append(" ".join(str(x) for x in a))
+    try: ev60 = audit.search_evidence("http://x", "k", audit.datetime.datetime.now(), "sportsapp")
+    finally: audit.api = real60; audit.log = reallog
+    check("an app without the command, history or blocklist endpoint is skipped in one line that names it, and its queue still counts",
+          ev60["queue"] == {7: "downloading 50%"} and len(logs60) == 1 and "sportsapp has no command, history, blocklist endpoint" in logs60[0], (ev60, logs60))
+except Exception as e: check("locked queue / missing endpoint case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

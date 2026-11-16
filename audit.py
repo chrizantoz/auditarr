@@ -748,9 +748,14 @@ MISSING = []   # filled by collect(): dicts(app, kind, id, parent_id, label, pat
 MISSING_EV = {}   # app -> {"queue": {id: txt}, "grab": {id: date}, "fail": {id: date}, "block": {id: n}}
 LAST_SEARCH = {}  # app -> {episode/movie id: 'YYYY-MM-DD'}
 ARR_FOLDERS = {}  # series/movie folder an arr lists -> (app, title), files or not; an "unknown file" inside one is more likely a reading gap than an orphan (#30)
-def search_evidence(base, key, now):
-    """What the arr has actually done about its missing items: queue, grabs / failed downloads in the last 30 days, blocklist. 3 calls per app."""
-    ev = {"queue": {}, "grab": {}, "fail": {}, "block": {}, "cmd": {}}
+def search_evidence(base, key, now, app=""):
+    """What the arr has actually done about its missing items: queue, grabs / failed downloads in the last 30 days, blocklist. 3 calls per app.
+    An app that answers one of these with something that is not JSON does not have that endpoint: skipped, said once in one line (#60)."""
+    ev = {"queue": {}, "grab": {}, "fail": {}, "block": {}, "cmd": {}}; absent = []
+    real = globals()["api"]
+    def api(b_, k_, path):
+        try: return real(b_, k_, path)
+        except json.JSONDecodeError: absent.append(path.split("?")[0].split("/")[0]); return None
     try:
         waiting = [c for c in api(base, key, "command") or [] if c.get("status") in ("queued", "started")]
         for pos, c in enumerate(waiting):
@@ -775,6 +780,7 @@ def search_evidence(base, key, now):
         for r in (api(base, key, "blocklist?pageSize=1000") or {}).get("records", []):
             for k in (r.get("episodeIds") or ([r.get("movieId")] if r.get("movieId") else [])): ev["block"][k] = ev["block"].get(k, 0) + 1
     except Exception as e: log("evidence blocklist:", repr(e))
+    if absent: log(f"evidence: {app or base} has no {', '.join(absent)} endpoint - skipped")
     return ev
 def arr_status_line(app, ids):
     """One line of evidence for episode/movie ids: queue > last grab (+failed) > last search > never."""
@@ -843,7 +849,7 @@ def collect(apps, only=None):
                             ep_titles=[], quality=f.get("quality", {}).get("quality", {}), mi=f.get("mediaInfo") or {}, expected=(m.get("runtime") or 0) * 60,
                             date_added=f.get("dateAdded"), ep_ids=[], n_eps=0, slug=m.get("titleSlug"), monitored=bool(m.get("monitored"))))
             n = sum(1 for i in items if i["app"] == app); log(f"{app}: {n} files"); progress(detail=f"{app}: {n} files listed")
-            if only is None: MISSING_EV[app] = search_evidence(base, key, now)
+            if only is None: MISSING_EV[app] = search_evidence(base, key, now, app)
             dep_status(app, True)
         except Exception as e:
             log(f"{app}: API error {e!r} - skipped this run"); roots.pop(app, None); dep_status(app, False, repr(e))
@@ -1630,7 +1636,7 @@ def load_ignores():
     rules = []
     if os.path.exists(IGNORE_FILE):
         for line in open(IGNORE_FILE):
-            line = re.split(r"(?:^|\s+)#", line.strip(), 1)[0].strip()      # drop trailing "  # comment"
+            line = re.split(r"(?:^|\s+)#", line.strip(), maxsplit=1)[0].strip()      # drop trailing "  # comment"
             if not line: continue
             code, _, pat = line.partition(":"); rules.append((code.strip().upper(), re.compile(pat.strip(), re.I) if pat.strip() else None))
     return rules
@@ -3649,6 +3655,7 @@ def _subsync_job(job):
                 if r["status"] == "drift" and src and src[0] == "embedded" and (job["app"], job["fid"]) in upcoming_map(conn):   # nobody can re-time a built-in track: get a separate file before they press play
                     try:
                         info = arr_file_info(arr_apps(), job["app"], job["fid"], job["path"])
+                        conn.commit()   # enqueue() writes through its own connection: an unsaved finding here locks it out (#59)
                         enqueue(dict(type="subsearch", prio=1, fid=job["fid"], app=job["app"], kind=info["kind"], parent_id=info["parent_id"], ep_ids=info["ep_ids"], path=info["path"], label=job["label"], actor="built-in subtitles drift, up next in Plex"))
                         res += "; asked Bazarr for a separate subtitle file (up next in Plex)"
                     except Exception as e: log("subsync auto-search:", repr(e))

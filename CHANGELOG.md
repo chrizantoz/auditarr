@@ -3,6 +3,7 @@
 All dates 2026. Images: `ghcr.io/chrizantoz/auditarr` (app) and `ghcr.io/chrizantoz/auditarr-uibot` (headless UI test).
 
 ## Unreleased
+- New, for Dedupearr: Auditarr keeps a list of every media file it changed itself (default tracks, audio and subtitle labels, rewraps, time-bar and audio-delay repairs) with when and what, and serves it with its trash folder at `/api/changed`. Dedupearr reads it to explain why a download no longer matches its library copy, and to leave Auditarr's trash alone. Older changes are filled in once from existing records.
 - New: one phone message for both apps. With Dedupearr's address set (**Settings**, `DEDUPEARR_URL`), the daily message carries Dedupearr's summary under its own name: how much space can come back, what needs you there, what it moved since yesterday. The title gains the space to get back. If Dedupearr does not answer, the message still goes out and says so in one line.
 - Fix (#57): a file the nightly run put back from the trash (its re-download found nothing in time) was missing from the list until the next night. Its findings now come back in the same run, so the list always matches the disk. Before, a staged update in between found those files first and was held back as "a new kind of problem".
 - Fix (#55): an empty entry in the watched-and-cold or never-watched list broke the whole page. Such entries are now dropped before the page draws them. Found by the page fuzzer.

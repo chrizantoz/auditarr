@@ -411,5 +411,32 @@ try:
     audit.api, audit.TRASH_DIR, audit.RESTORE_SEEN_S = real_api, real_trash, real_wait
 except Exception as e: check("restored-file case runs", False, repr(e))
 
+# 2026-11-16 (Dedupearr P2.4): Dedupearr called 73 downloads "stored twice, header differs" and could only guess why. Auditarr now keeps the
+# list of files it changed itself and serves it, with its trash folder, at /api/changed.
+try:
+    real_act = audit._ui_act; pth = os.path.join(TMP, "chg", "Show - S01E01.mkv"); os.makedirs(os.path.dirname(pth)); open(pth, "wb").write(b"x")
+    conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES('chg1','sonarr',501,'NO_SUBS','medium','Show S01E01',?,'d',1,1,NULL,1,1,0)", (pth,)); conn.commit()
+    answers = {"subtag": (200, {"ok": True}), "fixtag": (500, {"error": "mkvpropedit failed"}), "remuxmkv": (200, {"ok": True, "already_gone": True}), "regrab": (200, {"ok": True}), "fixsync": (200, {"ok": True, "queued": True})}
+    audit._ui_act = lambda c_, body, actor: answers[body["action"]]
+    got = lambda: conn.execute("SELECT what FROM changed WHERE path=?", (pth,)).fetchone()
+    for a_ in ("fixtag", "remuxmkv", "regrab", "fixsync"): audit.ui_act(conn, {"id": "chg1", "action": a_}, "test")
+    check("a failed press, a press that changed nothing, a queued one and a re-download are not listed as a change", got() is None, got())
+    audit.ui_act(conn, {"id": "chg1", "action": "subtag"}, "test")
+    check("a press that changed the file is remembered, in plain words", got() == ("labelled the subtitles",), got())
+    audit._ui_act = real_act
+    conn.execute("DELETE FROM changed"); conn.execute("DELETE FROM kv WHERE k='changed_backfill'")
+    conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", ("/data/tv/a.mkv", 1, 100, "audio default None->1 (eng), subs default None->2 (eng)")); conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", ("/data/tv/b.mkv", 1, 100, "ok"))
+    conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", ("/data/tv/c.mkv", 1, "s1=eng", 200)); conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", ("/data/tv/d.mkv", 1, "s1: language unclear, left alone", 200))
+    conn.execute("INSERT INTO action VALUES(?,?,?,?,?,?,?,?)", (300, "on", "remuxmkv", "sonarr", "501", "Show S01E01", "x", "original -> /trash/x")); conn.execute("INSERT INTO action VALUES(?,?,?,?,?,?,?,?)", (301, "on", "fixheader", "sonarr", "502", "Show S01E02", "x", "ERROR boom")); conn.commit()
+    n_ = audit.backfill_changed(conn); rows = dict((r[0], r[2]) for r in conn.execute("SELECT * FROM changed"))
+    check("older records fill the list once: default tracks, subtitle labels and successful rewrites; untouched files stay out",
+          n_ == 3 and rows == {"/data/tv/a.mkv": "set the default audio and subtitle tracks", "/data/tv/c.mkv": "labelled the subtitles", pth: "rewrapped the file"}, rows)
+    check("the fill runs once", audit.backfill_changed(conn) == 0)
+    j_ = audit.ui_changed(conn)
+    check("/api/changed carries the trash folder and path, time, words per file", j_["trash_dir"] == audit.TRASH_DIR and ["/data/tv/a.mkv", 100, "set the default audio and subtitle tracks"] in j_["files"] and len(j_["files"]) == 3, j_)
+    src57 = open(os.path.join(ROOT, "audit.py")).read()
+    check("both nightly writers add to the list", 'note_changed(conn, it["path"], "subtag")' in src57 and 'note_changed(conn, pth, "fixdefaults")' in src57)
+except Exception as e: check("changed-files case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

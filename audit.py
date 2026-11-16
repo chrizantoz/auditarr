@@ -880,6 +880,7 @@ def db():
     if "started_at" not in jcols: c.execute("ALTER TABLE jobs ADD COLUMN started_at REAL")
     c.execute("CREATE TABLE IF NOT EXISTS realdur(path TEXT PRIMARY KEY, mtime REAL, dur REAL, ts REAL)")
     c.execute("CREATE TABLE IF NOT EXISTS trackprefs(path TEXT PRIMARY KEY, mtime REAL, ts REAL, note TEXT)")
+    c.execute("CREATE TABLE IF NOT EXISTS changed(path TEXT PRIMARY KEY, ts REAL, what TEXT)")   # every media file Auditarr itself changed: Dedupearr reads it at /api/changed
     c.execute("CREATE TABLE IF NOT EXISTS hardsub(path TEXT PRIMARY KEY, mtime REAL, verdict TEXT, score REAL, best_t REAL, ts REAL)")
     c.execute("CREATE TABLE IF NOT EXISTS plexsel(rk TEXT PRIMARY KEY, ts REAL, audio_id TEXT, sub_id TEXT)")
     c.execute("""CREATE TABLE IF NOT EXISTS watch(app TEXT, parent_id INTEGER, season INTEGER, title TEXT, library TEXT, files INTEGER, bytes INTEGER, leaf INTEGER, viewed INTEGER,
@@ -910,6 +911,28 @@ def restore_file(dest, orig):
             try: os.rename(os.path.join(os.path.dirname(dest), n), os.path.join(os.path.dirname(orig), n))
             except OSError: pass
     with open(os.path.join(TRASH_DIR, "LOG.txt"), "a") as f: f.write(f"{datetime.datetime.now().isoformat(timespec='seconds')}\trestore\t{dest}\t->\t{orig}\n")
+CHANGED_WORDS = {"fixdefaults": "set the default audio and subtitle tracks", "subtag": "labelled the subtitles", "fixtag": "labelled the audio", "remuxmkv": "rewrapped the file",
+                 "fixheader": "repaired the time bar", "fixsync": "fixed the audio delay"}   # the kinds of change that rewrite bytes of a media file
+def note_changed(conn, path, kind, ts=None):
+    """Remember that Auditarr changed this media file. A download copy of it is then no longer byte-identical, and Dedupearr (which reads this list
+    at /api/changed) can say why instead of guessing."""
+    if not path or kind not in CHANGED_WORDS: return
+    conn.execute("INSERT OR REPLACE INTO changed VALUES(?,?,?)", (path, ts or time.time(), CHANGED_WORDS[kind]))
+def backfill_changed(conn):
+    """Once: fill the list from what older builds already recorded (default tracks, subtitle labels, and the Actions log for button presses)."""
+    if conn.execute("SELECT 1 FROM kv WHERE k='changed_backfill'").fetchone(): return 0
+    n0 = conn.execute("SELECT COUNT(*) FROM changed").fetchone()[0]
+    for path, ts in conn.execute("SELECT path, ts FROM trackprefs WHERE note LIKE 'audio default%'").fetchall(): conn.execute("INSERT OR IGNORE INTO changed VALUES(?,?,?)", (path, ts, CHANGED_WORDS["fixdefaults"]))
+    for path, ts in conn.execute("SELECT path, ts FROM subtag_seen WHERE result LIKE '%=%'").fetchall(): conn.execute("INSERT OR REPLACE INTO changed VALUES(?,?,?)", (path, ts, CHANGED_WORDS["subtag"]))
+    for ts, kind, app, target, result in conn.execute("SELECT ts, kind, app, target, result FROM action WHERE mode='on' AND kind IN ('fixtag','remuxmkv','fixheader','fixsync') ORDER BY ts").fetchall():
+        if str(result or "").startswith(("ERROR", "REFUSED", "not done")): continue
+        r = conn.execute("SELECT path FROM finding WHERE app=? AND fid=? AND path IS NOT NULL AND path != '' ORDER BY last_seen DESC LIMIT 1", (app, target)).fetchone()
+        if r: conn.execute("INSERT OR REPLACE INTO changed VALUES(?,?,?)", (r[0], ts, CHANGED_WORDS[kind]))
+    conn.execute("INSERT OR REPLACE INTO kv VALUES('changed_backfill', ?)", (str(time.time()),)); conn.commit()
+    return conn.execute("SELECT COUNT(*) FROM changed").fetchone()[0] - n0
+def ui_changed(conn):
+    """For Dedupearr: the files Auditarr changed (path, when, what in plain words) and where its trash is, so Dedupearr never mistakes the trash for the library."""
+    return {"app": "Auditarr", "trash_dir": TRASH_DIR, "trash_days": TRASH_DAYS, "files": [[r[0], int(r[1] or 0), r[2]] for r in conn.execute("SELECT path, ts, what FROM changed ORDER BY path")]}
 RESTORE_SEEN_S = float(E("RESTORE_SEEN_S", "60"))
 def reopen_restored(conn, apps, app, kind, pid, old_fid, orig, ts, started):
     """#57: a file put back from the trash is back in the library now, so its rows go back on the list in this same run - not a night later, when
@@ -1510,7 +1533,7 @@ def do_subtag(conn, items, found):
         try:
             changes, note = tag_subs(it["path"])
             if changes:
-                conn.execute("DELETE FROM probe WHERE path=?", (it["path"],)); it["needs_rescan"] = True; queue_plex(it["path"]); done += 1
+                conn.execute("DELETE FROM probe WHERE path=?", (it["path"],)); it["needs_rescan"] = True; queue_plex(it["path"]); done += 1; note_changed(conn, it["path"], "subtag")
                 conn.execute("UPDATE finding SET resolved_at=? WHERE resolved_at IS NULL AND app=? AND fid=? AND check_code IN ('NO_SUBS','UND_AUDIO_NO_SUBS')", (time.time(), it["app"], it["fid"]))
             record_action(conn, "on", "subtag", it["app"], it["fid"], it["label"], f"{it['und_subs']} untagged subtitle track(s)", note[:200])
             conn.execute("INSERT OR REPLACE INTO subtag_seen VALUES(?,?,?,?)", (it["path"], os.stat(it["path"]).st_mtime if os.path.exists(it["path"]) else it.get("mtime"), note[:200], time.time())); fix_ok(conn, "subtag", it["path"])
@@ -1709,7 +1732,7 @@ def do_track_prefs(conn, items):
         if ok:
             try: mt = os.stat(pth).st_mtime
             except OSError: mt = it.get("mtime")
-            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, mt, time.time(), why)); conn.execute("DELETE FROM probe WHERE path=?", (pth,)); queue_plex(pth); done += 1; fix_ok(conn, "fixdefaults", pth)
+            conn.execute("INSERT OR REPLACE INTO trackprefs VALUES(?,?,?,?)", (pth, mt, time.time(), why)); conn.execute("DELETE FROM probe WHERE path=?", (pth,)); queue_plex(pth); done += 1; fix_ok(conn, "fixdefaults", pth); note_changed(conn, pth, "fixdefaults")
             record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, "mkvpropedit ok")
         else:
             record_action(conn, "on", "fixdefaults", it["app"], it["fid"], it["label"], why, f"ERROR {msg}")
@@ -2688,12 +2711,15 @@ def busy_marks(findings, active_jobs, inflight=None):
     return findings
 def ui_act(conn, body, actor):
     """Every button press on a row: while it runs, the row shows as 'Being fixed now' for anyone who loads the page."""
-    fid = body.get("id"); PRESSING[fid] = (ACT_WORDS.get(body.get("action"), "working on it"), time.time()); tok = None
+    fid = body.get("id"); PRESSING[fid] = (ACT_WORDS.get(body.get("action"), "working on it"), time.time()); tok = None; f = None
     try:
         if body.get("action") in ACT_WORDS:   # a press that changes the file: Dedupearr must not move the same file meanwhile, and the other way round
             f = finding_row(conn, fid) if fid else None
             if f and f.get("path"): tok = lock_take(f["path"], ACT_WORDS[body["action"]])
-        return _ui_act(conn, body, actor)
+        code, obj = _ui_act(conn, body, actor)
+        if code == 200 and body.get("action") in CHANGED_WORDS and f and f.get("path") and not obj.get("already_gone") and not obj.get("queued"):
+            note_changed(conn, f["path"], body["action"]); conn.commit()
+        return code, obj
     except FileBusy as e: return 409, {"error": str(e)}
     finally: lock_drop(tok); PRESSING.pop(fid, None)
 ACT_WORDS = {"subsync_fix": "re-timing the subtitles", "remuxmkv": "rewrapping the file", "fixheader": "fixing the time bar", "fixsync": "fixing the audio delay",
@@ -4374,6 +4400,10 @@ class Handler(SimpleHTTPRequestHandler):
             try: return self._json(200, ui_history(conn))
             finally: conn.close()
         if p == "/api/settings": return self._json(200, ui_settings_get())
+        if p == "/api/changed":
+            conn = db()
+            try: return self._json(200, ui_changed(conn))
+            finally: conn.close()
         if p == "/api/setup":
             c_ = db()
             try: return self._json(200, ui_setup(c_))
@@ -4571,6 +4601,10 @@ def daemon():
     for q_ in (SUB_Q, VERIFY_Q, WHISPER_Q, FOLLOW_Q): threading.Thread(target=sub_worker, args=(q_,), daemon=True).start()
     threading.Thread(target=lambda: ThreadingHTTPServer(("0.0.0.0", HTTP_PORT), Handler).serve_forever(), daemon=True).start()
     lock_sweep()   # markers left from before a restart mean nothing now
+    try:
+        c_ = db(); n_ = backfill_changed(c_); c_.close()
+        if n_: log(f"changed-files list: {n_} files filled in from earlier records")
+    except Exception as e: log("changed-files backfill:", repr(e))
     log(f"http on :{HTTP_PORT}; daily run at {RUN_AT} ({E('TZ','UTC')}); GET /run to start one now")
     if E("RUN_ON_START", "1") == "1": threading.Thread(target=guarded_run, daemon=True).start()
     def _update_checker():

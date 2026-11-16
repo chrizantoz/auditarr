@@ -53,4 +53,23 @@ check("push carries a title with the counts", got.get("headers", {}).get("Title"
 check("push priority is high when something critical is open", got.get("headers", {}).get("Priority") == "high")
 check("push links straight into the page (PUBLIC_URL + #findings)", got.get("headers", {}).get("Click") == "https://auditarr.example.test/#findings", got.get("headers", {}).get("Click"))
 check("trash link variant", audit.page_url("trash") == "https://auditarr.example.test/#trash", audit.page_url("trash"))
+
+# ---- one message for both apps: with DEDUPEARR_URL set, Dedupearr's own summary (its /api/digest) is added under its name
+DD = {"title": "Dedupearr daily: 6 need you · 10.5 MB to get back", "lines": ["Needs you: 6 files, 10.5 MB to get back", "  - Stored twice: 1 file, 4.2 MB", "Since yesterday: nothing was moved", "No errors since yesterday"],
+      "priority": "default", "needs": 6, "reclaim_bytes": 10500000, "reclaim_h": "10.5 MB"}
+answer = {"body": json.dumps(DD).encode(), "code": 200}
+class D(BaseHTTPRequestHandler):
+    def do_GET(self): self.send_response(answer["code"]); self.end_headers(); self.wfile.write(answer["body"])
+    def log_message(self, *a): pass
+dsrv = ThreadingHTTPServer(("127.0.0.1", 0), D); threading.Thread(target=dsrv.serve_forever, daemon=True).start()
+check("without a Dedupearr address the message is Auditarr's alone", audit.dedupearr_digest() is None and audit.digest_join(text, None) == text)
+audit.SETTINGS["DEDUPEARR_URL"] = f"http://127.0.0.1:{dsrv.server_address[1]}/"; dd = audit.dedupearr_digest(); both = audit.digest_join(text, dd)
+check("with an address, Dedupearr's lines follow Auditarr's under its own name", both == text + "\n\nDedupearr:\n" + "\n".join(DD["lines"]), both)
+check("the space to get back is offered for the title", dd["reclaim_h"] == "10.5 MB" and dd["high"] is False, dd)
+answer["body"] = json.dumps(dict(DD, priority="high", lines=["x" * 500, 7, "a\nb"] + ["l"] * 40)).encode(); dd2 = audit.dedupearr_digest()
+check("what Dedupearr sends is cut to size and kept as plain lines", len(dd2["lines"]) == 14 and len(dd2["lines"][0]) == 160 and dd2["lines"][1] == "a b" and dd2["high"] is True, dd2["lines"][:3])
+for bad_answer in ((500, b"oops"), (200, b"<html>sign in</html>"), (200, b'{"lines": []}')):
+    answer["code"], answer["body"] = bad_answer; dd3 = audit.dedupearr_digest()
+    check(f"a Dedupearr that answers {bad_answer[0]} {bad_answer[1][:12]!r} becomes one plain line, and the message still goes out", len(dd3["lines"]) == 1 and "no answer this morning" in dd3["lines"][0] and audit.digest_join(text, dd3).startswith(text), dd3)
+audit.SETTINGS.pop("DEDUPEARR_URL", None); dsrv.shutdown()
 srv.shutdown(); conn.close(); bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

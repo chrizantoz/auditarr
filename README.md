@@ -92,7 +92,7 @@ Open `http://host:3091`. The **first run reads every file once** (roughly 25 min
 
 📁 **Requirements:** Auditarr, the arrs, Bazarr and Plex must all see the media at the same path (`/data` here). If they don't, add a mapping such as `PLEX_PATH_MAP=/data/media=/data`. API keys are picked up automatically from the read-only config files you mount above; or set them yourself (`SONARR_APIKEY`, etc.).
 
-➕ **Optional extras:** Tautulli for watch stats (`-v /path/to/tautulli/config.ini:/arr/tautulli.ini:ro`, powers the **Space** tab), `NTFY_URL` (+ `NTFY_TOKEN_FILE`) for phone notifications, `SUBGEN_URLS` for AI-subtitle (Whisper) servers, a Docker socket proxy at `DOCKER_API` for live subtitle-generation progress, and `PAPERCLIP_*` to hand findings to an agent. An Unraid template is in `docs/unraid-template.xml`.
+➕ **Optional extras:** Tautulli for watch stats (`-v /path/to/tautulli/config.ini:/arr/tautulli.ini:ro`, powers the **Space** tab), `NTFY_URL` (+ `NTFY_TOKEN_FILE`) for phone notifications, `SUBGEN_URLS` for AI-subtitle (Whisper) servers, a Docker socket proxy at `DOCKER_API` for live subtitle-generation progress, and `PAPERCLIP_*` to hand findings to an agent. An Unraid template is in `docs/unraid-template.xml`. With [Dedupearr](https://github.com/chrizantoz/dedupearr) next to it, set `DEDUPEARR_URL` and the daily message covers both apps.
 
 ## 💬 Help and community
 

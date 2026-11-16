@@ -272,6 +272,7 @@ SETTABLE = {   # env name: (kind, default, help)
  "WHISPARR_URL": ("url", "", "Whisparr address (optional)"), "WHISPARR_APIKEY": ("secret", "", "Whisparr API key (optional)"),
  "SPORTARR_URL": ("url", "", "Sportarr address (optional)"), "SPORTARR_APIKEY": ("secret", "", "Sportarr API key (optional)"),
  "BAZARR_URL": ("url", "", "Bazarr address, e.g. http://192.168.1.10:6767"), "BAZARR_APIKEY": ("secret", "", "Bazarr API key (Settings > General); blank = env or the mounted config.yaml"),
+ "DEDUPEARR_URL": ("url", "", "Dedupearr address, e.g. http://192.168.1.10:3092 (optional): its summary of the disk joins the daily phone message"),
  "PLEX_URL": ("url", "", "Plex address, e.g. http://192.168.1.10:32400"), "PLEX_TOKEN": ("secret", "", "Plex token (X-Plex-Token); blank = env or the mounted Preferences.xml"),
  "DEVICES": ("csv", "", "players you own, comma list of keys (ps5, shield, lg-tv, ...): compatibility notes then name the affected player or disappear; blank = generic notes"),
  "DEDUPE": ("mode", "off", "quarantine unmanaged duplicate files next to the arr-managed copy"),
@@ -2082,8 +2083,9 @@ def run_once():
     if SCHEDULED_RUN.get("flag"):
         SCHEDULED_RUN["flag"] = False
         try:
-            t_ = today_summary(conn, started - 26 * 3600); body_ = digest_text(t_) + f"\n{REPORT_URL.rsplit('/', 1)[0]}/"
-            ntfy(f"Auditarr daily: {len(t_['needs'])} need you · {sum(t_['did'].values())} fixes overnight", body_, "high" if any(x["sev"] in ("high", "critical") for x in t_["needs"]) else "default")
+            t_ = today_summary(conn, started - 26 * 3600); dd_ = dedupearr_digest(); body_ = digest_join(digest_text(t_), dd_) + f"\n{REPORT_URL.rsplit('/', 1)[0]}/"
+            ntfy(f"Auditarr daily: {len(t_['needs'])} need you · {sum(t_['did'].values())} fixes overnight" + (f" · {dd_['reclaim_h']} to get back" if dd_ and dd_["reclaim_h"] else ""), body_,
+                 "high" if any(x["sev"] in ("high", "critical") for x in t_["needs"]) or (dd_ and dd_["high"]) else "default")
         except Exception as e: log("digest:", repr(e))
     elif notable or regrabs or regrab_outcomes or (dedupes and cfg("DEDUPE", DEDUPE) == "on"):
         notable.sort(key=lambda n: -SEV_RANK.get(n[0], 0)); lines = [f"[{s}] {c}: {l} - {d}"[:160] for s, c, l, d in notable[:12]]
@@ -4098,6 +4100,23 @@ def digest_text(t):
     if t.get("scores"): lines.append("Library health: " + " · ".join(f"{k} {v['score']:g}" for k, v in sorted(t["scores"].items())))
     lines.append(f"Findings: {t['active']} active ({t['new']} new, {t['resolved']} resolved) · trash {t['trash'].get('files', 0)} files / {t['trash'].get('gb', 0)} GB")
     return "\n".join(lines)
+def dedupearr_digest():
+    """Dedupearr's own morning summary (its /api/digest), so both apps arrive as one phone message. -> None when no address is set, else
+    {"lines": [...], "reclaim_h": str, "high": bool}. What comes back is shown as text and nothing else: lines are cut to length and count."""
+    base = (setting("DEDUPEARR_URL") or "").strip().rstrip("/")
+    if not base: return None
+    try:
+        j = json.loads(urllib.request.urlopen(urllib.request.Request(base + "/api/digest", headers={"Accept": "application/json"}), timeout=20).read())
+        lines = [re.sub(r"[\x00-\x1f]", " ", str(x))[:160] for x in j["lines"] if isinstance(x, str)][:14]
+        if not lines: raise ValueError("no lines")
+        dep_status("dedupearr", True)
+        return {"lines": lines, "reclaim_h": str(j.get("reclaim_h") or "")[:12] if j.get("reclaim_bytes") else "", "high": j.get("priority") == "high"}
+    except Exception as e:
+        log("dedupearr digest:", repr(e)[:160]); dep_status("dedupearr", False, repr(e)[:160])
+        return {"lines": ["no answer this morning - is it running, and does it let your own network in without a sign-in?"], "reclaim_h": "", "high": False}
+def digest_join(text, dd):
+    """Auditarr's lines, then Dedupearr's under its own name."""
+    return text if not dd else text + "\n\nDedupearr:\n" + "\n".join(dd["lines"])
 def ui_history(conn):
     runs = []
     for r in conn.execute("SELECT started,finished,files,probed,active,new,resolved,extra FROM run ORDER BY started DESC LIMIT 120"):

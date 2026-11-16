@@ -909,6 +909,26 @@ def restore_file(dest, orig):
             try: os.rename(os.path.join(os.path.dirname(dest), n), os.path.join(os.path.dirname(orig), n))
             except OSError: pass
     with open(os.path.join(TRASH_DIR, "LOG.txt"), "a") as f: f.write(f"{datetime.datetime.now().isoformat(timespec='seconds')}\trestore\t{dest}\t->\t{orig}\n")
+RESTORE_SEEN_S = float(E("RESTORE_SEEN_S", "60"))
+def reopen_restored(conn, apps, app, kind, pid, old_fid, orig, ts, started):
+    """#57: a file put back from the trash is back in the library now, so its rows go back on the list in this same run - not a night later, when
+    any fresh run in between (a staged update) finds them first and they look like a changed detector. The arr gives the file a new id once its
+    rescan has seen it; we wait a short while for that id so tomorrow's audit keeps the same rows. -> rows re-opened"""
+    old = [r for r in conn.execute("SELECT check_code, severity, label, detail FROM finding WHERE app=? AND fid=? AND resolved_at IS NOT NULL AND resolved_at>=?", (app, old_fid, ts - 1)).fetchall()
+           if ROW_MAKER.get(r[0]) == "check" and r[0] != "MISSING_FILE"]
+    conn.commit()   # never hold the write lock while waiting for the arr
+    if not old: return 0
+    fid = old_fid; end = time.time() + RESTORE_SEEN_S; norm = os.path.normpath(orig)
+    while app in apps:
+        try:
+            base, key, _ = apps[app]; hit = [r for r in (api(base, key, f"episodefile?seriesId={pid}" if kind == "series" else f"moviefile?movieId={pid}") or []) if os.path.normpath(r.get("path") or "") == norm]
+            if hit: fid = hit[0]["id"]; break
+        except Exception as e: log("reopen_restored:", app, repr(e))
+        if time.time() >= end: log(f"restored file not listed by {app} after {RESTORE_SEEN_S:g}s - rows re-opened under the old file id; the next audit re-keys them"); break
+        time.sleep(5)
+    for code, sev, label, detail in old:
+        upsert_finding(conn, hashlib.sha1(f"{app}|{fid}|{code}".encode()).hexdigest()[:16], app, fid, code, sev, label, orig, detail, started)
+    conn.commit(); return len(old)
 def check_regrabs(conn, apps, items, found, started):
     """Close the loop on every pending re-grab: did the arr import a replacement, and is it actually better?
     found = {(app, fid): set(check codes)} from this run. Returns human lines for the notification."""
@@ -937,7 +957,8 @@ def check_regrabs(conn, apps, items, found, started):
             if dest and os.path.isfile(dest) and not os.path.exists(orig):
                 try:
                     restore_file(dest, orig); conn.execute("DELETE FROM probe WHERE path=?", (orig,)); resc = rescan_for_path(apps, orig)
-                    status, note = "restored", f"nothing imported in {wait:g} days - original restored from the trash; {resc}"
+                    back = reopen_restored(conn, apps, app, kind, pid, fid, orig, ts, started)
+                    status, note = "restored", f"nothing imported in {wait:g} days - original restored from the trash; {resc}" + (f"; {back} finding(s) back on the list" if back else "")
                 except Exception as e: status, note = "restore_failed", err_result(e)
             elif os.path.exists(orig): status, note = "restored", "original is back in place"
             else: status, note = "lost", "nothing imported and the quarantined copy is gone (purged or moved by hand)"

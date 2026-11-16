@@ -387,5 +387,29 @@ try:
     check("a drift redo in pieces says so in Actions, not 'Bazarr would have used the own choice track'", "because the last AI subtitles drifted" in open(os.path.join(ROOT, "audit.py")).read())
 except Exception as e: check("unmeasurable new AI subtitles case runs", False, repr(e))
 
+# 2026-11-15 (#57): the nightly run put 5 originals back from the trash after its audit pass, so they were missing from the list until the next
+# night; a staged update in between found them and was held back as "a new kind of problem". A restored file's rows come back in the same run.
+try:
+    real_api, real_trash, real_wait = audit.api, audit.TRASH_DIR, audit.RESTORE_SEEN_S
+    lib = os.path.join(TMP, "lib57", "Show", "Season 01"); audit.TRASH_DIR = os.path.join(TMP, "trash57"); os.makedirs(lib); os.makedirs(audit.TRASH_DIR); audit.RESTORE_SEEN_S = 0
+    def case57(n, listed):
+        orig = os.path.join(lib, f"Show - S01E0{n}.mkv"); dest = os.path.join(audit.TRASH_DIR, f"Show - S01E0{n}.mkv"); open(dest, "wb").write(b"x" * 64); ts = time.time() - 5 * 86400; old = 100 + n
+        for code, res in (("DUB_ONLY", ts + 2), ("NO_SUBS", ts + 3600), ("MISSING_FILE", ts + 3600), ("INTERLACED", ts - 86400)):   # the last one was fixed before the re-grab and stays closed
+            conn.execute("INSERT OR REPLACE INTO finding(id,app,fid,check_code,severity,label,path,detail,first_seen,last_seen,resolved_at,notified,seen_runs,handed_off) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,3,0)",
+                         (f"old57{n}{code}"[:16], "sonarr", old, code, "medium", f"Show S01E0{n}", orig, "d", ts - 9e5, ts, res))
+        audit.record_regrab(conn, "sonarr", "series", 7, old, [70 + n], f"Show S01E0{n}", orig, dest, "DUB_ONLY", "test"); conn.execute("UPDATE regrab SET ts=? WHERE orig_path=?", (ts, orig)); conn.commit()
+        audit.api = lambda base, key, path, *a, **k: ([{"id": 900 + n, "path": orig}] if listed and path.startswith("episodefile") else {"id": 1} if path == "command" else [])
+        started = time.time(); out = audit.check_regrabs(conn, {"sonarr": ("http://x", "k", "series")}, [], {}, started)
+        rows = conn.execute("SELECT fid, check_code FROM finding WHERE path=? AND resolved_at IS NULL ORDER BY check_code", (orig,)).fetchall()
+        return orig, out, rows
+    orig, out, rows = case57(1, True)
+    check("a file put back from the trash is on disk again", os.path.exists(orig))
+    check("its findings are back on the list in the same run, under the arr's new file id", rows == [(901, "DUB_ONLY"), (901, "NO_SUBS")], rows)
+    check("the outcome line says the findings are back", out and "2 finding(s) back on the list" in out[0], out)
+    orig, out, rows = case57(2, False)
+    check("when the arr has not listed the file yet, the findings still come back (old file id)", rows == [(102, "DUB_ONLY"), (102, "NO_SUBS")], rows)
+    audit.api, audit.TRASH_DIR, audit.RESTORE_SEEN_S = real_api, real_trash, real_wait
+except Exception as e: check("restored-file case runs", False, repr(e))
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

@@ -4,6 +4,13 @@ Where Auditarr is heading. Each line starts with its status: 🟢 **done** and i
 
 The current focus: make the app **trustworthy to run** (a real test harness) and **easy to read** for someone who isn't a developer.
 
+## 📍 Where we are (2026-11-16)
+
+- **Auditarr is in beta and runs nightly** on the owner's library: the checks, the fixes, the subtitles pipeline, the daily phone message and staged updates are all live.
+- **Newest:** the lock shared with Dedupearr (the two apps never change one file at once), one phone message covering both apps, the list of files Auditarr changed that Dedupearr reads, and a restored file's findings returning in the same run.
+- **Dedupearr**, the companion app, has its fixes live and is counting 30 clean nights before its install phase (see N2 below and its own roadmap).
+- **Next here:** the open test items (Q35 to Q39) and the first 🔴 in each list below.
+
 ## 🗂️ How we track work (added 2026-11-12)
 
 - **This file** is the big picture: phases, what is done, what is next, in plain words.
@@ -184,7 +191,7 @@ A companion app, not a feature of Auditarr: for every media file it says whether
 
 - 🟢 **N1** Release 0.1 "Scan and tell" (target Dec 2026): disk walker (inode, link count, size, physical disk), qBittorrent + Sonarr/Radarr + Plex readers, one verdict per file, Files/Space pages, read-only. Gate to N2: two weeks of verdicts that match the owner's real library. (shipped 2026-11-11/12 as Dedupearr phases 1–2: github.com/chrizantoz/dedupearr)
   - Living next to Auditarr on the same files (both owner and users will run both): a verdict "rewritten by Auditarr, torrent still needed for seeding" for files Auditarr remuxed/fixed (read Auditarr's actions log; never offer a relink there); Auditarr's `.trash` is a recycle bin, not orphans; a shared per-file lock marker so the two apps never fix the same file at once, night runs an hour apart; its own port (3092), config folder and database.
-- 🟡 **N2** Release 0.2 "Fix safely" (Jan–Feb 2027): relink, remove old torrent, holding bin, 14-day undo, dry run on by default, fix-during-run guard, cause-level "fix all with this cause". Gate to N3: 30 nightly runs with zero wrong fixes. (Dedupearr phase 3 in progress: dry run, bot gate and staged promotion done 2026-11-12)
+- 🟡 **N2** Release 0.2 "Fix safely" (Jan–Feb 2027): relink, remove old torrent, holding bin, 14-day undo, dry run on by default, fix-during-run guard, cause-level "fix all with this cause". Gate to N3: 30 nightly runs with zero wrong fixes. (Dedupearr phase 3 built and live 2026-11-16: holding bin with undo, relink, removal through the client, whole torrents, the shared lock, the morning message and living next to Auditarr; the 30-night gate is running)
 - 🔴 **N3** Release 0.3 "Easy to install" (Mar 2027): Deluge, rTorrent and Transmission clients, Unraid cache/array awareness, setup wizard with the shared-mount test, Unraid Apps template, public demo in sandbox mode.
 - 🟢 **N1** → repo [chrizantoz/dedupearr](https://github.com/chrizantoz/dedupearr) (public, image on GHCR), phase 1 "scan and tell" built and deployed on the owner's server 2026-11-11 with its own ROADMAP.md (P1–P4), a test suite level with Auditarr's, docs in the same layout, a public demo at https://dedupearr-auditarr-demo.chrizantoz.com and a project site. Next there: phase 2 (download-client and arr readers). (shipped 2026-11-11/12 as Dedupearr phases 1–2: github.com/chrizantoz/dedupearr)
 - 🔴 **N4** Save Vault (lowest priority, in phases, starts after Dedupearr phase 2): **SV1** server-side inventory of game saves over the existing SMB shares of the gaming PCs (no agent), nightly versioned snapshots (rsync link-dest), Ludusavi's manifest for the save locations; **SV2** per-game timeline page and one-click restore of any version to any machine; **SV3** small agent for machines without a share (Ally on Bazzite), conflict detection when two machines changed the same save; **SV4** Unraid template and demo.

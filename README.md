@@ -18,7 +18,7 @@ It is deliberately small: one Python file, one HTML page, a local SQLite file fo
 
 ## 🚧 Status
 
-Beta. Auditarr was built for one homelab (about 14,000 files across Sonarr, Radarr, Whisparr, Bazarr and Plex on Unraid) and then generalized: the Setup tab, the install docs and the test suites exist so that a second person can run it. Expect rough edges around setups that differ from that one (other players, other path layouts, no Plex). Issues with a copy of the Live tab's log lines are welcome.
+Beta (updated 2026-11-16). It works together with its companion [Dedupearr](https://github.com/chrizantoz/dedupearr): the two never change one file at the same moment, and one daily phone message covers both. Auditarr was built for one homelab (about 14,000 files across Sonarr, Radarr, Whisparr, Bazarr and Plex on Unraid) and then generalized: the Setup tab, the install docs and the test suites exist so that a second person can run it. Expect rough edges around setups that differ from that one (other players, other path layouts, no Plex). Issues with a copy of the Live tab's log lines are welcome.
 
 ## 🖼️ Screenshots
 

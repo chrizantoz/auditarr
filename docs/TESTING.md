@@ -21,7 +21,11 @@ A one-person project that moves other people's files has to be paranoid. This is
 | contract | every action the page can send exists in the backend, has a confirm sentence and a label; every API path the page calls exists | `tests/contract.py` |
 | jsdom bot | 46 checks against sanitized fixtures from a real library, plus five edge worlds (empty, 2000-finding show, every service down, API errors, fresh install) | `uibot/ui_bot.js`, `uibot/fixtures/`, `uibot/edge_fixtures.py` |
 | real browser (Playwright) | phone and desktop: no horizontal scroll, controls on screen, plain words only, help opens, confirm before every write, accessibility scan (axe, serious/critical fail), 60-click seeded monkey, screenshots | `uibot/browser_bot.js` |
-| visual regression | screenshots vs committed baselines, >1 % pixel change fails | `uibot/visual_diff.js`, `uibot/baseline/` |
+| visual regression | every tab (Findings, Trash, Actions, Space, Settings, Setup, About, History, Live) at phone and desktop width, clock pinned, motion off, vs committed baselines; >1 % pixel change, a missing picture or a missing baseline fails | `uibot/visual_diff.js`, `uibot/shots.js`, `uibot/baseline/` |
+| phone persona (live browser) | on a 390 px touch screen in the simple view: search, Move to trash, yes, Undo; every control fully on screen and big enough for a thumb, no sideways scrolling | `uibot/browser_bot.js` (LIVE mode) |
+| sign-in (real browser) | turn sign-in on and add a read-only account from Setup, then from a home-network address: wrong and right password, reload, Sign out, read-only login sees no action buttons and every change is refused in a plain sentence | `uibot/signin_bot.js` (run by `tests/e2e_stack.py`) |
+| error-path personas (real browser) | Find subtitles with Bazarr switched off, Make AI subtitles with no speech-to-text provider, Run now twice: each must end in a plain sentence on the page; the fake stack's `/__world` switches services off | `uibot/error_paths_bot.js` (run by `tests/e2e_stack.py`) |
+| long-open page | the real page in jsdom with real timers, open across audits started from outside it: each shows up by itself, nothing waits for a click, memory and element count stay flat (also in every staged update) | `uibot/soak_bot.js` |
 | end to end | a fake Sonarr/Radarr/Bazarr + synthetic media under `/data` + the real daemon: findings appear, Move to trash moves the file, Undo restores it, re-download sends the arr its commands, the import webhook flags a bad file within seconds, sign-in gates the page, secrets never leak, the built-in self-test passes, and the browser bot clicks the real page | `tests/e2e_stack.py`, `tests/mock_stack.py` |
 
 Only after all of that does CI publish the image.
@@ -31,8 +35,9 @@ Only after all of that does CI publish the image.
 1. Pull `:latest`; stop if the digest is unchanged.
 2. Start the candidate as a **staging** container on another port with a copy of the real database and `READ_ONLY=1`: every write to an arr, Bazarr, Plex or a media file is refused and counted (`guard_write` in `audit.py`), independent of the per-feature gates. Staging also runs with every nightly automation gate off and `JOBS=off`.
 3. Let it run a full audit and its self-test.
-4. Judge: self-test green, run finished, total findings within 20 % of production, no check more than doubled (medium and above), zero write attempts.
-5. **Promote** only then: wait until production is idle (`/health` reports `busy: 0`), recreate the container, remember the previous image for `rollback`.
+4. Meanwhile a page stays open in the bot image (`soak_bot.js`, host network) through the staged audit and one more it starts from outside the page; a failure holds the release.
+5. Judge: self-test green, run finished, total findings within 20 % of production, no check more than doubled (medium and above), zero write attempts.
+6. **Promote** only then: wait until production is idle (`/health` reports `busy: 0`), recreate the container, remember the previous image for `rollback`.
 
 ## 3. Every night, in production
 

@@ -36,12 +36,18 @@ run_prod(){ # $1 = image
   curl -sf http://127.0.0.1:3091/health >/dev/null && log "production running $img" || { log "production did not come up on $img"; return 1; }
 }
 stage(){ # $1 = image, $2 = extra docker args (fault drill), $3 = "drill" to judge a drill instead of a release ; returns 0 when the staged run looks sane
-  local img="$1" extra="${2:-}" mode="${3:-}" S="$L-staging"; docker rm -f media-audit-staging >/dev/null 2>&1; rm -rf "$S"; mkdir -p "$S/data"
+  local img="$1" extra="${2:-}" mode="${3:-}" S="$L-staging"; docker rm -f media-audit-staging auditarr-soak >/dev/null 2>&1; rm -rf "$S"; mkdir -p "$S/data/reports"
   cp -a "$L/data/state.db" "$S/data/"; cp -a "$L/data/ignore.txt" "$S/data/" 2>/dev/null
   docker run -d --name media-audit-staging -p 3093:3091 $(common_args | tr '\n' ' ') \
     -e RUN_AT=23:59 -e RUN_ON_START=1 -e ARR_RESCAN=off -e DEDUPE=off -e REMEDIATE=off -e PAPERCLIP=off -e PLEX_REFRESH=off -e PLEX_CHECK=on \
     -e SUBTAG=off -e AUTO_FIXHEADER=off -e AUTO_VERIFY=off -e AUTO_ACCEPTLANG=off -e AUTO_WHISPER=off -e TRACK_PREFS=off -e JOBS=off -e READ_ONLY=1 -e TRASH_DIR=/data/media/.media-audit-trash-staging -e HOST_CONTAINERNAME=media-audit-staging \
     -l com.centurylinklabs.watchtower.enable=false -v $S/data:/config $extra "$img" >/dev/null || { log "staging container failed to start"; return 1; }
+  local soak="skipped"
+  if [ "$mode" != "drill" ]; then   # Q39: a page left open (in jsdom, on the host network so it may start a run) through the staged audit and one more started from outside it
+    docker image inspect "$UIBOT_IMG" >/dev/null 2>&1 || docker pull -q "$UIBOT_IMG" >/dev/null 2>&1
+    docker run -d --name auditarr-soak --network host -e TZ=${TZ:-UTC} -v "$S/data/reports":/out --entrypoint node -l com.centurylinklabs.watchtower.enable=false \
+      "$UIBOT_IMG" --expose-gc /bot/soak_bot.js http://127.0.0.1:3093 /out/soak.json 1 40 >/dev/null 2>&1 && soak="running" || soak="soak bot did not start"
+  fi
   local i=0; while [ $i -lt 180 ]; do sleep 10; i=$((i+1)); [ -f "$S/data/reports/selftest.json" ] && break; done
   local prod stag verdict bot="skipped"
   if [ "$mode" != "drill" ]; then   # Q26: the UI bot clicks through the staged page (fetched from staging itself), results land in $S/data/reports/uibot.json
@@ -51,11 +57,16 @@ stage(){ # $1 = image, $2 = extra docker args (fault drill), $3 = "drill" to jud
       bot=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(str(j.get("passed")) + "/" + str(j.get("total")) + ((" failed: " + "; ".join(j.get("failed") or [])) if j.get("failed") else ""))' "$S/data/reports/uibot.json" 2>/dev/null || echo "bot did not report")
     else bot="bot image unavailable"; fi
   fi
+  if [ "$soak" = "running" ]; then   # the long-open page reports when its extra audit has shown up (or after 45 min at most)
+    timeout 2700 docker wait auditarr-soak >/dev/null 2>&1 || docker stop auditarr-soak >/dev/null 2>&1
+    docker logs auditarr-soak > "$S/soak.log" 2>&1; docker rm -f auditarr-soak >/dev/null 2>&1
+    soak=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(str(j.get("passed")) + "/" + str(j.get("total")) + ((" failed: " + "; ".join(j.get("failed") or [])) if j.get("failed") else ""))' "$S/data/reports/soak.json" 2>/dev/null || echo "soak bot did not report")
+  fi
   curl -s http://127.0.0.1:3091/api/state > "$S/prod.json"; curl -s http://127.0.0.1:3093/api/state > "$S/stag.json"; curl -s http://127.0.0.1:3093/health > "$S/health.json"
-  cp "$S/data/reports/errors.log" "$S/errors.log" 2>/dev/null || : > "$S/errors.log"; echo "$bot" > "$S/bot.txt"
+  cp "$S/data/reports/errors.log" "$S/errors.log" 2>/dev/null || : > "$S/errors.log"; echo "$bot" > "$S/bot.txt"; echo "$soak" > "$S/soak.txt"
   prod=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(len(j["findings"]), j["health"]["status"])' "$S/prod.json" 2>/dev/null)
   stag=$(python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); print(len(j["findings"]), j["progress"]["phase"])' "$S/stag.json" 2>/dev/null)
-  verdict=$(python3 - "$S/data/reports/selftest.json" "$S/prod.json" "$S/stag.json" "$S/health.json" "$mode" "$S/errors.log" "$S/bot.txt" <<'EOF'
+  verdict=$(python3 - "$S/data/reports/selftest.json" "$S/prod.json" "$S/stag.json" "$S/health.json" "$mode" "$S/errors.log" "$S/bot.txt" "$S/soak.txt" <<'EOF'
 import json, sys, collections
 def load(p):
     try: return json.load(open(p))
@@ -97,11 +108,14 @@ if errtxt: reasons.append(f"errors.log is not empty ({errtxt.count(chr(10) + '==
 try: bot = open(sys.argv[7]).read().strip()
 except Exception: bot = ""
 if "failed:" in bot or bot in ("bot did not report",): reasons.append(f"UI bot {bot}")
+try: soak = open(sys.argv[8]).read().strip()
+except Exception: soak = ""
+if "failed:" in soak or "did not" in soak: reasons.append(f"long-open page {soak}")
 print("PASS" if not reasons else "FAIL: " + "; ".join(reasons))
 EOF
 )
   docker rm -f media-audit-staging >/dev/null 2>&1; rm -rf "$S" /mnt/user/media/media/.media-audit-trash-staging
-  log "${mode:-staging} $img -> $verdict (prod: $prod | staged: $stag | UI bot: $bot)"; echo "$verdict" | grep -q '^PASS'
+  log "${mode:-staging} $img -> $verdict (prod: $prod | staged: $stag | UI bot: $bot | long-open page: $soak)"; echo "$verdict" | grep -q '^PASS'
 }
 current_image(){ docker inspect media-audit --format '{{.Config.Image}}@{{.Image}}' 2>/dev/null; }
 # one deploy at a time: two watchers/crons calling update together must not race each other through rm/run

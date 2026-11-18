@@ -1,0 +1,19 @@
+{
+ "hooks": [
+  {
+   "app": "sonarr",
+   "connected": true,
+   "url_ok": true
+  },
+  {
+   "app": "radarr",
+   "connected": true,
+   "url_ok": true
+  },
+  {
+   "app": "whisparr",
+   "connected": true,
+   "url_ok": true
+  }
+ ]
+}

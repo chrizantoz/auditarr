@@ -139,6 +139,8 @@ Every section has a **?** button that explains it in a few sentences and links h
 
 **How long before AI subtitles are made?** By default a file must sit without subtitles for 3 days (Settings → "days a no-subtitles finding must stay open"). Set it to 1 for the night after. For the same day, turn on the import hook (Setup step 3) and set "after a new download … this many minutes" to, say, 120: Bazarr gets two hours, then Whisper runs.
 
+**Do I need to reload the page after the nightly run?** No. A page left open checks once a minute whether a run started or finished and redraws by itself when you are not using it; if you are in the middle of something, a small refresh button appears instead.
+
 **Can my family open the page without breaking anything?** Yes. Once sign-in is on, Setup → Protect the page has a **read-only account**: give them that user and password. They see everything, every button is hidden, and even a hand-written request to change something is refused by the server.
 
 **The phone push: can it take me straight to the problem?** Tap it. It opens the page on the Findings tab (or the Trash tab when files were moved). If you reach the page through a public address, set `PUBLIC_URL` to it so the link works away from home.
@@ -151,7 +153,7 @@ Every section has a **?** button that explains it in a few sentences and links h
 
 **The night keeps failing on one file. Will it keep trying forever?** No. Every nightly fix (time bar, subtitle labels, default tracks, AI subtitles, duplicates) waits after a failure: 1 day, then 3, then 7. After the 3rd failure it stops trying that file and Today says "the night gave up after 3 failed tries", with the error. Once the file changes (a new download, or you fix it by hand) it tries again by itself.
 
-**A job failed. What now?** It shows up under Needs you on the Findings tab as "A job failed" with the reason and a Retry button. Retry queues it again ahead of routine work. If it fails the same way twice, open About → Recent errors and paste that entry into a bug report.
+**A job failed. What now?** It shows up under Needs you on the Findings tab as "A job failed" with the reason in one sentence (for example "Bazarr could not be reached: nothing answered at its address") and a Retry button. Sort out the reason first (start Bazarr, turn on its speech-to-text provider), then Retry queues it again ahead of routine work. If it fails the same way twice, open About → Recent errors and paste that entry into a bug report.
 
 **Which audio and subtitles does it pick?** By default every title plays in its original language with subtitles in your language: Japanese anime in Japanese, Korean drama in Korean, English titles in English. If your household prefers dubs, set PREFER_DUBS to on and titles play dubbed in your language whenever the file has that track, falling back to the original when it does not. Your language comes from PREFERRED_AUDIO and PREFERRED_SUBS (first entry counts). A tag on a show or movie in Sonarr or Radarr, such as audit-lang-fre, overrides the rule for that title. This is applied inside MKV files (default track flags) and to your own account's selection in Plex; other Plex accounts follow their own Plex language preference.
 

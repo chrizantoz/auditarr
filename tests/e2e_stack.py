@@ -26,6 +26,7 @@ make(W["files"][2]["path"], alang="jpn")                      # S01E03 Japanese,
 make(W["mfiles"][0]["path"], audio=False)                     # movie with no audio -> NO_AUDIO critical
 os.utime(W["mfiles"][0]["path"], (time.time() - 2 * 86400, time.time() - 2 * 86400))   # old enough for the not-in-Plex rule (PLEX_MIN_AGE_HOURS)
 season = os.path.dirname(W["files"][0]["path"]); dup = os.path.join(season, "Alpha.Show.S01E01.other-group.mkv"); shutil.copy(W["files"][0]["path"], dup)   # DUPLICATE_VIDEO
+dup2 = os.path.join(season, "Alpha.Show.S01E01.third-group.mkv"); shutil.copy(W["files"][0]["path"], dup2)   # Q37: a second duplicate, so the phone persona and the desktop run each have one to move and put back
 orphan = os.path.join(TV, "Random.Home.Video.mkv"); shutil.copy(W["files"][0]["path"], orphan)                                                           # ORPHAN_FILE
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
 W["plex_missing"] = [W["mfiles"][0]["id"]]   # Plex has not indexed the movie -> PLEX_MISSING
@@ -262,6 +263,10 @@ if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     if "Executable doesn't exist" in (p.stderr + p.stdout): print("SKIP browser bot (Chromium not downloaded here; CI runs it)")
     else: check("real-browser bot passes against the live app", p.returncode == 0, "; ".join(bad)[:200] or p.stderr[-300:])
 else: print("SKIP browser bot (uibot/node_modules/playwright missing)")
+# Q39: a page left open across two audits started from outside it (like the nightly run): each must show up by itself, memory and page size flat
+if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "jsdom")):
+    p = subprocess.run(["node", "--expose-gc", os.path.join(ROOT, "uibot", "soak_bot.js"), BASE, os.path.join(CFG, "soak.json"), "2", "15"], capture_output=True, text=True, timeout=1200)
+    print(p.stdout[-2000:]); check("a page left open shows every new audit by itself, with flat memory (Q39)", p.returncode == 0, "; ".join(l for l in p.stdout.splitlines() if l.startswith("FAIL"))[:240] or p.stderr[-300:])
 # Q33: a first install, done the way a person does it: blank Auditarr, Setup cards, Test, Save connections, reload, Find my apps, first audit
 CFG2 = tempfile.mkdtemp(prefix="auditarr-e2e-fresh-"); os.makedirs(os.path.join(CFG2, "reports")); PORT2 = free_port()
 env2 = {k: v for k, v in env.items() if not (k.endswith("_URL") or k.endswith("_APIKEY")) or k in ("NTFY_URL", "SUBGEN_URLS")}
@@ -288,6 +293,35 @@ if up2 and os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwrigh
             try: print("---- blank install state ----", json.dumps({k: json.loads(urllib.request.urlopen(BASE2 + "/api/state", timeout=30).read()).get(k) for k in ("run", "progress", "health", "setup")})[:1500])
             except Exception as e: print("state unavailable:", repr(e))
 else: print("SKIP first-run walkthrough (playwright missing)")
+# Q38: error-path personas on the blank install (its own database, so no earlier AI subtitles or retries get in the way): Find subtitles with
+# Bazarr switched off, Make AI subtitles while Bazarr has no speech-to-text provider, Run now twice. Each must end in a plain sentence.
+if up2 and os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
+    for sfx in (".en.srt",):
+        try: os.remove(os.path.splitext(W["files"][2]["path"])[0] + sfx)   # S01E03 back to 'no subtitles' (the main run's AI subtitles made one)
+        except FileNotFoundError: pass
+    W["bazarr_history"].clear()
+    urllib.request.urlopen(urllib.request.Request(BASE2 + "/api/run", data=b"{}", method="POST", headers={"Content-Type": "application/json"}), timeout=30); t6 = time.time(); ns2 = []
+    while time.time() - t6 < 180:
+        time.sleep(3); st6 = json.loads(urllib.request.urlopen(BASE2 + "/api/state", timeout=60).read()); ns2 = [f for f in st6.get("findings", []) if f["check"] == "NO_SUBS" and "S01E03" in f["title"]]
+        if (st6.get("progress") or {}).get("phase") == "done" and ns2: break
+    check("error paths: the blank install has a no-subtitles row to work with", bool(ns2), [f["check"] for f in st6.get("findings", [])])
+    p4 = subprocess.run(["node", os.path.join(ROOT, "uibot", "error_paths_bot.js"), BASE2, MURL, "S01E03"], capture_output=True, text=True, timeout=900); print(p4.stdout[-2500:])
+    check("every error path ends in a plain sentence on the page (Q38)", p4.returncode == 0, "; ".join(l for l in p4.stdout.splitlines() if l.startswith("FAIL"))[:240] or p4.stderr[-300:])
+    mock.chaos = None; W["down"] = []; W["no_whisper"] = False
+# Q36: sign-in and the read-only account in a real browser, on the blank install (no password yet). The browser must come from a home-network
+# address, not 127.0.0.1 (the container itself is always let in), so the page is opened on this machine's own LAN address too.
+def lan_ip():
+    s_ = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try: s_.connect(("10.255.255.255", 1)); return s_.getsockname()[0]   # the address of the default route; nothing is sent
+    except OSError: return ""
+    finally: s_.close()
+LAN = lan_ip()
+if up2 and os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
+    if not LAN or LAN.startswith("127."):
+        check("sign-in walkthrough: this machine has a home-network address to test from", not os.environ.get("CI"), "no non-loopback IPv4 address") if os.environ.get("CI") else print("SKIP sign-in walkthrough (no LAN address here)")
+    else:
+        p3 = subprocess.run(["node", os.path.join(ROOT, "uibot", "signin_bot.js"), BASE2, f"http://{LAN}:{PORT2}"], capture_output=True, text=True, timeout=600); print(p3.stdout[-2500:])
+        check("sign-in and the read-only account work in a real browser (Q36)", p3.returncode == 0, "; ".join(l for l in p3.stdout.splitlines() if l.startswith("FAIL"))[:240] or p3.stderr[-300:])
 daemon2.terminate()
 try: daemon2.wait(10)
 except Exception: daemon2.kill()

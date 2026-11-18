@@ -79,7 +79,13 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path); q = parse_qs(u.query); parts = u.path.strip("/").split("/")
         if u.path == "/__calls": return self._send(200, self.server.calls)
         if u.path == "/__reset": self.server.calls.clear(); return self._send(200, {"ok": True})
+        if u.path == "/__world" and method == "POST":   # a bot outside this process changes the world: {"down": ["bazarr"], "no_whisper": true}
+            self.server.world.update(self._body() or {}); return self._send(200, {"ok": True, "down": self.server.world.get("down", [])})
         app = parts[0] if parts else ""
+        if app in (self.server.world.get("down") or []):   # Q38: a service that is switched off - the connection drops with no answer
+            try: self.connection.shutdown(socket.SHUT_RDWR)
+            except OSError: pass
+            return
         if app == "whisper": return self._asr(parts[1:], q)   # fake Whisper: speech at fixed irregular times, so a shifted subtitle file is measurable
         body = self._body() if method != "GET" else None
         ch = getattr(self.server, "chaos", None)   # Q15: random 500s, slow answers, one service vanishing mid-run
@@ -216,7 +222,9 @@ class Handler(BaseHTTPRequestHandler):
             eid = int(q["episodeid[]"][0]); e = next((x for x in W["episodes"] if x["id"] == eid), None); return self._send(200, {"data": [self._bz_episode(e, e["seriesId"])] if e else []})
         if p == "movies" and q.get("radarrid[]"): return self._send(200, {"data": [{"radarrId": int(q["radarrid[]"][0]), "subtitles": []}]})
         if p == "providers/episodes" and method == "GET":   # one whisperai candidate per episode, shaped like the real list
-            eid = int((q.get("episodeid") or ["0"])[0]); return self._send(200, {"data": [over("bazarr/providers_episodes", dict(provider="whisperai", language="en", subtitle="whisperai-" + str(eid), release_info=["Whisper transcription"], score=100, orig_score=360, matches=["whisperai"], dont_matches=[]))]})
+            eid = int((q.get("episodeid") or ["0"])[0])
+            if W.get("no_whisper"): return self._send(200, {"data": []})   # Q38: Bazarr without its speech-to-text provider offers no AI candidate
+            return self._send(200, {"data": [over("bazarr/providers_episodes", dict(provider="whisperai", language="en", subtitle="whisperai-" + str(eid), release_info=["Whisper transcription"], score=100, orig_score=360, matches=["whisperai"], dont_matches=[]))]})
         if p == "providers/episodes" and method == "POST":   # the download: Bazarr answers at once and writes a history row when the transcription lands (here: immediately)
             eid = int((body.get("episodeid") or ["0"])[0]) if isinstance(body.get("episodeid"), list) else int(body.get("episodeid") or 0)
             e = next((x for x in W["episodes"] if x["id"] == eid), None); f = next((x for x in W["files"] if e and x["id"] == e["episodeFileId"]), None)

@@ -3046,8 +3046,10 @@ def _subsearch(job):
         got = external_subs(job["path"]) if job.get("path") else set(); ok = bool(got & PREF_SUBS) or "und" in got
         plx = ""
         if ok: resolve_finding(conn, job["fid"]); plx = plex_refresh(job["path"])
-        record_action(conn, "on", "subsearch", job["app"], job["fid"], job["label"], f"Bazarr search ({lang2}) by {job['actor']}",
-                      (f"subtitle found: {','.join(sorted(got))}; {plx}" if ok else "no subtitle found yet (Bazarr keeps searching on its schedule)") + " | " + "; ".join(results)[:160])
+        # Q38 (2026-11-18): with Bazarr switched off every request failed, yet the result said "Bazarr keeps searching" and nobody was told
+        reached = any(r_.startswith("HTTP 2") for r_ in results)
+        res_ = (f"subtitle found: {','.join(sorted(got))}; {plx}" if ok else "no subtitle found yet (Bazarr keeps searching on its schedule)" if reached else (results[0] if results and results[0].startswith("ERROR") else "ERROR " + (results[0] if results else "nothing was sent")))
+        record_action(conn, "on", "subsearch", job["app"], job["fid"], job["label"], f"Bazarr search ({lang2}) by {job['actor']}", res_ + " | " + "; ".join(results)[:160])
         refresh_reports(conn)
     finally: conn.close()
 def bazarr_call(path, data=None, method=None, timeout=900):
@@ -3205,7 +3207,7 @@ def _whisper_job(job):
             w = next((r for r in rows if r.get("provider") == "whisperai"), None)
             own = whisper_wanted_track(job, w) if w else None
             if w and not own and job.get("pieces") and job.get("path"): own = whisper_track_for(job)   # #53: the AI subtitles drifted - make them again in pieces
-            if not w: result = "Bazarr offered no whisperai candidate (is the provider enabled / subgen up?)"
+            if not w: result = "FAILED Bazarr offered no AI subtitles for this file: its speech-to-text provider (Whisper in Bazarr's Settings → Providers) is off or not answering."
             elif own:
                 c_ = db()
                 try: result = own_ai_subtitle(c_, job["path"], own[0], own[1], ("made again in 10-minute pieces because the last AI subtitles drifted" if own[2] == "own choice" else f"Bazarr would have used the {own[2]} track")); c_.commit()
@@ -4046,17 +4048,30 @@ def ui_state(conn):
     except Exception as e: latest["space"] = {"error": repr(e)}
     return latest
 JOB_WORDS = {"whisper": "AI subtitles", "subsearch": "Bazarr search", "verify": "content check", "subsync": "subtitle timing check", "bazarrsync": "Bazarr re-time"}
+JOB_SERVICE = {"whisper": "Bazarr", "subsearch": "Bazarr", "bazarrsync": "Bazarr", "verify": "The speech-to-text service", "subsync": "The speech-to-text service", "langdetect": "The speech-to-text service"}
+def plain_failure(kind, err):
+    """Q38 (2026-11-18): a failed job's reason in one plain sentence, never the Python error. `err` is the action result ('ERROR URLError(...)' or 'FAILED <sentence>')."""
+    e_ = str(err or ""); svc = JOB_SERVICE.get(kind, "A service Auditarr needs")
+    if e_.startswith("FAILED"): return e_[6:].strip(" :")   # already a sentence written for people
+    e_ = re.sub(r"^ERROR\s*", "", e_)
+    if re.search(r"refused|RemoteDisconnected|closed connection|Connection reset|No route|unreachable|Name or service not known|name resolution|nodename|gaierror|BrokenPipe", e_, re.I): return f"{svc} could not be reached: nothing answered at its address. Check that it is running."
+    if re.search(r"timed? ?out|TimeoutError", e_, re.I): return f"{svc} did not answer in time. It may be busy; try again later."
+    m = re.search(r"HTTP(?: Error)? (\d{3})", e_)
+    if m and m.group(1) in ("401", "403"): return f"{svc} refused Auditarr's key. Check the key on the Setup page."
+    if m and m.group(1) == "404": return f"{svc} does not know this file any more. A new audit tidies this up."
+    if m and m.group(1).startswith("5"): return f"{svc} had a problem of its own (error {m.group(1)}). Its own log says why."
+    return "Something went wrong inside Auditarr. About → Recent errors has the details for a bug report."
 def failed_jobs(conn, hours=24):
     """Background jobs that ended in an error in the last `hours` hours, with no later success or retry for the same title. -> [dict(title, why, job_id, kind, label)]"""
     out = []; seen = set(); cut = time.time() - hours * 3600
-    for kind, label, result, ts_ in conn.execute("SELECT kind, label, result, ts FROM action WHERE ts > ? AND result LIKE 'ERROR%' AND kind IN ('whisper','subsearch','verify','subsync') ORDER BY ts DESC", (cut,)):
+    for kind, label, result, ts_ in conn.execute("SELECT kind, label, result, ts FROM action WHERE ts > ? AND (result LIKE 'ERROR%' OR result LIKE 'FAILED%') AND kind IN ('whisper','subsearch','verify','subsync') ORDER BY ts DESC", (cut,)):
         if (kind, label) in seen: continue
         seen.add((kind, label))
-        if conn.execute("SELECT 1 FROM action WHERE kind=? AND label=? AND ts > ? AND result NOT LIKE 'ERROR%'", (kind, label, ts_)).fetchone(): continue   # it worked later
+        if conn.execute("SELECT 1 FROM action WHERE kind=? AND label=? AND ts > ? AND result NOT LIKE 'ERROR%' AND result NOT LIKE 'FAILED%'", (kind, label, ts_)).fetchone(): continue   # it worked later
         if conn.execute("SELECT 1 FROM action WHERE kind='retry' AND label=? AND ts > ?", (label, ts_)).fetchone(): continue   # already retried, wait for it
         row = conn.execute("SELECT id FROM jobs WHERE job LIKE ? AND job LIKE ? ORDER BY id DESC LIMIT 1", (f'%"type": "{kind}"%', f'%"label": {json.dumps(label)}%')).fetchone()
-        err = re.sub(r"^ERROR\s*", "", str(result)).split(" | ")[0][:140]
-        out.append(dict(kind=kind, label=label, job_id=row[0] if row else None, title=f"{JOB_WORDS.get(kind, kind)} for {label}", why=f"It stopped with: {err}. Retry runs it again; if it fails the same way, About shows the exact cause to report."))
+        why = plain_failure(kind, str(result).split(" | ")[0])
+        out.append(dict(kind=kind, label=label, job_id=row[0] if row else None, title=f"{JOB_WORDS.get(kind, kind)} for {label}", why=f"{why} Retry runs it again once that is sorted."))
     return out
 def retry_job(conn, job_id, actor):
     """Queue a copy of an earlier job (the Retry button on a failed one)."""
@@ -4076,7 +4091,7 @@ def today_summary(conn, since=None):
                "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "langdetect": "spoken languages detected", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
                "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
-        if key and not str(r).startswith(("ERROR", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
+        if key and not str(r).startswith(("ERROR", "FAILED", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
     outcomes = {}
     for (st_,) in conn.execute("SELECT status FROM regrab WHERE checked_at>=?", (since,)): outcomes[st_] = outcomes.get(st_, 0) + 1
     err_rows = [a for a in raw if str(a[2]).startswith("ERROR")][-5:]
@@ -4367,6 +4382,14 @@ document.getElementById('act').innerHTML=(p.actions||[]).map(l=>{const m=l.match
 tick();setInterval(tick,3000);</script>"""
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=REPORT_DIR, **k)
+    def send_header(self, k, v):
+        if k.lower() == "cache-control": self._cc = True
+        super().send_header(k, v)
+    def end_headers(self):
+        # Q36 (2026-11-18): the page itself was served with Last-Modified and no Cache-Control, so after Sign out the browser showed its cached
+        # copy of the page (with no data) instead of the sign-in page; it could also keep an old page after an update. Never keep pages or data.
+        if not getattr(self, "_cc", False): super().send_header("Cache-Control", "no-store")
+        self._cc = False; super().end_headers()
     def _json(self, code, obj):
         body = json.dumps(obj).encode(); self.send_response(code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
     def _actor(self):
@@ -4450,7 +4473,7 @@ class Handler(SimpleHTTPRequestHandler):
         bad = [k for k in q if k not in OVERRIDABLE]
         if q and not ALLOW_RUN_OVERRIDES: return self._json(403, {"error": "overrides disabled"})
         if bad: return self._json(400, {"error": f"not overridable: {bad}", "allowed": sorted(OVERRIDABLE)})
-        if RUN_LOCK.locked(): return self._json(409, {"error": "run already in progress"})
+        if RUN_LOCK.locked(): return self._json(409, {"error": "An audit is already running. It finishes by itself; the Live tab shows how far it is."})
         if q and not self._actor(): return self._json(403, {"error": "not allowed from here"})
         OVR.clear(); OVR.update(q); log("run requested via /run with overrides", q, "by", self._actor())
         threading.Thread(target=guarded_run, daemon=True).start(); return self._json(202, {"ok": True, "overrides": q})
@@ -4537,7 +4560,7 @@ class Handler(SimpleHTTPRequestHandler):
                     code, obj = 200, {"ok": True, "note": "On your own network the page opens without a sign-in; through your domain it still asks." if on_ else "The page asks for a sign-in everywhere, your own network too."}
             elif p == "/api/setpassword":
                 conf = auth_conf(conn)
-                if conf and not (auth_user and auth_user not in ("local", "lan")) and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "the current password is needed to change it"}
+                if conf and not (auth_user and auth_user not in ("local", "lan")) and check_password(conf, str(body.get("current_user") or conf["user"]), str(body.get("current") or "")) != "admin": code, obj = 403, {"error": "Type the main password first: it is needed to add or change the read-only account." if body.get("role") == "viewer" else "Type the current password first: it is needed to change it."}
                 else:
                     role_set = "viewer" if body.get("role") == "viewer" else "admin"
                     try:

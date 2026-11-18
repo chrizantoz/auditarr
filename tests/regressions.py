@@ -463,5 +463,38 @@ try:
           ev60["queue"] == {7: "downloading 50%"} and len(logs60) == 1 and "sportsapp has no command, history, blocklist endpoint" in logs60[0], (ev60, logs60))
 except Exception as e: check("locked queue / missing endpoint case runs", False, repr(e))
 
+# 2026-11-18 (Q38 error-path bot): with Bazarr switched off, Find subtitles recorded "no subtitle found yet (Bazarr keeps searching)" and nobody was told;
+# a failed job's Needs-you line showed the Python error ("It stopped with: URLError(ConnectionRefusedError(111, ...))"); "no whisperai candidate (is subgen up?)"
+# was jargon and never reached Needs you; a second Run now answered "run already in progress".
+try:
+    for raw_, want_ in (("ERROR URLError(ConnectionRefusedError(111, 'Connection refused'))", "could not be reached"), ("ERROR RemoteDisconnected('Remote end closed connection without response')", "could not be reached"),
+                        ("ERROR TimeoutError('timed out')", "did not answer in time"), ("ERROR HTTP 401 bad key", "refused Auditarr's key"), ("ERROR HTTPError 'HTTP Error 500: x'", "problem of its own"),
+                        ("ERROR KeyError('x')", "Recent errors"), ("FAILED Bazarr offered nothing.", "Bazarr offered nothing.")):
+        got_ = audit.plain_failure("subsearch", raw_)
+        check(f"failed job reasons are plain sentences: {raw_[:40]}", want_ in got_ and not any(k in got_ for k in ("Error(", "Errno", "URLError", "HTTP Error")) and got_.endswith("."), got_)
+    real_q = audit.enqueue; audit.enqueue = lambda job: None
+    audit.bazarr_conf_real = audit.bazarr_conf; audit.bazarr_conf = lambda: ("http://127.0.0.1:9", "k")   # nothing listens on port 9: Bazarr is off
+    t_ = time.time()
+    audit._subsearch(dict(fid="q38-a", app="sonarr", kind="series", parent_id=1, ep_ids=[5], path="/nope/Q38 Show S01E01.mkv", label="Q38 Show S01E01", actor="test"))
+    r_ = conn.execute("SELECT result FROM action WHERE kind='subsearch' AND label='Q38 Show S01E01' AND ts >= ?", (t_ - 1,)).fetchone()
+    check("a Bazarr search that never reached Bazarr is recorded as an error, not as 'Bazarr keeps searching'", r_ and r_[0].startswith("ERROR") and "keeps searching" not in r_[0], r_)
+    fj_ = [x for x in audit.failed_jobs(conn) if x["label"] == "Q38 Show S01E01"]
+    check("…it becomes a Needs-you line that says Bazarr could not be reached, in plain words", fj_ and "could not be reached" in fj_[0]["why"] and "Error" not in fj_[0]["why"], fj_)
+    made0_ = audit.today_summary(conn)["did"].get("AI subtitles made", 0)
+    audit.record_action(conn, "on", "whisper", "sonarr", 6, "Q38 Show S01E02", "test", "FAILED Bazarr offered no AI subtitles for this file: its speech-to-text provider is off.")
+    fj_ = [x for x in audit.failed_jobs(conn) if x["label"] == "Q38 Show S01E02"]
+    check("AI subtitles that Bazarr could not offer are a Needs-you line with the plain reason", fj_ and fj_[0]["why"].startswith("Bazarr offered no AI subtitles"), fj_)
+    check("…and do not count as AI subtitles made", not audit.ai_made(conn, "Q38 Show S01E02") and audit.today_summary(conn)["did"].get("AI subtitles made", 0) == made0_, audit.today_summary(conn)["did"])
+    src_ = open(os.path.join(ROOT, "audit.py")).read()
+    check("the whisper job's 'no candidate' result is a plain FAILED sentence, no jargon", "whisperai candidate (is the provider enabled" not in src_ and 'result = "FAILED Bazarr offered no AI subtitles' in src_)
+    check("a second Run now answers in a full sentence", '"An audit is already running. It finishes by itself; the Live tab shows how far it is."' in src_ and '"run already in progress"}' not in src_)
+    audit.bazarr_conf = audit.bazarr_conf_real; audit.enqueue = real_q
+except Exception as e: check("error-path cases run", False, repr(e))
+# 2026-11-18 (Q39 long-open page bot): a page left open while nothing ran never looked again, so the nightly results needed a reload
+ui_ = open(os.path.join(ROOT, "ui.html")).read()
+check("the page asks /health once a minute while idle and refreshes when a run started or finished", "++QUIET%6===0" in ui_ and "fetch('health?'" in ui_)
+# 2026-11-18 (Q36 sign-in bot): the read-only account form read the main password from the closed 'change the password' box
+check("the read-only account form has its own main-password field for a browser let in without signing in", 'id="vw-current"' in ui_ and "$('#vw-current')" in ui_)
+
 conn.close(); failed = [r for r in results if not r[1]]
 print(f"\n{len(results) - len(failed)} passed, {len(failed)} failed"); sys.exit(1 if failed else 0)

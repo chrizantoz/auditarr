@@ -7,7 +7,11 @@ const { chromium } = require("playwright");
 const [,, uiPath, dataDir] = process.argv;
 const LIVE = /^https?:\/\//.test(dataDir || "");   // second arg may be a running Auditarr instead of a fixtures folder: then real buttons hit the real API
 const html = LIVE ? "" : fs.readFileSync(uiPath, "utf8");
-const fixtures = {}; if (!LIVE) for (const n of ["state", "history", "settings", "trash"]) fixtures[n] = fs.readFileSync(path.join(dataDir, n + ".json"), "utf8");
+const fixtures = {}; if (!LIVE) for (const n of ["state", "history", "settings", "trash", "about", "setup", "hooks"]) { const f = path.join(dataDir, n + ".json"); if (fs.existsSync(f) || ["state", "history", "settings", "trash"].includes(n)) fixtures[n] = fs.readFileSync(f, "utf8"); }   // about/setup/hooks are optional: without them those tabs show their 'unavailable' note
+// Q35: every tab is photographed at phone and desktop width and compared with uibot/baseline/ by visual_diff.js. The clock is pinned to the fixture's evening
+// and motion is off, so a picture only changes when the layout does. TABS is the list visual_diff.js expects a baseline for.
+const { TABS, WIDTHS } = require("./shots");
+const FIXED_NOW = "2026-11-10T20:45:00Z";
 const server = http.createServer((req, res) => {
   const u = req.url.split("?")[0];
   if (req.method === "POST") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ ok: true, silenced: 1, note: "test", done: 1, failed: [], failed_count: 0, applies: "x", queued: 1, dest: "/data/media/.trash/x.mkv" })); }
@@ -20,7 +24,40 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
 (async () => {
   let base = dataDir; if (!LIVE) { await new Promise(r => server.listen(0, "127.0.0.1", r)); base = `http://127.0.0.1:${server.address().port}/`; }
   const browser = await chromium.launch(); fs.mkdirSync(path.join(__dirname, "screens"), { recursive: true });
-  for (const [label, width, height] of [["phone", 400, 860], ["desktop", 1280, 900]]) {
+  if (LIVE) {   // Q37 phone persona: a whole task done with a thumb on a phone-sized touch screen in the simple view - find a row, act, confirm, undo
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }); const ph = await ctx.newPage(); const pErr = [];
+    ph.on("pageerror", e => pErr.push(String(e)));
+    const onScreen = async loc => { const r = await loc.boundingBox(); return !!r && r.x >= -1 && r.x + r.width <= 391 && r.y >= -1 && r.y + r.height <= 845 && r.height >= 24; };   // inside the screen and big enough for a thumb
+    try {
+      await ph.goto(dataDir); await ph.waitForSelector("#findings details.grp-d", { timeout: 15000 });
+      check("phone persona: the page opens in the simple view", await ph.evaluate(() => document.body.classList.contains("simple")));
+      const q = ph.locator("#f-q"); await q.scrollIntoViewIfNeeded(); check("phone persona: the search box is on screen", await onScreen(q));
+      await q.tap(); await q.fill("S01E01"); await ph.waitForTimeout(400);
+      const low = ph.locator(".sev[value=low]"); if (!(await low.isChecked())) { await low.scrollIntoViewIfNeeded(); await low.tap(); }   // a duplicate copy is FYI, hidden by default
+      await ph.waitForTimeout(150); await ph.evaluate(() => document.querySelectorAll("#findings details.grp-d").forEach(d => d.open = true));
+      const btn = ph.locator("#findings tr[id^=r-] button[data-act=quarantine]").first();
+      check("phone persona: searching the episode shows its duplicate with Move to trash", (await btn.count()) > 0);
+      if (await btn.count()) {
+        const rowId = await btn.evaluate(b => b.closest("tr").id); await btn.scrollIntoViewIfNeeded();
+        check("phone persona: the button is fully on screen and big enough to tap", await onScreen(btn), JSON.stringify(await btn.boundingBox()));
+        await btn.tap(); const yes = ph.locator(".confirm button.primary:not([disabled])").first(); await yes.waitFor({ timeout: 5000 }); await yes.scrollIntoViewIfNeeded();
+        check("phone persona: the question and its yes button fit on the screen", await onScreen(yes) && await ph.evaluate(() => { const c = document.querySelector(".confirm"); const r = c && c.getBoundingClientRect(); return !!r && r.right <= innerWidth + 1 && r.left >= -1; }));
+        await yes.tap();
+        await ph.waitForFunction(() => /Undo/.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
+        const undo = ph.locator("#toast button").first();
+        check("phone persona: the file moved and a toast with Undo shows", /done/.test(await ph.textContent("#toast")) && (await undo.count()) > 0, await ph.textContent("#toast"));
+        check("phone persona: the moved row left the list", !(await ph.locator("#" + rowId).count()));
+        if (await undo.count()) {
+          check("phone persona: Undo is on screen and big enough to tap", await onScreen(undo), JSON.stringify(await undo.boundingBox()));
+          await undo.tap(); await ph.waitForFunction(() => /put back/.test(document.querySelector("#toast").textContent), null, { timeout: 20000 }).catch(() => {});
+          check("phone persona: Undo put the file back", /put back/.test(await ph.textContent("#toast")), await ph.textContent("#toast"));
+        }
+        check("phone persona: no sideways scrolling at any step", await ph.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+      }
+    } catch (e) { check("phone persona ran without a stuck step", false, String(e).split("\n")[0]); }
+    check("phone persona: no JavaScript errors", pErr.length === 0, pErr.slice(0, 2).join(" | ")); await ctx.close();
+  }
+  for (const [label, width, height] of WIDTHS) {
     const page = await browser.newPage({ viewport: { width, height } }); const jsErrors = [];
     const origin = new URL(base).origin;
     page.on("pageerror", e => jsErrors.push(String(e))); page.on("console", m => {   // a third-party resource that the network blocks (a CDN beacon, an analytics script injected by the proxy) is not a page error
@@ -138,6 +175,22 @@ const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/;
     await page.screenshot({ path: path.join(__dirname, "screens", `ui-${label}${LIVE ? "-live" : ""}-dark.png`), fullPage: false }); await page.emulateMedia({ colorScheme: "light" });
     check(`${label}: no JavaScript errors`, jsErrors.length === 0, jsErrors.slice(0, 2).join(" | "));
     await page.close();
+    if (!LIVE) {   // Q35: one picture per tab, from a fresh page with a pinned clock
+      const ctx = await browser.newContext({ viewport: { width, height }, timezoneId: "UTC", locale: "en-US", reducedMotion: "reduce", colorScheme: "light" });
+      const tp = await ctx.newPage(); const tabErrors = []; tp.on("pageerror", e => tabErrors.push(String(e)));
+      await tp.clock.setFixedTime(new Date(FIXED_NOW)); await tp.goto(base); await tp.waitForSelector("#findings details.grp-d", { timeout: 15000 });
+      for (const [tab, adv] of TABS) {
+        if (adv !== !(await tp.evaluate(() => document.body.classList.contains("simple")))) { await tp.click("#adv-toggle"); await tp.waitForTimeout(80); }
+        await tp.evaluate(t => { const b = document.querySelector(`nav button[data-tab=${t}]`); b.scrollIntoView({ inline: "center" }); b.click(); }, tab);   // the phone nav scrolls sideways; a person swipes to the tab
+        await tp.waitForTimeout(600); await tp.evaluate(() => { document.activeElement && document.activeElement.blur && document.activeElement.blur(); window.scrollTo(0, 0); }); await tp.waitForTimeout(100);
+        const shown = await tp.evaluate(t => { const el = document.getElementById("tab-" + t); return !!el && !el.classList.contains("hidden") && el.innerText.trim().length > 20; }, tab);
+        check(`${label}: the ${tab} tab opens and shows content`, shown);
+        const tall = Math.min(2400, await tp.evaluate(() => document.documentElement.scrollHeight));   // the top 2400 px: below the header on a phone, not only the header
+        await tp.screenshot({ path: path.join(__dirname, "screens", `tab-${tab}-${label}.png`), fullPage: true, clip: { x: 0, y: 0, width, height: tall }, animations: "disabled", caret: "hide" });
+      }
+      check(`${label}: no JavaScript errors while visiting every tab`, tabErrors.length === 0, tabErrors.slice(0, 2).join(" | "));
+      await ctx.close();
+    }
   }
   await browser.close(); if (!LIVE) server.close();
   let bad = 0; for (const [ok, name, info] of results) { console.log((ok ? "PASS " : "FAIL ") + name + (info && !ok ? `  [${info}]` : "")); if (!ok) bad++; }

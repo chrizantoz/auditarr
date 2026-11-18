@@ -74,4 +74,14 @@ conn.execute("INSERT OR REPLACE INTO kv VALUES('local_no_login','0')"); conn.com
 audit.LOCAL_NO_LOGIN_ENV = "1"; check("LOCAL_NO_LOGIN=1 on the container turns it on", auth(Fake("192.168.1.20")) == (True, "lan", "admin"))
 audit.LOCAL_NO_LOGIN_ENV = ""
 check("direct_local: a garbage address is not local", not audit.direct_local("not-an-ip", {}))
+# Q36 (2026-11-18): after Sign out the browser showed its cached copy of the page instead of the sign-in page - nothing the server sends may be kept
+import io
+class Wire(audit.Handler):
+    def __init__(self): self.wfile = io.BytesIO(); self.request_version = "HTTP/1.1"; self.requestline = "GET / HTTP/1.1"; self.command = "GET"; self.client_address = ("127.0.0.1", 1); self._headers_buffer = []
+    def log_message(self, *a): pass
+w_ = Wire(); w_.send_response(200); w_.send_header("Content-Type", "text/html"); w_.end_headers(); raw_ = w_.wfile.getvalue().decode()
+check("every answer without its own cache rule says no-store (a signed-out browser cannot show a kept page)", "Cache-Control: no-store" in raw_, raw_)
+w_ = Wire(); w_.send_response(200); w_.send_header("Cache-Control", "max-age=60"); w_.end_headers(); raw_ = w_.wfile.getvalue().decode()
+check("an answer with its own cache rule keeps it, once", raw_.count("Cache-Control") == 1, raw_)
+w_ = Wire(); w_._login_page(); raw_ = w_.wfile.getvalue().decode(); check("the sign-in page is never kept either", raw_.count("Cache-Control: no-store") == 1, raw_[:300])
 conn.close(); bad_n = results.count(False); print(f"\n{len(results) - bad_n} passed, {bad_n} failed"); sys.exit(1 if bad_n else 0)

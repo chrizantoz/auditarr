@@ -1,0 +1,66 @@
+{
+ "version": "0.9.4",
+ "stats": {
+  "files": 14063,
+  "open_findings": 1042,
+  "runs": 70,
+  "actions": 5120,
+  "last_run": "2026-11-10T19:50:42"
+ },
+ "health": [
+  {
+   "level": "ok",
+   "text": "No errors in the last 24 hours",
+   "link": ""
+  }
+ ],
+ "errors": [],
+ "links": {
+  "forum": "https://forums.unraid.net/",
+  "demo": "https://auditarr-demo.chrizantoz.com",
+  "docs": "https://github.com/chrizantoz/auditarr/blob/main/docs/USER-GUIDE.md",
+  "discussions": "https://github.com/chrizantoz/auditarr/discussions",
+  "issues": "https://github.com/chrizantoz/auditarr/issues",
+  "source": "https://github.com/chrizantoz/auditarr",
+  "sponsors": "https://github.com/sponsors/chrizantoz",
+  "kofi": "https://ko-fi.com/chrizantoz"
+ },
+ "releases": [
+  {
+   "tag": "v0.9.4",
+   "name": "v0.9.4",
+   "published": "2026-11-09",
+   "prerelease": true,
+   "summary": "Sample release notes for the page bot.",
+   "url": "https://github.com/chrizantoz/auditarr/releases"
+  }
+ ],
+ "revision": "0123456789ab",
+ "dev_build": false,
+ "docker": true,
+ "python": "3.12.8",
+ "sqlite": "3.46.1",
+ "db_mb": 41.2,
+ "config_dir": "/config",
+ "media_dir": "/data",
+ "timezone": "UTC",
+ "uptime_s": 187000,
+ "tools": {
+  "ffmpeg": true,
+  "ffprobe": true,
+  "mkvpropedit": true,
+  "mkvmerge": true
+ },
+ "latest": {
+  "tag": "v0.9.4",
+  "url": "https://github.com/chrizantoz/auditarr/releases",
+  "name": "v0.9.4",
+  "checked": "2026-11-10T19:00",
+  "error": ""
+ },
+ "update_available": false,
+ "update_hook": false,
+ "check_enabled": true,
+ "license": "GPL-3.0",
+ "repo": "https://github.com/chrizantoz/auditarr"
+}

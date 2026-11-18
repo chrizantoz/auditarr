@@ -1,0 +1,102 @@
+{
+ "services": [
+  {
+   "kind": "sonarr",
+   "ok": true,
+   "version": "4.0.10",
+   "name": "Sonarr",
+   "url": "http://demo.local:8989",
+   "has_key": true,
+   "source": "saved in the setup page",
+   "optional": false,
+   "roots": [
+    {
+     "path": "/data/media/tv",
+     "visible": true
+    },
+    {
+     "path": "/data/media/anime",
+     "visible": true
+    }
+   ]
+  },
+  {
+   "kind": "radarr",
+   "ok": true,
+   "version": "5.14.0",
+   "name": "Radarr",
+   "url": "http://demo.local:7878",
+   "has_key": true,
+   "source": "saved in the setup page",
+   "optional": false,
+   "roots": [
+    {
+     "path": "/data/media/movies",
+     "visible": true
+    }
+   ]
+  },
+  {
+   "kind": "whisparr",
+   "ok": true,
+   "version": "2.0.0",
+   "name": "Whisparr",
+   "url": "http://demo.local:6969",
+   "has_key": true,
+   "source": "saved in the setup page",
+   "optional": true,
+   "roots": [
+    {
+     "path": "/data/media/xxx",
+     "visible": true
+    }
+   ]
+  },
+  {
+   "kind": "bazarr",
+   "ok": true,
+   "version": "1.5.1",
+   "name": "Bazarr",
+   "url": "http://demo.local:6767",
+   "has_key": true,
+   "source": "saved in the setup page",
+   "optional": false,
+   "roots": []
+  },
+  {
+   "kind": "plex",
+   "ok": true,
+   "version": "1.41.3",
+   "name": "Plex",
+   "url": "http://demo.local:32400",
+   "has_key": true,
+   "source": "saved in the setup page",
+   "optional": false,
+   "roots": []
+  }
+ ],
+ "first_run_done": true,
+ "runs": 70,
+ "complete": true,
+ "media_visible": true,
+ "roots": [
+  {
+   "path": "/data/media/tv",
+   "visible": true
+  },
+  {
+   "path": "/data/media/anime",
+   "visible": true
+  },
+  {
+   "path": "/data/media/movies",
+   "visible": true
+  },
+  {
+   "path": "/data/media/xxx",
+   "visible": true
+  }
+ ],
+ "data_dir": "/data",
+ "hint": "Every folder is visible."
+}

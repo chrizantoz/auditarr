@@ -490,6 +490,31 @@ try:
     check("a second Run now answers in a full sentence", '"An audit is already running. It finishes by itself; the Live tab shows how far it is."' in src_ and '"run already in progress"}' not in src_)
     audit.bazarr_conf = audit.bazarr_conf_real; audit.enqueue = real_q
 except Exception as e: check("error-path cases run", False, repr(e))
+# 2026-11-12 (#25): Find my apps skipped Sportarr: it answers /ping with "pong", its page title is "Sportarr", and a copy whose page says "Sonarr"
+# names itself only in initialize.json's instanceName
+try:
+    import threading as _th
+    from http.server import ThreadingHTTPServer as _TS, BaseHTTPRequestHandler as _BH
+    def _fake(title, inst, pong):
+        class H(_BH):
+            def log_message(self, *a): pass
+            def do_GET(self):
+                b = {"/ping": ('"pong"' if pong else '{"status": "OK"}'), "/": f"<html><head><title>{title}</title></head></html>", "/initialize.json": json.dumps({"apiKey": "secret-not-kept", "instanceName": inst})}.get(self.path.split("?")[0])
+                if b is None: self.send_response(404); self.end_headers(); return
+                self.send_response(200); self.end_headers(); self.wfile.write(b.encode())
+        srv = _TS(("127.0.0.1", 0), H); _th.Thread(target=srv.serve_forever, daemon=True).start(); return srv, f"http://127.0.0.1:{srv.server_address[1]}"
+    s1_, u1 = _fake("Sportarr", "Sportarr", True); s2_, u2 = _fake("Sonarr", "Sportarr", False); s3_, u3 = _fake("Sonarr", "Sonarr", False)
+    old_hip = audit.HOST_IP; audit.HOST_IP = ""
+    d_ = audit.discover_services([u1]); k1 = {f["kind"]: f["url"] for f in d_["found"]}
+    check("Find my apps offers a Sportarr that answers 'pong' as Sportarr, not as Sonarr", k1.get("sportarr") == u1 and k1.get("sonarr") != u1, d_["found"])
+    d_ = audit.discover_services([u2]); k2 = {f["kind"]: f["url"] for f in d_["found"]}
+    check("a Sportarr whose page says Sonarr is told apart by its instance name", k2.get("sportarr") == u2 and k2.get("sonarr") != u2, d_["found"])
+    d_ = audit.discover_services([u3]); k3 = {f["kind"]: f["url"] for f in d_["found"]}
+    check("a real Sonarr stays Sonarr", k3.get("sonarr") == u3 and "sportarr" not in k3, d_["found"])
+    check("the key in initialize.json never reaches the answer", "secret-not-kept" not in json.dumps(d_))
+    audit.HOST_IP = old_hip
+    for x_ in (s1_, s2_, s3_): x_.shutdown()
+except Exception as e: check("Sportarr discovery case runs", False, repr(e))
 # 2026-11-18 (Q39 long-open page bot): a page left open while nothing ran never looked again, so the nightly results needed a reload
 ui_ = open(os.path.join(ROOT, "ui.html")).read()
 check("the page asks /health once a minute while idle and refreshes when a run started or finished", "++QUIET%6===0" in ui_ and "fetch('health?'" in ui_)

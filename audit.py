@@ -303,6 +303,8 @@ SETTABLE = {   # env name: (kind, default, help)
  "HARDSUB_MAX": ("int", "150", "max files whose frames are inspected per night (a few seconds each)"), "AUTO_SUBSYNC_DAYS": ("int", "7", "external subtitles newer than this many days get their timing checked"),
  "AUTO_ACCEPTLANG": ("mode", "on", "nightly: when every file of a season is in one language the arr did not expect, tag the title audit-lang-xxx (same as the accept-language button)"),
  "AUTO_ACCEPTLANG_MIN_FILES": ("int", "3", "a season needs at least this many files, all in the same language, before it is accepted automatically"),
+ "QUIET_HOURS": ("window", "", "F21: heavy background work (AI subtitles, speech checks, the nightly time-bar repairs) waits inside this daily window, e.g. 18:00-23:00 (may cross midnight); empty = never. Presses on the page and subtitles for what someone is watching never wait"),
+ "QUIET_WHEN_STREAMING": ("onoff", "on", "F21: heavy background work waits while Plex is playing something, so a stream never stutters; it starts again within a minute or two of the stream ending"),
  "AUTO_FIXHEADER": ("mode", "on", "nightly: repair files whose container length lies (lossless remux, original to trash; max 10 per night)"),
  "SUBTAG": ("mode", "on", "nightly: sniff untagged embedded subtitle tracks and write the language tag (mkv only, English/Japanese/Russian detected from the text)"),
  "SUBTAG_MAX": ("int", "100", "max files sub-tagged per run"),
@@ -342,6 +344,8 @@ def validate_setting(name, value):
     if name == "DEVICES":
         unknown = [d for d in value.split(",") if d and d not in DEVICE_PROFILES]
         if unknown: raise ValueError(f"DEVICES: unknown player key(s) {unknown}; choose from {', '.join(DEVICE_PROFILES)}")
+    if kind == "window" and value and not re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d\s*-\s*([01]?\d|2[0-3]):[0-5]\d", value): raise ValueError(f"{name}: write it as start-end, for example 18:00-23:00")
+    if kind == "window": value = re.sub(r"\s+", "", value)
     if kind == "url" and value and not re.match(r"^https?://[^\s/]+", value): raise ValueError(f"{name}: must start with http:// or https:// and name a host")
     if kind == "url": value = value.rstrip("/")
     return value
@@ -2047,7 +2051,9 @@ def run_once():
     for d in plex_missing_dirs: queue_plex(d)
     # night automation: fix lying headers (lossless), queue content checks for new runtime/title findings
     auto_fixed = 0
-    if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off":
+    if gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off" and quiet_reason():   # F21: a remux reads and writes a whole file; the next night tries again
+        log(f"auto fixheader: waits for the next night - {quiet_reason()}")
+    elif gate(setting("AUTO_FIXHEADER"), "AUTO_FIXHEADER") != "off":
         picked = [r_ for r_ in conn.execute("SELECT id, path FROM finding WHERE resolved_at IS NULL AND check_code='BAD_DURATION_HEADER' ORDER BY first_seen").fetchall() if not fix_wait(conn, "fixheader", r_[1] or "")][:10]   # a file that keeps failing waits, so it never blocks the rest
         for fid_, fpath_ in picked:
             if setting("AUTO_FIXHEADER") == "dryrun": record_action(conn, "dryrun", "fixheader", "nightly", fid_, finding_row(conn, fid_)["label"], "would repair the container header", "dryrun"); continue
@@ -2410,9 +2416,14 @@ def discover_services(extra=None):
                 st, body = fetch(f"{base}/")
                 return dict(kind=kind, url=base) if re.search(r"<title>\s*Bazarr", body, re.I) else None
             st, body = fetch(f"{base}/ping")
-            if '"status"' not in body.lower() and "ok" not in body.lower(): return None
+            if '"status"' not in body.lower() and "ok" not in body.lower() and "pong" not in body.lower(): return None   # Sportarr answers "pong"
             st2, html = fetch(f"{base}/")
-            m = re.search(r"<title>\s*(Sonarr|Radarr|Whisparr)", html, re.I); found = (m.group(1).lower() if m else None)
+            m = re.search(r"<title>\s*(Sonarr|Radarr|Whisparr|Sportarr)", html, re.I); found = (m.group(1).lower() if m else None)
+            if found == "sonarr":   # #25: Sportarr is a Sonarr build; a copy whose page still says Sonarr names itself in its instance name (the key in that answer is never kept)
+                try:
+                    _s, ij = fetch(f"{base}/initialize.json", "application/json")
+                    if re.search(r'"instanceName"\s*:\s*"[^"]*sportarr', ij, re.I): found = "sportarr"
+                except Exception: pass
             if found and found != kind: return None
             return dict(kind=kind, url=base, sure=bool(m))
         except Exception: return None
@@ -3021,6 +3032,37 @@ def _ui_act(conn, body, actor):
 # ---------- Bazarr subtitle search (sequential background queue so a bulk click does not hammer Bazarr) ----------
 import queue
 SUB_Q = queue.PriorityQueue(); VERIFY_Q = queue.PriorityQueue(); WHISPER_Q = queue.PriorityQueue(); FOLLOW_Q = queue.PriorityQueue()
+QUIET_RECHECK_S = 60
+HEAVY_JOBS = ("whisper", "verify", "subsync", "langdetect")
+_REQ = threading.local()   # set while a page request is being answered: a job queued from there was pressed by a person
+_QUIET = {"ts": 0.0, "streams": 0}
+def in_window(win, now=None):
+    """'18:00-23:00' (may cross midnight) -> is the local time inside it?"""
+    m = re.fullmatch(r"(\d{1,2}):(\d\d)-(\d{1,2}):(\d\d)", win or "")
+    if not m: return False
+    t = (now or datetime.datetime.now()); cur = t.hour * 60 + t.minute; a = int(m[1]) * 60 + int(m[2]); b = int(m[3]) * 60 + int(m[4])
+    return a <= cur < b if a <= b else (cur >= a or cur < b)
+def plex_streams(max_age=60):
+    """How many things Plex is playing right now (cached a minute; 0 when Plex is not set up or does not answer)."""
+    if time.time() - _QUIET["ts"] < max_age: return _QUIET["streams"]
+    n = 0
+    try:
+        if plex_token(): n = int((plex_get("/status/sessions", timeout=10).get("MediaContainer") or {}).get("size") or 0)
+    except Exception as e: log("quiet hours: Plex sessions:", repr(e))
+    _QUIET.update(ts=time.time(), streams=n); return n
+def quiet_reason(now=None):
+    """F21: '' when heavy work may run, else why it waits, in words."""
+    win = setting("QUIET_HOURS")
+    if win and in_window(win, now): return f"quiet hours ({win.replace('-', ' to ')})"
+    if setting("QUIET_WHEN_STREAMING") == "on":
+        n = plex_streams()
+        if n: return f"someone is watching on Plex ({n} stream{'s' if n > 1 else ''})"
+    return ""
+def job_waits(job, now=None):
+    """Background heavy work waits in quiet hours or while Plex streams; a press on the page, a retry and subtitles for what someone is watching never wait."""
+    if job.get("type") not in HEAVY_JOBS or job.get("pressed") or int(job.get("prio", 5)) <= 2: return ""
+    return quiet_reason(now)
+HELD = {}   # job id -> why it is waiting (shown on the Actions tab)
 def _lane(job): return {"verify": VERIFY_Q, "whisper": WHISPER_Q, "subsync": VERIFY_Q, "langdetect": VERIFY_Q, "followup": FOLLOW_Q}.get(job.get("type"), SUB_Q)   # follow-ups wait on their own lane, so their pauses hold nothing else up   # three lanes: Bazarr searches never wait behind Whisper
 import itertools; _SEQ = itertools.count()
 _PUT_IDS = set()   # job ids already waiting in a lane in this process (2026-11-13: a startup repair queued 23 checks, then requeue_jobs queued them again)
@@ -3270,6 +3312,7 @@ def ui_whisper(conn, body, actor):
     record_action(conn, "on", "whisper", jobs[0]["app"], len(jobs), jobs[0]["label"].rsplit(" S", 1)[0] if jobs[0]["kind"] == "series" else jobs[0]["label"], f"queued by {actor}", f"{len(jobs)} episode(s)/movie(s) queued; ~12 min each on CPU"); refresh_reports(conn)
     return 200, {"ok": True, "queued": len(jobs), "note": f"{len(jobs)} queued" + (f" behind {ahead} other job(s)" if ahead else "") + "; results appear in Actions as 'whisper'"}
 def enqueue(job):
+    if getattr(_REQ, "press", False): job.setdefault("pressed", True)   # F21: queued while answering a page request = a person pressed it
     if job.get("type") == "whisper" and job.get("path"):
         try:
             c_ = db()
@@ -3939,9 +3982,16 @@ def _followup_job(job, sleep=time.sleep):
     finally: conn.close()
     return "not yet"
 def sub_worker(q=None):
-    q = q or SUB_Q
+    q = q or SUB_Q; held_run = 0
     while True:
         item = q.get(); job = item[2] if isinstance(item, tuple) else item; jid = job.get("_id")
+        why_ = job_waits(job) if E("JOBS", "on") != "off" else ""
+        if why_:   # F21: back in line behind everything else waiting; pause only once every waiting job is on hold, then look again
+            HELD[jid] = why_; held_run += 1; q.task_done()
+            q.put((item[0], next(_SEQ), job) if isinstance(item, tuple) else item)
+            if held_run > q.qsize() - 1: time.sleep(QUIET_RECHECK_S); held_run = 0
+            continue
+        held_run = 0; HELD.pop(jid, None)
         conn = db()
         try: conn.execute("UPDATE jobs SET status='running', started_at=? WHERE id=?", (time.time(), jid)); conn.commit()
         finally: conn.close()
@@ -4033,7 +4083,7 @@ def ui_state(conn):
     aim = ai_made_map(conn)   # #53: the page offers 'Make AI subtitles' once, then 'again in pieces' once, then neither
     for f_ in latest.get("findings") or []:
         if f_.get("check") in SUB_CODES: f_["ai"] = aim.get(f_.get("title") or f_.get("label") or "", "")
-    latest["jobs"] = {"active": act, "recent": recent}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
+    latest["jobs"] = {"active": act, "recent": recent, "held": len(HELD), "quiet": (sorted(set(HELD.values())) or [""])[0]}; latest["whisper_live"] = whisper_live(); latest["whisper_engine"] = _WL.get("engine", {}); latest["tests"] = tests_status()
     latest["devices"] = {"available": {k: v[0] for k, v in DEVICE_PROFILES.items()}, "chosen": devices_chosen()}; latest["names"] = CHECK_NAMES; latest["sev_names"] = SEV_NAMES; latest["auth"] = {"enabled": bool(auth_conf(conn)), "user": (auth_conf(conn) or {}).get("user"), "viewer": ((auth_conf(conn) or {}).get("viewer") or {}).get("user"), "local_no_login": local_no_login(conn), "local_no_login_env": LOCAL_NO_LOGIN_ENV in ("0", "1")}
     latest["sandbox"] = SANDBOX
     ab_ = about_info(fetch=False, conn=conn); latest["about"] = {"version": ab_["version"], "update_available": ab_["update_available"], "latest": ab_["latest"]["tag"]}
@@ -4478,6 +4528,10 @@ class Handler(SimpleHTTPRequestHandler):
         OVR.clear(); OVR.update(q); log("run requested via /run with overrides", q, "by", self._actor())
         threading.Thread(target=guarded_run, daemon=True).start(); return self._json(202, {"ok": True, "overrides": q})
     def do_POST(self):
+        _REQ.press = True
+        try: return self._do_POST()
+        finally: _REQ.press = False
+    def _do_POST(self):
         p = self.path.split("?")[0]
         if p.startswith("/webhook/"):
             from urllib.parse import urlparse, parse_qs

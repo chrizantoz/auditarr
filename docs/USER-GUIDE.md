@@ -139,6 +139,8 @@ Every section has a **?** button that explains it in a few sentences and links h
 
 **How long before AI subtitles are made?** By default a file must sit without subtitles for 3 days (Settings → "days a no-subtitles finding must stay open"). Set it to 1 for the night after. For the same day, turn on the import hook (Setup step 3) and set "after a new download … this many minutes" to, say, 120: Bazarr gets two hours, then Whisper runs.
 
+**Will AI subtitles slow down a movie someone is watching?** No. While Plex is playing something, AI subtitles and the other heavy checks wait and start by themselves when the stream ends (Settings → Quiet hours for heavy work). You can also give a daily window, for example 18:00-23:00. What you press on the page still runs at once, and subtitles for the episode someone is watching right now are never held back. The Actions tab says how many jobs wait and why.
+
 **Do I need to reload the page after the nightly run?** No. A page left open checks once a minute whether a run started or finished and redraws by itself when you are not using it; if you are in the middle of something, a small refresh button appears instead.
 
 **Can my family open the page without breaking anything?** Yes. Once sign-in is on, Setup → Protect the page has a **read-only account**: give them that user and password. They see everything, every button is hidden, and even a hand-written request to change something is refused by the server.

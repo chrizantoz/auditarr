@@ -45,6 +45,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 
 - Plain names and a one-sentence explanation on every finding; buttons are verbs. Codes, file paths and setting names stay out of the way (in **Advanced** view or tooltips).
 - Undo after any file move, a "?" help button on every section, and Settings shown as plain switches.
+- 🌙 **Quiet hours**: AI subtitles and other heavy work wait while someone watches on Plex, or inside hours you choose; what you press still runs at once.
 - A page left open updates by itself after the nightly run, and a job that fails says why in one sentence with a Retry button.
 - 👁️ A **read-only login** for the rest of the household: they see everything, the buttons are hidden, and the server refuses any change from that account.
 - **Tonight's plan** shows exactly what the next nightly run will do *before* it does it.

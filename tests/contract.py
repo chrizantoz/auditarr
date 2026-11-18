@@ -27,7 +27,7 @@ check("fixture state.json has every top-level key the page reads", need <= set(s
 fkeys = {"id", "app", "check", "severity", "title", "path", "detail", "first_seen", "library"}
 check("fixture findings carry the per-row fields", all(fkeys <= set(f) for f in st["findings"][:50]))
 # settings: every SETTABLE knob has a help sentence, every plain label in ui.html points at a real knob
-settable = set(re.findall(r'"([A-Z_]+)": \("(?:mode|int|num|csv|onoff|sev)"', py))
+settable = set(re.findall(r'"([A-Z_]+)": \("(?:mode|int|num|csv|onoff|sev|window)"', py))
 mlbl = re.search(r"const LBL=\{(.*?)\};", ui, re.S); lbl_keys = set(re.findall(r"(\b[A-Z_]{3,}\b):", mlbl.group(1))) if mlbl else set()
 check("every plain settings label names a real setting", lbl_keys <= settable, f"unknown: {sorted(lbl_keys - settable)}")
 check("the common settings all have plain labels", {"REMEDIATE", "DEDUPE", "AUTO_WHISPER", "AUTO_ACCEPTLANG", "AUTO_FIXHEADER", "SUBTAG", "TRACK_PREFS", "PLEX_REFRESH"} <= lbl_keys)

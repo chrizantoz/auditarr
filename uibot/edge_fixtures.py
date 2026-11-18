@@ -107,4 +107,18 @@ for i, (code, det) in enumerate([("SUBS_OUT_OF_SYNC", "external 'a.en.srt': subt
              path=f"/data/media/anime/Tide Runners/Season 01/Tide Runners - S01E0{i + 1}.mkv", detail=det, plain="Subtitles need work.", ai={6: "made", 7: "pieces", 8: "made"}.get(i, "")); f.pop("busy", None); rows.append(f)   # #53: AI subtitles already made / made in pieces
 g["state"]["findings"] = rows + [f for f in base["state"]["findings"] if f["check"] not in ("SUBS_OUT_OF_SYNC", "NO_SUBS")][:30]
 write("subsgroup", g)
+# stuck (F16, #20): a stuck download, a blocked import and a failing indexer. The two queue rows offer 'Take off the queue' (and no re-download);
+# its confirm says nothing is deleted and the download stays in the client; the indexer row has no fix button at all.
+g = copy.deepcopy(base); rows = []
+for fid_, app_, code_, name_, sev_, title_, det_, plain_ in (
+        ("stk1", "sonarr", "DOWNLOAD_STUCK", "Download stuck", "high", "Harbor Tales S02E05", "queue: stalled - status warning, downloading/warning, 12% done, grabbed 2026-11-12 10:00 (6 days ago) | client Deluge | release 'Harbor.Tales.S02E05' | says: The download is stalled with no connections | queue=77 | download=ABC",
+         "This download has been in the queue for 6 days without finishing and looks stalled. 'Take off the queue' stops the wait so it can be searched again; the download itself stays in your download client."),
+        ("stk2", "radarr", "IMPORT_STUCK", "Download not imported", "high", "Gamma Movie (2022)", "queue: finished, not imported - status completed, importBlocked/warning, 100% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | release 'Gamma.Movie.2022' | says: No files found are eligible for import | queue=78 | download=DEF",
+         "The download finished, but 4 days after the grab Radarr has still not brought it into the library (details say why). 'Take off the queue' stops the wait; the download itself stays in your download client."),
+        ("stk3", "sonarr", "INDEXER_DOWN", "Indexer not working", "medium", "Sonarr indexers", "IndexerLongTermStatusCheck: Indexers unavailable due to failures for more than 6 hours: Test Indexer | warning",
+         "Sonarr stopped using some indexers because they kept failing, so its searches skip them. Check them in its indexer settings, or in Prowlarr if you use it.")):
+    rows.append(dict(id=fid_, app=app_, check=code_, name=name_, severity=sev_, sev_name=sev_, title=title_, path=None, detail=det_, plain=plain_, first_seen="2026-11-18T05:00", age_days=0.2,
+                     library="Movies" if app_ == "radarr" else "TV", upcoming=False, watching=False, plex=None, arr=f"http://{app_}.test/{'settings/indexers' if code_ == 'INDEXER_DOWN' else 'activity/queue'}"))
+g["state"]["findings"] = rows + base["state"]["findings"][:30]
+write("stuck", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

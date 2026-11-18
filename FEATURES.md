@@ -34,6 +34,9 @@ The left column is the internal code (handy for searching); the middle column is
 | PLEX_MISSING | the arr has the file but Plex never added it to the library | 🟡 medium |
 | ORPHAN_FILE / DUPLICATE_VIDEO | a video on disk no arr knows about / an unmanaged twin of a managed episode | 🟡 medium (🔵 low and no bulk Move to trash when the file sits in a folder an arr lists: that is usually a reading gap, so **Rescan the folder** comes first) |
 | MISSING_EPISODE / MISSING_MOVIE / MISSING_SCENE | monitored and released, but still no file — shown with the arr's own evidence (queue, last grab/fail, last search, blocklist) | 🟡 medium / 🟢 low |
+| DOWNLOAD_STUCK | a download still not finished 3 days after the arr grabbed it, or one the download client reports as failed or stalled (one row per download, so a season pack is one row) | 🟡 medium; 🟠 high when stalled or failed |
+| IMPORT_STUCK | the download finished but 24 hours after the grab the arr still has not brought it into the library (the arr's own reason is in the details) | 🟡 medium; 🟠 high when the arr says the import is blocked |
+| INDEXER_DOWN | the arr's own warning that it stopped using indexers because they kept failing for hours, or that it has none left to search with | 🟡 medium / 🟠 high |
 
 🏷️ **Tell it how you want a title handled** with arr tags: `audit-ignore`, `audit-lang-xxx`, `audit-nosubs`, `audit-noremediate`. For one-offs, use `ignore.txt` or the ignore buttons in the UI.
 
@@ -61,6 +64,7 @@ Tell it which players you own (PS5, Shield, LG TV, Apple TV, Google TV, Fire TV,
 - 🎚️ **Fix sync** — a lossless remux that removes a built-in audio delay; it refuses when the delay is an intentional intro offset.
 - 🧐 **Verify content** — samples the dialogue at 15/50/85 % (from embedded/sidecar subs, otherwise Whisper on the original-language audio) and compares it word-for-word with neighbouring episodes (openings/recaps ignored) and TVDB descriptions. Verdicts: CONTENT MATCHES, CONSISTENT, DUPLICATE CONTENT, MULTI-EPISODE, MISLABELED, or inconclusive. Movies are checked against their own synopsis and two dozen decoy synopses from the same library.
 - 🔍 **Search** — kick off the arr's search for a missing episode/movie/scene. **Plex refresh** — rescan one folder.
+- 📥 **Take off the queue** — for a stuck download: the arr stops waiting for it and forgets it. Nothing is deleted: the download stays in your download client (it is not removed there and not blocklisted), so it can still be imported by hand, and the next audit lists the item as missing so it can be searched again.
 - 📦 **Archive** — unmonitor a season/movie you've watched and haven't touched in a while, and move its files to Trash (30-day countdown).
 - 🔍 **Search all missing** — for one show/movie, send the arr a search for every released-but-missing item at once.
 

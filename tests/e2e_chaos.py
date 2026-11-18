@@ -17,6 +17,7 @@ def free_port():
 W = mock_stack.default_world(TV, MOVIES)
 make(W["files"][0]["path"], alang="eng"); make(W["files"][1]["path"], alang="fre"); make(W["files"][2]["path"], alang="jpn"); make(W["mfiles"][0]["path"], audio=False)
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
+mock_stack.stuck_world(W)   # F16: Radarr's stuck download is one of the rows that must stay open while Radarr is gone
 mock = mock_stack.start(W); MURL = f"http://127.0.0.1:{mock.server_address[1]}"
 PORT = free_port()
 env = dict(os.environ, CONFIG_DIR=CFG, REPORT_DIR=os.path.join(CFG, "reports"), ARR_CONFIG_DIR=os.path.join(CFG, "no-arr-dir"), HTTP_PORT=str(PORT), HOST_IP="127.0.0.1", TZ="UTC",
@@ -66,6 +67,7 @@ phase, st = wait_run(); check("baseline run finishes", phase == "done", f"phase=
 base_ids = {f["id"]: (f["app"], f["check"]) for f in st.get("findings", [])}
 radarr_ids = {i for i, (a, c) in base_ids.items() if a == "radarr"}
 check("baseline has findings for both arrs", any(a == "sonarr" for a, _ in base_ids.values()) and radarr_ids, base_ids)
+check("baseline has Radarr's stuck download and Sonarr's failing indexer (F16)", ("radarr", "IMPORT_STUCK") in base_ids.values() and ("sonarr", "INDEXER_DOWN") in base_ids.values(), sorted(set(base_ids.values())))
 
 # 2. chaos on: 500s, slow answers, Radarr drops the connection for a window of requests
 mock.chaos = mock_stack.chaos(); mock.calls.clear()

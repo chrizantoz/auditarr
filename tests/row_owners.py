@@ -43,6 +43,7 @@ CLOSERS = {   # function -> why it may close rows
     "_subsync_job": "the timing check found the subtitles in sync: closes its own row",
     "_verify_job": "the content check proved the file right: closes its own row",
     "_followup_job": "the follow-up saw Plex or the arr list the file: closes its own row",
+    "unqueue": "Take off the queue closes its own stuck-download row once the app no longer lists the download (F16)",
     "arr_has_now": "SWEEP: the end-of-audit clean-up",
     "audit_one": "SWEEP: the import re-check",
     "reconcile_disk_findings": "SWEEP: unknown files that are gone",

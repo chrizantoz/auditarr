@@ -84,6 +84,19 @@ async function edgeChecks(S) {
     $(".confirm button.primary").click(); await sleep(120);
     check("mp4mkv: saying yes posts Rewrap for that finding", posts.slice(n0).some(p => p.url.includes("api/act") && JSON.parse(p.body).action === "remuxmkv" && JSON.parse(p.body).id === ids[0]), posts.slice(n0).map(p => p.url + " " + p.body).join(" | "));
   }
+  if (EDGE === "stuck") {   // F16 (#20): off the app's queue only, never out of the download client
+    $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "check"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
+    check("stuck: both queue rows offer Take off the queue as their main button", ["stk1", "stk2"].every(id => $(`#findings button.primary[data-act=unqueue][data-id="${id}"]`)));
+    check("stuck: no queue row offers a re-download or a search", ["stk1", "stk2"].every(id => !$(`#findings button[data-act=regrab][data-id="${id}"]`) && !$(`#findings button[data-act=search][data-id="${id}"]`)));
+    check("stuck: the failing-indexer row has no fix button, only Ignore", !$('#r-stk3 button[data-act]') && !!$('#r-stk3 button[data-ign]'));
+    check("stuck: the button's tooltip says nothing is deleted", /nothing is deleted/.test(($('button[data-act=unqueue][data-id="stk1"]') || {}).title || ""));
+    check("stuck: the row links to the app's queue page", !!$('#r-stk1 a[href="http://sonarr.test/activity/queue"]'));
+    const n0 = posts.length; $('#findings button[data-act=unqueue][data-id="stk2"]').click(); await sleep(30);
+    const ask = ($(".confirm") || {}).textContent || "";
+    check("stuck: pressing it asks first, posts nothing yet, and says the download stays in the client", posts.length === n0 && /Nothing is deleted/.test(ask) && /stays in your download client/.test(ask), ask);
+    $(".confirm button.primary").click(); await sleep(120);
+    check("stuck: saying yes posts Take off the queue for that row", posts.slice(n0).some(p => p.url.includes("api/act") && JSON.parse(p.body).action === "unqueue" && JSON.parse(p.body).id === "stk2"), posts.slice(n0).map(p => p.body).join(" | "));
+  }
   if (EDGE === "subsgroup") {
     $$(".sev").forEach(c => { c.checked = true; }); $("#f-group").value = "show"; $("#f-group").dispatchEvent(new w.Event("change")); await sleep(80); $$("#findings details.grp-d").forEach(d => { d.open = true; });
     const ids = b => (($(`button[data-bulk=${b}]`) || {}).dataset || {}).ids || "";

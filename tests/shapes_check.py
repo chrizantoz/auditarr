@@ -42,4 +42,7 @@ pe = getp("/plex/library/sections/1/all?type=4")["MediaContainer"]["Metadata"]; 
 po = getp("/plex/library/onDeck")["MediaContainer"]["Metadata"]; check("fake Plex On Deck carries Media/Part/file like the real one", po and po[0]["Media"][0]["Part"][0]["file"], po and list(po[0])[:5])
 ef = get("/sonarr/api/v3/episodefile?seriesId=1")[0]; check("our test values still win over the sample (path, size, quality)", ef["size"] == 0 and ef["quality"]["quality"]["name"] == "Unknown" and "Alpha Show" in ef["path"], (ef["size"], ef["path"][-40:]))
 check("real-only fields ride along with real-looking values", isinstance(ef.get("releaseType"), str) and isinstance(ef.get("customFormats"), list), (ef.get("releaseType"), ef.get("customFormats")))
+mock_stack.stuck_world(W); qr = get("/radarr/api/v3/queue?pageSize=10")["records"]; W["queue"]["sonarr"] = [mock_stack.queue_record("sonarr", id=9, seriesId=1, episodeId=104, downloadId="X")]
+for app, recs in (("radarr", qr), ("sonarr", get("/sonarr/api/v3/queue?pageSize=10")["records"])):   # F16: queue entries built over the recorded ones
+    real = keys_of(mock_stack.sample(f"{app}/queue", ("records", 0))); check(f"fake {app} queue entries have every real field", not real or not (real - keys_of(recs)), sorted(real - keys_of(recs))[:8])
 srv.shutdown(); bad = results.count(False); print(f"\n{len(results) - bad} passed, {bad} failed"); sys.exit(1 if bad else 0)

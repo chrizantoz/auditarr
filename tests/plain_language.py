@@ -55,6 +55,18 @@ GOLDEN = [
  ("NO_SUBS", "low", "Anime S01E03", "audio=['jpn'] embedded_subs=[] external=[] | subtitles burned into the picture (language unknown; seen at 40s)", "sonarr",
   "The subtitles are painted into the picture, so no player can switch them and the app cannot read their language. 'Show me a frame' lets you check which language they are."),
  ("NO_SUBS", "medium", "Anime S01E03", "[working: AI subtitles queued 14:02] || audio=['jpn'] embedded_subs=[] external=[]", "sonarr", "AI subtitles queued 14:02. This row clears by itself when it is done; nothing to do."),
+ ("DOWNLOAD_STUCK", "medium", "Show S01E04", "queue: not finished - status downloading, downloading/ok, 60% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | release 'x' | queue=1 | download=AB", "sonarr",
+  "This download has been in the queue for 4 days without finishing. 'Take off the queue' stops the wait so it can be searched again; the download itself stays in your download client."),
+ ("DOWNLOAD_STUCK", "high", "Show S01E04", "queue: stalled - status warning, downloading/warning, 10% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | release 'x' | says: The download is stalled with no connections | queue=1 | download=AB", "sonarr",
+  "This download has been in the queue for 4 days without finishing and looks stalled. 'Take off the queue' stops the wait so it can be searched again; the download itself stays in your download client."),
+ ("DOWNLOAD_STUCK", "high", "Movie (2020)", "queue: failed in the download client - status failed, failed/error, 0% done, grabbed 2026-11-17 10:00 (26 hours ago) | client SABnzbd | release 'x' | queue=1 | download=AB", "radarr",
+  "The download client reports this download as failed. 'Take off the queue' clears it so it can be searched again; the download itself stays in your download client."),
+ ("IMPORT_STUCK", "high", "Movie (2020)", "queue: finished, not imported - status completed, importBlocked/warning, 100% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | release 'x' | says: No files found are eligible for import | queue=1 | download=AB", "radarr",
+  "The download finished, but 4 days after the grab Radarr has still not brought it into the library (details say why). 'Take off the queue' stops the wait; the download itself stays in your download client."),
+ ("INDEXER_DOWN", "medium", "Sonarr indexers", "IndexerLongTermStatusCheck: Indexers unavailable due to failures for more than 6 hours: A | warning", "sonarr",
+  "Sonarr stopped using some indexers because they kept failing, so its searches skip them. Check them in its indexer settings, or in Prowlarr if you use it."),
+ ("INDEXER_DOWN", "high", "Radarr indexers", "IndexerSearchCheck: No indexers available with Automatic Search enabled | warning", "radarr",
+  "Radarr has no indexer it can use right now, so nothing new can be found. Check its indexer settings, or Prowlarr if you use it."),
 ]
 for code, sev, label, detail, app, want in GOLDEN:
     got = audit.plain_sentence(code, sev, label, detail, app); check(f"golden {code}/{sev}", got == want, f"got: {got}")
@@ -77,6 +89,9 @@ SAMPLE_DETAIL = {"WRONG_LANGUAGE": "audio=['fre'] original=eng wanted=['eng']", 
  "RUNTIME_SHORT": "file 12 min vs expected 25 min (1 ep)", "RUNTIME_LONG": "file 48 min vs expected 25 min (1 ep) - extended cut", "RUNTIME_DISAGREE": "ffprobe 20 min vs arr mediaInfo 40 min",
  "SAMPLE_FILE": "40 MB", "TITLE_MISMATCH": "embedded title 'x' does not match 'y'", "DUPLICATE_VIDEO": "900 MB", "ORPHAN_FILE": "900 MB", "BAD_DURATION_HEADER": "container header says 48 min",
  "AUDIO_OFFSET": "audio track starts 2.10s after/before video with no matching cut", "PLEX_MISSING": "x", "RES_MISLABELED": "1280x720 but tagged Bluray-1080p", "HI10P": "10-bit H.264 (yuv420p10le)",
+ "DOWNLOAD_STUCK": "queue: not finished - status downloading, downloading/ok, 60% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | queue=1 | download=AB",
+ "IMPORT_STUCK": "queue: finished, not imported - status completed, importBlocked/warning, 100% done, grabbed 2026-11-14 10:00 (4 days ago) | client Deluge | queue=1 | download=AB",
+ "INDEXER_DOWN": "IndexerLongTermStatusCheck: Indexers unavailable due to failures for more than 6 hours: A | warning",
  "AV1": "AV1 video", "SUBS_OUT_OF_SYNC": "external 'x.en.srt': subtitles 2.4s late (3/3 samples agree) | fix: shift | lang=en | src=sidecar:/x.en.srt", "INTERLACED": "interlaced video (tt)", "TRUEHD_ONLY": "only lossless audio (TrueHD)", "DV_PROFILE5": "Dolby Vision profile 5", "DV_PROFILE7": "Dolby Vision profile 7 (dual layer, compat id 6)"}
 for code in audit.CHECK_NAMES:
     if code in audit.TODAY_ONLY: continue   # Today-page notices carry their own sentence (one list in audit.py, #47)

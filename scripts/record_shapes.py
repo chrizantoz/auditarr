@@ -69,7 +69,7 @@ for app, (base, key, kind) in apps.items():
             mid = pick["id"]; save(app, "movie_one", try_(lambda: A(f"movie/{mid}"), "movie/id"), "movie/{id}")
             mfs = try_(lambda: A(f"moviefile?movieId={mid}"), "moviefile") or []; save(app, "moviefile", mfs[:3], "moviefile?movieId=")
             if mfs: fid = mfs[0]["id"]; save(app, "moviefile_one", try_(lambda: A(f"moviefile/{fid}"), "moviefile/id"), "moviefile/{id}")
-    for name, p in (("tag", "tag"), ("rootfolder", "rootfolder"), ("queue", "queue?pageSize=5"), ("command", "command"), ("notification", "notification"), ("blocklist", "blocklist?pageSize=5"), ("system_status", "system/status"),
+    for name, p in (("tag", "tag"), ("rootfolder", "rootfolder"), ("queue", "queue?pageSize=5"), ("command", "command"), ("notification", "notification"), ("blocklist", "blocklist?pageSize=5"), ("system_status", "system/status"), ("health", "health"),
                     ("history_since", f"history/since?date={(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=2)).strftime('%Y-%m-%dT%H:%M:%SZ')}")):
         r = try_(lambda p=p: A(p), p)
         if r is not None: save(app, name, r, p.split("?")[0])

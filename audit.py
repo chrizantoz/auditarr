@@ -34,6 +34,9 @@ Checks (code -> meaning):
   ORPHAN_FILE       video file on disk that no arr knows about
   DUPLICATE_VIDEO   orphan whose SxxEyy matches a managed file in the same folder
   PLEX_MISSING      the arr has the file but Plex never indexed it (folder refresh is triggered automatically)
+  DOWNLOAD_STUCK / IMPORT_STUCK   F16: a queue entry not finished after STUCK_DOWNLOAD_DAYS, failed/stalled, or finished but not imported after STUCK_IMPORT_HOURS
+                                  -> 'Take off the queue' (arr queue only: removeFromClient=false, blocklist=false; the download stays in the client)
+  INDEXER_DOWN      F16: the arr's own health warning that indexers keep failing or none can search
 
 v2.3 additions: Plex folder refresh after every action, Plex-vs-arr reconciliation, tracked re-grabs (verify the replacement,
 auto-restore the original after REGRAB_WAIT_DAYS), Bazarr subtitle search button, UI-saved settings (kv), run history, /health 503 when stale.
@@ -287,6 +290,9 @@ SETTABLE = {   # env name: (kind, default, help)
  "PLEX_REFRESH": ("onoff", "on", "tell Plex to rescan the folder after every file action"), "PLEX_CHECK": ("onoff", "on", "flag arr files that Plex has not indexed (PLEX_MISSING)"),
  "PLEX_MIN_AGE_HOURS": ("num", "12", "ignore files newer than this for PLEX_MISSING"),
  "MISSING_MIN_DAYS": ("int", "3", "flag monitored episodes/movies released at least this many days ago that still have no file (0 = off)"),
+ "STUCK_DOWNLOAD_DAYS": ("num", "3", "F16: a download still not finished this many days after it was grabbed becomes a finding with a 'Take off the queue' button (0 = off)"),
+ "STUCK_IMPORT_HOURS": ("num", "24", "F16: a finished download the app could not bring into the library, or one the download client reports as failed, becomes a finding this many hours after it was grabbed (0 = off)"),
+ "INDEXER_CHECK": ("onoff", "on", "F16: the apps' own warnings about indexers that keep failing, or none left to search with, become findings"),
  "ANIME_ORIGINAL_AUDIO": ("onoff", "on", "flag anime files that have no Japanese (original-language) audio track as DUB_ONLY"),
  "AUTO_VERIFY": ("mode", "on", "nightly: run the content check on new runtime/title findings (max AUTO_VERIFY_MAX per night)"),
  "AUTO_VERIFY_MAX": ("int", "10", "max content checks queued per night"),
@@ -390,7 +396,8 @@ CHECK_NAMES = {"WRONG_LANGUAGE": "Wrong language", "DUB_NOT_WANTED": "Not the la
  "DUPLICATE_VIDEO": "Duplicate file", "ORPHAN_FILE": "Unknown file", "BAD_DURATION_HEADER": "Wrong time bar", "AUDIO_OFFSET": "Audio starts late", "SUBS_OUT_OF_SYNC": "Subtitles out of sync", "JOBFAIL": "A job failed", "PLEX_MISSING": "Not in Plex",
  "RES_MISLABELED": "Lower resolution than labelled", "HI10P": "10-bit video (some players transcode)", "AV1": "AV1 video (some players transcode)", "INTERLACED": "Interlaced video", "MP4_IN_MKV": "File type does not match its name",
  "TRUEHD_ONLY": "Lossless-only audio", "DV_PROFILE5": "Dolby Vision without fallback", "DV_PROFILE7": "Dolby Vision dual layer", "SPACE": "Space to free", "GAVEUP": "The night gave up on a fix", "UNFOUND": "Nothing found for weeks",
- "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running"}
+ "TRASH": "Trash purges soon", "SELFTEST": "Self-test failing", "HEALTH": "Audit not running",
+ "DOWNLOAD_STUCK": "Download stuck", "IMPORT_STUCK": "Download not imported", "INDEXER_DOWN": "Indexer not working"}
 SEV_NAMES = {"critical": "Won't play", "high": "Wrong", "medium": "Waiting", "low": "FYI"}
 # F4: what common players can direct-play. True = plays as-is, False = Plex has to transcode (or it fails). Edit freely; this is a best-effort table.
 DEVICE_PROFILES = {   # key: (name, {capability: ok})
@@ -466,6 +473,14 @@ def plain_sentence(code, sev, label, detail, app=None):
         rel = re.search(r"released (\S+) \((\d+) days ago\)", d); q = "queued" in d.lower() or "downloading" in d.lower()
         return (f"Released {rel.group(2)} days ago and not downloaded yet. " if rel else "Released but not downloaded yet. ") + ("It is in the download queue now." if q else "Nothing found on your indexers so far. 'Search now' tries again.")
     who = (app or "").capitalize() or "The library manager"
+    if code in QUEUE_CODES:   # F16: the button takes it off the app's queue only; the download stays in the client (owner's choice (a), #20)
+        ago = (re.search(r"\((\d+ (?:days?|hours?)) ago\)", d) or [None, "a while"])[1]; keep = "the download itself stays in your download client."
+        if code == "IMPORT_STUCK": return f"The download finished, but {ago} after the grab {who} has still not brought it into the library (details say why). 'Take off the queue' stops the wait; {keep}"
+        if "failed" in d.split(" | ")[0]: return f"The download client reports this download as failed. 'Take off the queue' clears it so it can be searched again; {keep}"
+        return f"This download has been in the queue for {ago} without finishing{' and looks stalled' if 'stalled' in d.split(' | ')[0] else ''}. 'Take off the queue' stops the wait so it can be searched again; {keep}"
+    if code == "INDEXER_DOWN":
+        if "IndexerSearchCheck" in d or "IndexerRssCheck" in d: return f"{who} has no indexer it can use right now, so nothing new can be found. Check its indexer settings, or Prowlarr if you use it."
+        return f"{who} stopped using some indexers because they kept failing, so its searches skip them. Check them in its indexer settings, or in Prowlarr if you use it."
     if code == "MISSING_FILE": return f"{who} still lists this file but it is not on disk." + (" A re-download is in progress." if "re-grab" in d else " A rescan will fix the record.")
     if code == "ZERO_SIZE": return "The file is empty (0 bytes). It needs re-downloading."
     if code == "CORRUPT_HEADER": return "The file cannot be read at all. It needs re-downloading."
@@ -755,7 +770,7 @@ ARR_FOLDERS = {}  # series/movie folder an arr lists -> (app, title), files or n
 def search_evidence(base, key, now, app=""):
     """What the arr has actually done about its missing items: queue, grabs / failed downloads in the last 30 days, blocklist. 3 calls per app.
     An app that answers one of these with something that is not JSON does not have that endpoint: skipped, said once in one line (#60)."""
-    ev = {"queue": {}, "grab": {}, "fail": {}, "block": {}, "cmd": {}}; absent = []
+    ev = {"queue": {}, "grab": {}, "fail": {}, "block": {}, "cmd": {}, "records": None, "health": None}; absent = []   # records/health stay None when the app could not be asked (F16: its rows are then kept open, not closed)
     real = globals()["api"]
     def api(b_, k_, path):
         try: return real(b_, k_, path)
@@ -768,10 +783,15 @@ def search_evidence(base, key, now, app=""):
             for k in (b.get("episodeIds") or b.get("movieIds") or []): ev["cmd"].setdefault(k, f"{what} {c['status']} in the arr ({pos} commands ahead)")
     except Exception as e: log("evidence commands:", repr(e))
     try:
-        for r in (api(base, key, "queue?pageSize=1000&includeUnknownSeriesItems=false&includeUnknownMovieItems=false") or {}).get("records", []):
+        q_ = api(base, key, "queue?pageSize=1000&includeUnknownSeriesItems=false&includeUnknownMovieItems=false&includeEpisode=true")
+        if isinstance(q_, dict): ev["records"] = [r for r in q_.get("records") or [] if isinstance(r, dict)]
+        for r in ev["records"] or []:
             k = r.get("episodeId") or r.get("movieId"); pct = 100 - round(100 * (r.get("sizeleft") or 0) / (r.get("size") or 1))
             if k: ev["queue"][k] = f"{r.get('status')} {pct}%" + (f" ({r.get('trackedDownloadState')})" if r.get("trackedDownloadState") else "")
-    except Exception as e: log("evidence queue:", repr(e))
+    except Exception as e: log("evidence queue:", repr(e)); ev["records"] = None
+    try:   # F16: the app's own health warnings (indexers failing for hours, none left to search with)
+        h_ = api(base, key, "health"); ev["health"] = [x for x in h_ if isinstance(x, dict)] if isinstance(h_, list) else None
+    except Exception as e: log("evidence health:", repr(e))
     try:
         since = (now - datetime.timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
         for r in api(base, key, f"history/since?date={since}") or []:
@@ -786,6 +806,88 @@ def search_evidence(base, key, now, app=""):
     except Exception as e: log("evidence blocklist:", repr(e))
     if absent: log(f"evidence: {app or base} has no {', '.join(absent)} endpoint - skipped")
     return ev
+# ---------- F16: stuck downloads and failing indexers (#20) ----------
+def stuck_pass(conn, apps, upsert, now=None):
+    """Turn each app's queue and health answer (gathered by search_evidence) into rows. Returns {(app, 'queue'|'health')} for the answers that came back."""
+    now = now or time.time(); asked = set(); links = []
+    try: seen_q = json.loads((conn.execute("SELECT v FROM kv WHERE k='queue_first_seen'").fetchone() or ["{}"])[0])
+    except Exception: seen_q = {}
+    live = set(); n = 0
+    for app, ev in MISSING_EV.items():
+        rows = []
+        if ev.get("records") is not None:
+            asked.add((app, "queue")); live |= {f"{app}|{queue_key(r)}" for r in ev["records"]}
+            rows += stuck_downloads(app, ev["records"], now, ARR_TITLES.get(app, {}), seen_q)
+        if ev.get("health") is not None:
+            asked.add((app, "health"))
+            if setting("INDEXER_CHECK") == "on": rows += indexer_rows(app, ev["health"])
+        for fid, code, sev, label, folder, detail in rows:
+            upsert(app, fid, code, sev, label, folder, detail); links.append((app, fid, None, queue_link(apps, app, code))); n += 1
+    conn.executemany("INSERT OR REPLACE INTO links VALUES(?,?,?,?)", links)
+    conn.execute("INSERT OR REPLACE INTO kv VALUES('queue_first_seen',?)", (json.dumps({k: v for k, v in seen_q.items() if k in live}),)); conn.commit()
+    if n: log(f"stuck downloads / indexers: {n} row(s)")
+    return asked
+# Every arr Auditarr talks to (Sonarr, Radarr, Whisparr, Sportarr) speaks API v3, so queue/{id} and health live under /api/v3 for all of them.
+QUEUE_CODES = ("DOWNLOAD_STUCK", "IMPORT_STUCK")
+ARR_TITLES = {}   # app -> {series/movie id: (title, folder)}; filled by collect() so a stuck download can say what it is for
+QUEUE_FID = 10 ** 10; INDEXER_FID = 2 * 10 ** 10   # finding ids (negative, like missing items) that can never meet a file id or an episode id
+INDEXER_SOURCES = ("IndexerLongTermStatusCheck", "IndexerSearchCheck", "IndexerRssCheck")   # failing for 6+ hours / nothing to search with / nothing for RSS
+def _ago(h): return f"{h / 24:.0f} days" if h >= 48 else f"{max(h, 1):.0f} hour{'s' if round(h) != 1 else ''}"
+def _when(v):
+    try: return datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00")).timestamp() if v else None
+    except ValueError: return None
+def queue_kind(r):
+    """'failed' | 'import' (finished, the app cannot bring it in) | 'download' (still downloading, queued or paused) | None (normal: delayed, importing, waiting its turn)."""
+    st, state, ts = (str(r.get("status") or "")).lower(), (str(r.get("trackedDownloadState") or "")).lower(), (str(r.get("trackedDownloadStatus") or "")).lower()
+    if st in ("delay", "downloadclientunavailable") or state in ("imported", "importing", "ignored"): return None
+    if state in ("failed", "failedpending") or st == "failed": return "failed"
+    if state in ("importblocked", "importfailed") or (st == "completed" and ts in ("warning", "error")) or (state == "importpending" and ts in ("warning", "error")): return "import"
+    if st == "completed" or state == "importpending": return None
+    return "download"
+def queue_key(r): return str(r.get("downloadId") or f"queue-{r.get('id')}")
+def stuck_downloads(app, records, now, titles=None, first_seen=None):
+    """F16: the app's queue -> [(fid, code, sev, label, folder, detail)], one row per download (a season pack is one row, not one per episode).
+    Age = since the app grabbed it ('added'; when an old app does not send it, since Auditarr first saw it in the queue: first_seen)."""
+    days = float(setting("STUCK_DOWNLOAD_DAYS") or 0); imp_h = float(setting("STUCK_IMPORT_HOURS") or 0); titles = titles or {}; first_seen = first_seen if first_seen is not None else {}
+    groups = {}
+    for r in records or []: groups.setdefault(queue_key(r), []).append(r)
+    rank = {"failed": 0, "import": 1, "download": 2}; out = []
+    for dl, rs in groups.items():
+        kinds = [(rank[k], k, r) for r in rs for k in [queue_kind(r)] if k]
+        if not kinds: continue
+        _, kind, r = min(kinds, key=lambda x: x[0])
+        t0 = _when(r.get("added")) or first_seen.setdefault(f"{app}|{dl}", now); age_h = (now - t0) / 3600
+        if kind in ("failed", "import") and (not imp_h or age_h < imp_h): continue
+        if kind == "download" and (not days or age_h < days * 24): continue
+        st, state, ts = r.get("status") or "?", r.get("trackedDownloadState") or "?", (r.get("trackedDownloadStatus") or "").lower()
+        stalled = kind == "download" and (ts in ("warning", "error") or str(st).lower() == "warning")
+        code = "IMPORT_STUCK" if kind == "import" else "DOWNLOAD_STUCK"
+        sev = "high" if kind == "failed" or stalled or (kind == "import" and (ts == "error" or str(state).lower() in ("importblocked", "importfailed"))) else "medium"
+        pid = r.get("seriesId") or r.get("movieId"); title, folder = titles.get(pid, (None, None))
+        eps = sorted({(e.get("seasonNumber") or 0, e.get("episodeNumber") or 0) for e in (x.get("episode") for x in rs) if isinstance(e, dict) and e.get("episodeNumber") is not None})
+        if title and eps: label = f"{title} " + ("/".join(f"S{s_:02d}E{e_:02d}" for s_, e_ in eps) if len(eps) <= 3 else f"S{eps[0][0]:02d} ({len(eps)} episodes)")
+        else: label = title or str(r.get("title") or dl)[:120]
+        pct = 100 - round(100 * sum(float(x.get("sizeleft") or 0) for x in rs[:1]) / (float(r.get("size") or 0) or 1))
+        msgs = "; ".join(m_ for sm in (r.get("statusMessages") or []) if isinstance(sm, dict) for m_ in (sm.get("messages") or []) if isinstance(m_, str))
+        why = "; ".join(x for x in dict.fromkeys([msgs, str(r.get("errorMessage") or "")]) if x)[:300]
+        what = {"failed": "failed in the download client", "import": "finished, not imported", "download": "stalled" if stalled else "not finished"}[kind]
+        detail = (f"queue: {what} - status {st}, {state}/{ts or '?'}, {max(0, min(100, pct))}% done, grabbed {datetime.datetime.fromtimestamp(t0):%Y-%m-%d %H:%M} ({_ago(age_h)} ago)"
+                  f" | client {r.get('downloadClient') or '?'} | release '{str(r.get('title') or '')[:120]}'" + (f" | says: {why}" if why else "") + f" | queue={r.get('id')} | download={dl}")
+        fid = -(QUEUE_FID + int(hashlib.sha1(f"{app}|{dl}".encode()).hexdigest()[:8], 16))
+        out.append((fid, code, sev, label, folder, detail))
+    return out
+def indexer_rows(app, health):
+    """F16: the app's own health warnings about indexers -> [(fid, code, sev, label, folder, detail)]."""
+    out = []
+    for h in health or []:
+        src = str(h.get("source") or "")
+        if src not in INDEXER_SOURCES: continue
+        fid = -(INDEXER_FID + INDEXER_SOURCES.index(src)); sev = "high" if str(h.get("type") or "").lower() == "error" or src != "IndexerLongTermStatusCheck" else "medium"
+        out.append((fid, "INDEXER_DOWN", sev, f"{SERVICE_NAMES.get(app, app.capitalize())} indexers", None, f"{src}: {str(h.get('message') or '')[:300]} | {h.get('type') or '?'}"))
+    return out
+def queue_link(apps, app, code):
+    base = (ARR_LINK.get(app) or apps.get(app, ("",))[0] or "").rstrip("/")
+    return f"{base}/{'settings/indexers' if code == 'INDEXER_DOWN' else 'activity/queue'}" if base else None
 def arr_status_line(app, ids):
     """One line of evidence for episode/movie ids: queue > last grab (+failed) > last search > never."""
     ev = MISSING_EV.get(app, {}); ls = LAST_SEARCH.get(app, {}); out = []
@@ -798,7 +900,7 @@ def arr_status_line(app, ids):
 def collect(apps, only=None):
     """only={(app, parent_id)}: build items for those titles alone (import hook) without touching the run-wide MISSING/LAST_SEARCH state."""
     items = []; roots = {}; now = datetime.datetime.now(datetime.timezone.utc); min_days = 0 if only else int(setting("MISSING_MIN_DAYS") or 0)
-    if only is None: MISSING.clear(); MISSING_EV.clear(); LAST_SEARCH.clear(); ARR_FOLDERS.clear()
+    if only is None: MISSING.clear(); MISSING_EV.clear(); LAST_SEARCH.clear(); ARR_FOLDERS.clear(); ARR_TITLES.clear()
     for app, (base, key, kind) in apps.items():
         try:
             tags = {t["id"]: t["label"] for t in api(base, key, "tag")}
@@ -807,6 +909,7 @@ def collect(apps, only=None):
                 for s in api(base, key, "series"):
                     if only is not None and (app, s["id"]) not in only: continue
                     if s.get("path"): ARR_FOLDERS[os.path.normpath(s["path"])] = (app, s.get("title") or "")
+                    ARR_TITLES.setdefault(app, {})[s["id"]] = (s.get("title") or "", s.get("path"))
                     intent = intent_from_tags(tags.get(t, "") for t in s.get("tags", []))
                     has_files = series_has_files(s)
                     if not has_files and not (min_days and s.get("monitored")): continue
@@ -838,6 +941,7 @@ def collect(apps, only=None):
                 for m in api(base, key, "movie"):
                     if only is not None and (app, m["id"]) not in only: continue
                     if m.get("path"): ARR_FOLDERS[os.path.normpath(m["path"])] = (app, m.get("title") or "")
+                    ARR_TITLES.setdefault(app, {})[m["id"]] = (f"{m.get('title') or ''} ({m.get('year')})", m.get("path"))
                     intent = intent_from_tags(tags.get(t, "") for t in m.get("tags", []))
                     if m.get("lastSearchTime"): LAST_SEARCH.setdefault(app, {})[m["id"]] = m["lastSearchTime"][:10]
                     if not m.get("hasFile"):
@@ -2001,6 +2105,7 @@ def run_once():
         hint = "" if q else (" - older than a year, may simply not exist on your indexers" if mi_["days"] > 365 else " - press 'search' to look again (Huntarr/RSS also keep trying)")
         upsert(mi_["app"], -mi_["id"], code, sev, mi_["label"], mi_["path"], f"released {mi_['released']} ({mi_['days']} days ago), monitored, no file | {status}" + (f" - '{mi_['ep_title'][:50]}'" if mi_["ep_title"] and mi_["kind"] == "series" and "S" in mi_["label"].split()[-1] else "") + hint)
     if MISSING: log(f"missing: {len(MISSING)} monitored items released >= {setting('MISSING_MIN_DAYS')} days ago without a file")
+    asked = stuck_pass(conn, apps, upsert)   # F16: stuck downloads + failing indexers; asked = {(app, "queue"|"health")} the app answered this run
     if ORPHAN_SCAN:
         folders = {}   # series/movie folder -> (app, kind, parent_id), so an "orphan" can be re-checked live against its arr (imports that landed during this run)
         for it in items:
@@ -2042,7 +2147,9 @@ def run_once():
     answered = {it["app"] for it in items} | ({"disk"} if ORPHAN_SCAN and roots else set()); resolved = 0
     cur_path = {(it["app"], str(it["fid"])): it.get("path") for it in items}
     for fid, app, code, afid, fpath in conn.execute("SELECT id, app, check_code, fid, path FROM finding WHERE resolved_at IS NULL").fetchall():
-        if fid in seen or app not in answered or code in skip_codes or not sweep_may_close("audit", code, fpath, cur_path.get((app, str(afid)))): continue
+        q_rows = code in QUEUE_CODES or code == "INDEXER_DOWN"   # F16: closed only when the app answered that question this run (one that could not be asked keeps its rows)
+        heard = (app, "queue" if code in QUEUE_CODES else "health") in asked if q_rows else app in answered
+        if fid in seen or not heard or code in skip_codes or not sweep_may_close("audit", code, fpath, cur_path.get((app, str(afid)))): continue
         conn.execute("UPDATE finding SET resolved_at=? WHERE id=?", (started, fid)); resolved += 1
     conn.commit()
     progress("actions", "rescans / remediation / handoff")
@@ -2231,7 +2338,7 @@ JOB_MADE = {"SUBS_OUT_OF_SYNC"}   # findings a background check makes (subtitle 
 ROW_MAKER = {**{c: "check" for c in ("AUDIO_OFFSET", "BAD_DURATION_HEADER", "CORRUPT_HEADER", "DUB_NOT_WANTED", "DUB_ONLY", "INTERLACED", "MISSING_FILE", "NO_AUDIO", "NO_SUBS",
                                      "NO_VIDEO", "RES_MISLABELED", "RUNTIME_DISAGREE", "RUNTIME_LONG", "RUNTIME_SHORT", "SAMPLE_FILE", "TITLE_MISMATCH", "TRUEHD_ONLY",
                                      "UND_AUDIO_NO_SUBS", "WRONG_LANGUAGE", "ZERO_SIZE", "MP4_IN_MKV", "HI10P", "AV1", "DV_PROFILE5", "DV_PROFILE7")},
-             **{c: "audit" for c in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE", "ORPHAN_FILE", "DUPLICATE_VIDEO")},
+             **{c: "audit" for c in ("PLEX_MISSING", "MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE", "ORPHAN_FILE", "DUPLICATE_VIDEO", "DOWNLOAD_STUCK", "IMPORT_STUCK", "INDEXER_DOWN")},
              **{c: "job" for c in JOB_MADE}}
 TODAY_ONLY = {"HEALTH", "JOBFAIL", "SELFTEST", "SPACE", "TRASH", "UNFOUND", "GAVEUP"}   # notices on the Today page, never rows in the finding table
 SWEEPS = {"check": {"audit", "import", "gone"}, "audit": {"audit", "gone"}}
@@ -2699,6 +2806,30 @@ def remux_to_mkv(conn, f, apps, actor):
     record_action(conn, "on", "remuxmkv", f["app"], f["fid"], f["label"], f"mkvmerge remux via UI by {actor}: {what}", f"original -> {dest}; {resc}; {plx}")
     refresh_reports(conn)
     return 200, {"ok": True, "note": f"now a real MKV ({what}); default tracks are set on the next audit; original in the trash for {TRASH_DAYS} days"}
+def queue_entries(base, key, dl):
+    q = api(base, key, "queue?pageSize=1000&includeUnknownSeriesItems=true&includeUnknownMovieItems=true", timeout=60) or {}
+    return [r for r in (q.get("records") or []) if isinstance(r, dict) and queue_key(r) == dl]
+def unqueue(conn, f, apps, actor):
+    """F16 'Take off the queue' (owner's choice (a), #20): the app forgets the download and stops waiting for it. Never removeFromClient, never
+    blocklist: the download stays in the client, untouched, and the app can still import it by hand or search again. Proven by asking the queue again."""
+    if f["check"] not in QUEUE_CODES or f["app"] not in apps: return 400, {"error": "this button is for downloads stuck in an app's queue"}
+    base, key, _ = apps[f["app"]]; who = SERVICE_NAMES.get(f["app"], f["app"].capitalize()); dl = (f["detail"] or "").rsplit("| download=", 1)[-1].strip() if "| download=" in (f["detail"] or "") else ""
+    if not dl: return 400, {"error": "this row does not say which download it is; the next audit writes it again"}
+    recs = queue_entries(base, key, dl)
+    if not recs:
+        resolve_finding(conn, f["id"]); refresh_reports(conn); return 200, {"ok": True, "already_gone": True, "note": f"{who} had already let go of it; nothing to do"}
+    client = recs[0].get("downloadClient") or "your download client"; done = []
+    for _ in range(min(len(recs), 50)):   # one queue entry per episode; the app drops the whole download with the first, the rest are only for an app that does not
+        qid = recs[0].get("id"); api(base, key, f"queue/{qid}?removeFromClient=false&blocklist=false", "DELETE", timeout=60); done.append(qid)
+        recs = queue_entries(base, key, dl)
+        if not recs: break
+    if recs:
+        record_action(conn, "on", "unqueue", f["app"], f["fid"], f["label"], f"take off the queue by {actor}", f"FAILED {who} still lists the download after it was asked to let go (queue {done})")
+        return 502, {"error": f"{who} said yes but still lists the download. Nothing was deleted; try again, or remove it on {who}'s Activity page."}
+    resolve_finding(conn, f["id"])
+    record_action(conn, "on", "unqueue", f["app"], f["fid"], f["label"], f"{f['check']} via UI by {actor}: taken off {who}'s queue (removeFromClient=false, blocklist=false)", f"queue {done} removed; download {dl} left untouched in {client}")
+    refresh_reports(conn)
+    return 200, {"ok": True, "note": f"{who} no longer waits for it. Nothing was deleted: the download is still in {client}, so it can still be imported by hand; the next audit lists it as missing so it can be searched again"}
 PRESSING = {}   # finding id -> (what, started): a button press the server is still working on (re-time, rewrap, fix the time bar ... run inside the request)
 SUB_CODES = ("NO_SUBS", "UND_AUDIO_NO_SUBS", "SUBS_OUT_OF_SYNC")
 JOB_BUSY = {"whisper": ("making AI subtitles", SUB_CODES), "subsearch": ("searching for subtitles", SUB_CODES), "subsync": ("checking the subtitle timing", ("SUBS_OUT_OF_SYNC",)), "bazarrsync": ("Bazarr is re-timing the subtitles", ("SUBS_OUT_OF_SYNC",)),
@@ -2856,6 +2987,7 @@ def _ui_act(conn, body, actor):
         r = api(base, key, "command", "POST", cmd, timeout=60)
         record_action(conn, "on", "search", f["app"], f["fid"], f["label"], f"{cmd['name']} via UI by {actor}", f"command {(r or {}).get('id')} {(r or {}).get('status')}")
         return 200, {"ok": True, "note": f"{f['app']} is searching now - the finding clears on the next run once a file is imported"}
+    if action == "unqueue": return unqueue(conn, f, apps, actor)
     if action == "acceptlang":
         if f["app"] not in apps: return 400, {"error": "accept-language works on arr-managed titles"}
         lang = canon(body.get("lang") or (re.search(r"audio=\['(\w{3})", f["detail"] or "") or [None, ""])[1])
@@ -4139,7 +4271,7 @@ def today_summary(conn, since=None):
         if m != "on" or k in ("ui-error", "settings", "ignore"): continue
         key = {"dedupe": "duplicates quarantined", "subtag": "subtitle tracks labelled", "fixheader": "lying headers repaired", "remuxmkv": "MP4 files rewrapped as MKV", "followup": "fixes checked afterwards", "fixtag": "audio tags fixed", "fixsync": "audio delays removed",
                "regrab": "re-grabs started", "whisper": "AI subtitles made", "subsearch": "Bazarr searches", "watch-priority": "subtitle pushes for what people are watching", "subsync": "subtitle timings checked", "subsync-fix": "subtitles re-timed", "retry": "failed jobs retried", "langdetect": "spoken languages detected", "verify": "content checks", "auto-silence": "verified cuts silenced", "plex-refresh": "Plex folder refreshes",
-               "acceptlang": "languages accepted", "search": "searches triggered", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
+               "acceptlang": "languages accepted", "search": "searches triggered", "unqueue": "stuck downloads taken off the queue", "quarantine": "files quarantined", "restore": "files restored", "purge": "trash purges",
                "fixdefaults": "default audio/subtitle flags set", "plexselect": "Plex track selections checked", "archive": "seasons archived"}.get(k)
         if key and not str(r).startswith(("ERROR", "FAILED", "not done", "no subtitle")): did[key] = did.get(key, 0) + 1
     outcomes = {}

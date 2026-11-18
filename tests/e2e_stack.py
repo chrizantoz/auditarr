@@ -30,6 +30,7 @@ dup2 = os.path.join(season, "Alpha.Show.S01E01.third-group.mkv"); shutil.copy(W[
 orphan = os.path.join(TV, "Random.Home.Video.mkv"); shutil.copy(W["files"][0]["path"], orphan)                                                           # ORPHAN_FILE
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
 W["plex_missing"] = [W["mfiles"][0]["id"]]   # Plex has not indexed the movie -> PLEX_MISSING
+mock_stack.stuck_world(W)   # F16: Radarr holds a finished download it cannot import (4 days); Sonarr says an indexer keeps failing
 mock = mock_stack.start(W); MP = mock.server_address[1]; MURL = f"http://127.0.0.1:{MP}"
 
 # ---- upgrade test (Q13): start on the newest sample database from a previous release; it must migrate and keep its history
@@ -105,6 +106,21 @@ check("watch priority: the row is marked watching now", any(f.get("watching") an
 check("watch priority: the push is recorded as an action", any(a.get("kind") == "watch-priority" for a in st_wp.get("actions", [])), [a.get("kind") for a in st_wp.get("actions", [])][:8])
 W["plex_sessions"] = []
 check("clean episode has no findings", not any("S01E01" in f["title"] and f["app"] == "sonarr" for f in F), [f["check"] for f in F if "S01E01" in f["title"] and f["app"] == "sonarr"])
+# ---- F16 stuck downloads (#20): the blocked import becomes a row; 'Take off the queue' drops it from Radarr's queue and never from the client
+stk = next((f for f in byt.get("IMPORT_STUCK", []) if f["title"] == "Gamma Movie (2022)"), None)
+check("F16: Radarr's finished-but-not-imported download is a 'Download not imported' row, high, in plain words", stk and stk["severity"] == "high" and "stays in your download client" in stk["plain"], stk)
+check("F16: …linked to Radarr's queue page", stk and (stk.get("arr") or "").endswith("/radarr/activity/queue"), stk and stk.get("arr"))
+check("F16: …and it is in Needs you", stk and any(n.get("id") == stk["id"] for n in (st.get("today") or {}).get("needs", [])), [(n.get("check"), n.get("title")) for n in (st.get("today") or {}).get("needs", [])][:8])
+ixr = next((f for f in byt.get("INDEXER_DOWN", []) if f["app"] == "sonarr"), None)
+check("F16: Sonarr's failing indexer is an 'Indexer not working' row with no fix button behind it", ixr and "Prowlarr" in ixr["plain"] and (ixr.get("arr") or "").endswith("/settings/indexers"), ixr)
+if stk:
+    mock.calls.clear(); s, j = api("/api/act", {"id": stk["id"], "action": "unqueue"})
+    dels = [c for c in mock.calls if c["method"] == "DELETE"]
+    check("F16: Take off the queue: one DELETE of that queue entry with removeFromClient=false and blocklist=false, nothing else sent",
+          s == 200 and len(mock.calls) == 1 and dels and dels[0]["path"] == "/api/v3/queue/5001" and dels[0]["query"].get("removeFromClient") == ["false"] and dels[0]["query"].get("blocklist") == ["false"], (s, j, mock.calls))
+    s, st_q = api("/api/state")
+    check("F16: the row closes, Radarr no longer lists the download, and Actions says it was left in the client", not any(f["id"] == stk["id"] for f in st_q.get("findings", [])) and not W["queue"]["radarr"]
+          and any(a.get("kind") == "unqueue" and "left untouched" in (a.get("result") or "") for a in st_q.get("actions", [])), [a for a in st_q.get("actions", []) if a.get("kind") == "unqueue"])
 
 # ---- actions move real files, Undo brings them back
 dupf = next((f for f in byt.get("DUPLICATE_VIDEO", []) if os.path.basename(dup) in (f["path"] or "")), None)
@@ -256,6 +272,7 @@ _c = _sq.connect(os.path.join(CFG, "state.db"), timeout=60); _o = _c.execute("SE
 check("an audit run keeps a 'Subtitles out of sync' row on an unchanged file open (only its own check or a fix closes it)", _r is not None and _o is not None and _o[0] is None, (_r, _o))
 _c = _sq.connect(os.path.join(CFG, "state.db"), timeout=60); _c.execute("UPDATE finding SET resolved_at=? WHERE id='e2e-sync'", (time.time(),)); _c.commit(); _c.close()   # planted row done; the timing checks further down expect a clean slate
 s, st = api("/api/state"); check("second run re-detects the restored duplicate", any(os.path.basename(dup) in (f["path"] or "") for f in st.get("findings", []) if f["check"] == "DUPLICATE_VIDEO"), ph)
+check("F16: the download taken off the queue does not come back on the next audit; the failing indexer stays", not st.get("counts", {}).get("IMPORT_STUCK") and st.get("counts", {}).get("INDEXER_DOWN"), st.get("counts"))
 bot = os.path.join(ROOT, "uibot", "browser_bot.js")
 if os.path.exists(os.path.join(ROOT, "uibot", "node_modules", "playwright")):
     p = subprocess.run(["node", bot, os.path.join(ROOT, "ui.html"), BASE], capture_output=True, text=True, timeout=600)

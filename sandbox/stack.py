@@ -17,5 +17,6 @@ season = os.path.dirname(W["files"][0]["path"]); shutil.copy(W["files"][0]["path
 shutil.copy(W["files"][0]["path"], os.path.join(TV, "Random.Home.Video.mkv"))                                                                # an orphan nobody manages
 for f in W["files"] + W["mfiles"]: f["size"] = os.path.getsize(f["path"])
 W["plex_missing"] = [W["mfiles"][0]["id"]]; W["plex_ondeck"] = [("sonarr", 102)]; W["plex_sessions"] = []
+mock_stack.stuck_world(W)                                            # F16: a download Radarr cannot import (Take off the queue) and a failing indexer
 srv = mock_stack.start(W, port=PORT, host="0.0.0.0"); print("playground stack on", srv.server_address, flush=True)
 threading.Event().wait()

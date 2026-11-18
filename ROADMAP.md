@@ -10,7 +10,8 @@ The current focus: make the app **trustworthy to run** (a real test harness) and
 - **Newest:** the fourth layer of test bots is complete (Q35 to Q39): every tab photographed at phone and desktop width, sign-in and the read-only account in a real browser, a phone persona, error-path personas and a page left open through audits in the staged update. On their first runs they found six bugs, all fixed: a page left open never showed the nightly results, failed jobs showed Python errors, a Bazarr search with Bazarr off looked fine, an AI-subtitle failure never reached Needs you, a signed-out browser showed a kept page, and the read-only form asked for a password in another box.
 - **Dedupearr**, the companion app, has its fixes live and is counting 30 clean nights before its install phase (see N2 below and its own roadmap).
 - **Also new:** quiet hours for heavy jobs (F21) and Find my apps telling Sportarr from Sonarr (#25).
-- **Next here:** the first 🔴 in each list below, starting with F16 stuck downloads (#20).
+- **Also new:** stuck downloads become findings with a **Take off the queue** button that never deletes anything from the download client (F16, #20).
+- **Next here:** the first 🔴 in each list below.
 
 ## 🗂️ How we track work (added 2026-11-12)
 
@@ -133,7 +134,7 @@ Each of these would have caught something that reached production this week.
 
 - 🔴 **F15** Jellyfin and Emby support: the same checks, Up-next, track selection and library health for a Jellyfin or Emby server, chosen on the Setup page next to Plex.
 - 🔴 **F34** Drift re-time without Bazarr (added 2026-11-12, from the Chucky S01E02/E04 case): when the three timing samples show drift that fits a straight line (a speed difference, 25 vs 23.976 fps), work out offset and speed from them, pull a built-in track out of the MKV with mkvextract, stretch it, save it as a separate .srt next to the video (the original track stays), queue the timing check again to confirm, and only offer Find subtitles / AI subtitles when the samples do not line up. Button "Re-time by stretching" on the row; nightly behind `AUTO_SUBSYNC` like the shift fix; a synthetic case in `tests/subsync.py` with a 4% stretched sidecar and an embedded track.
-- 🔴 **F16** Stuck downloads: a queue item sitting for days, a failed import or a dead indexer becomes a finding with one-click "remove and search again".
+- 🟢 **F16** (2026-11-18, #20) Stuck downloads: a queue item sitting for days, a failed or stalled download, a finished download the arr cannot import, or indexers the arr stopped using become findings. One button, **Take off the queue**, removes it from the arr's queue only (owner's choice (a): `removeFromClient=false`, not blocklisted), so the download stays in the client and the item can be searched again.
 - 🔴 **F17** Discord, Telegram and email for the morning push and alerts (Apprise-style adapters; ntfy stays).
 - 🔴 **F18** Close the loop with the arr: after two re-grabs come back with the same defect, mark the release failed and blocklist it so the arr stops fetching that group.
 - 🔴 **F19** Dashboard endpoint: a token-protected summary (needs-you count, health, last run, library scores) for Homepage, Homarr and Home Assistant widgets.

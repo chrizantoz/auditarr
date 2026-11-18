@@ -85,6 +85,8 @@ ao = next((f for f in F if f["check"] == "AUDIO_OFFSET" and "intentional" in f["
 if ao: s, j = req("/api/act", {"id": ao["id"], "action": "fixsync"}); check("fix-sync guard (intentional delay)", s == 409)
 me = next((f for f in F if f["check"] in ("MISSING_EPISODE", "MISSING_MOVIE", "MISSING_SCENE")), None)   # not MISSING_FILE (that one has a real file id and a different refusal)
 if me: s, j = req("/api/act", {"id": me["id"], "action": "regrab"}); check("regrab refused for a missing item", s == 400)
+if me: s, j = req("/api/act", {"id": me["id"], "action": "unqueue"}); check("Take off the queue refused on a row that is not a stuck download (F16)", s == 400)
+s, j = req("/api/act", {"id": "nope", "action": "unqueue"}); check("Take off the queue on an unknown finding -> 404", s == 404)
 s, j = req("/api/search_show", {"show": "zzz-no-such-show"}); check("search-all-missing rejects unknown title", s == 404)
 s, j = req("/api/settings"); check("nightly AI-subtitle + accept-language gates exist", s == 200 and {"AUTO_WHISPER", "AUTO_ACCEPTLANG"} <= {i["name"] for i in j.get("items", [])}, str(j)[:80])
 s, j = req("/api/plan"); check("tonight's plan endpoint", s == 200 and {"regrab", "ai_subtitles", "accept_language", "fix_headers", "verify", "gates"} <= set(j), str(j)[:100])

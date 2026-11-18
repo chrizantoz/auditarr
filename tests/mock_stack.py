@@ -185,7 +185,16 @@ class Handler(BaseHTTPRequestHandler):
         if p == "command":
             if method == "POST": W["cmd_id"][0] += 1; return self._send(201, dict(id=W["cmd_id"][0], name=body.get("name"), status="queued", body=body))
             return self._send(200, [])
-        if p.startswith("queue"): return self._send(200, {"records": []})
+        if p.startswith("queue/") and method == "DELETE":   # F16: like the real apps, dropping one entry drops the whole download (every episode of a pack)
+            Q = W.setdefault("queue", {}).setdefault(app, []); hit = next((r for r in Q if str(r.get("id")) == p.split("/")[1]), None)
+            if not hit: return self._send(404, {"message": "Queue item not found"})
+            Q[:] = [r for r in Q if (r.get("downloadId") or r.get("id")) != (hit.get("downloadId") or hit.get("id"))]; return self._send(200, {})
+        if p.startswith("queue"):
+            recs = [dict(r) for r in (W.get("queue") or {}).get(app, [])]
+            if (q.get("includeEpisode") or ["false"])[0] != "true":
+                for r in recs: r.pop("episode", None)
+            return self._send(200, {"page": 1, "pageSize": 1000, "totalRecords": len(recs), "records": recs})
+        if p == "health": return self._send(200, (W.get("health") or {}).get(app, []))
         if p.startswith("history"): return self._send(200, [] if "since" in p else {"records": []})
         if p.startswith("blocklist"): return self._send(200, {"records": []})
         if p in ("series/editor", "movie/editor"): return self._send(202, body)
@@ -236,6 +245,22 @@ class Handler(BaseHTTPRequestHandler):
         if p == "system/settings": return self._send(204 if method == "POST" else 200, None if method == "POST" else {})
         if p == "system/status": return self._send(200, {"data": {"bazarr_version": "1.4.0"}})
         return self._send(404, {})
+
+def queue_record(app, **kw):
+    """One queue entry shaped like the real one (recorded sample underneath), our values on top. kw: id, downloadId, status, trackedDownloadState, ..."""
+    name = "radarr/queue" if app == "radarr" else "sonarr/queue"; base = dict(size=1000, sizeleft=400, protocol="torrent", downloadClient="Deluge", indexer="Test Indexer",
+                                                                            trackedDownloadStatus="ok", trackedDownloadState="downloading", status="downloading", statusMessages=[], title="Some.Release.1080p-grp")
+    base.update(kw); return over(name, base, ("records", 0))
+def stuck_world(W, days_ago=4):
+    """F16: one stuck download in the fake stack. Radarr holds a finished download it cannot import, for a movie that is not monitored (so the
+    rest of the world - missing episodes, Needs you - stays as it was), and Sonarr warns that an indexer has been failing for hours."""
+    W["movies"].append(templated("radarr/movie", dict(id=2, title="Gamma Movie", year=2022, titleSlug="gamma-movie", path=os.path.join(W["movie_root"], "Gamma Movie (2022)"), runtime=1,
+                                                       monitored=False, hasFile=False, isAvailable=True, tags=[], originalLanguage={"id": 1, "name": "English"})))
+    W.setdefault("queue", {})["radarr"] = [queue_record("radarr", id=5001, movieId=2, downloadId="GAMMA0001", status="completed", trackedDownloadState="importBlocked", trackedDownloadStatus="warning",
+                                                         sizeleft=0, added=iso(days_ago), title="Gamma.Movie.2022.1080p.WEB-grp",
+                                                         statusMessages=[{"title": "Gamma.Movie.2022.1080p.WEB-grp", "messages": ["No files found are eligible for import"]}])]
+    W.setdefault("health", {})["sonarr"] = [{"source": "IndexerLongTermStatusCheck", "type": "warning", "message": "Indexers unavailable due to failures for more than 6 hours: Test Indexer", "wikiUrl": ""}]
+    return W
 
 def chaos(seed=11, p500=0.08, pslow=0.04, slow_s=2, vanish_app="radarr", vanish_from=2, vanish_len=12):
     """Settings for server.chaos: a share of requests fail with 500, a share answer slowly, and one app drops the connection for a window of requests."""

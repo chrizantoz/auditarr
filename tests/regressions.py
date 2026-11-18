@@ -459,8 +459,8 @@ try:
     audit.api = api60; audit.log = lambda *a: logs60.append(" ".join(str(x) for x in a))
     try: ev60 = audit.search_evidence("http://x", "k", audit.datetime.datetime.now(), "sportsapp")
     finally: audit.api = real60; audit.log = reallog
-    check("an app without the command, history or blocklist endpoint is skipped in one line that names it, and its queue still counts",
-          ev60["queue"] == {7: "downloading 50%"} and len(logs60) == 1 and "sportsapp has no command, history, blocklist endpoint" in logs60[0], (ev60, logs60))
+    check("an app without the command, history, blocklist or health endpoint is skipped in one line that names it, and its queue still counts",
+          ev60["queue"] == {7: "downloading 50%"} and len(logs60) == 1 and "sportsapp has no command, health, history, blocklist endpoint" in logs60[0], (ev60, logs60))
 except Exception as e: check("locked queue / missing endpoint case runs", False, repr(e))
 
 # 2026-11-18 (Q38 error-path bot): with Bazarr switched off, Find subtitles recorded "no subtitle found yet (Bazarr keeps searching)" and nobody was told;

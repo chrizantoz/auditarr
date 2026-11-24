@@ -275,7 +275,7 @@ SETTABLE = {   # env name: (kind, default, help)
  "WHISPARR_URL": ("url", "", "Whisparr address (optional)"), "WHISPARR_APIKEY": ("secret", "", "Whisparr API key (optional)"),
  "SPORTARR_URL": ("url", "", "Sportarr address (optional)"), "SPORTARR_APIKEY": ("secret", "", "Sportarr API key (optional)"),
  "BAZARR_URL": ("url", "", "Bazarr address, e.g. http://192.168.1.10:6767"), "BAZARR_APIKEY": ("secret", "", "Bazarr API key (Settings > General); blank = env or the mounted config.yaml"),
- "DEDUPEARR_URL": ("url", "", "Dedupearr address, e.g. http://192.168.1.10:3092 (optional): its summary of the disk joins the daily phone message"),
+ "DEDUPEARR_URL": ("url", "", "Dedupearr address, e.g. http://192.168.1.10:3092 (optional): its summary of the disk joins the daily phone message"), "DEDUPEARR_KEY": ("secret", "", "Dedupearr key (optional): only when Dedupearr asks for a sign-in. The same text as DIGEST_KEY on its container"),
  "PLEX_URL": ("url", "", "Plex address, e.g. http://192.168.1.10:32400"), "PLEX_TOKEN": ("secret", "", "Plex token (X-Plex-Token); blank = env or the mounted Preferences.xml"),
  "DEVICES": ("csv", "", "players you own, comma list of keys (ps5, shield, lg-tv, ...): compatibility notes then name the affected player or disappear; blank = generic notes"),
  "DEDUPE": ("mode", "off", "quarantine unmanaged duplicate files next to the arr-managed copy"),
@@ -4336,14 +4336,15 @@ def dedupearr_digest():
     base = (setting("DEDUPEARR_URL") or "").strip().rstrip("/")
     if not base: return None
     try:
-        j = json.loads(urllib.request.urlopen(urllib.request.Request(base + "/api/digest", headers={"Accept": "application/json"}), timeout=20).read())
+        key = (setting("DEDUPEARR_KEY") or "").strip()   # dedupearr #39: with its sign-in on, Dedupearr lets this one call in by the shared key
+        j = json.loads(urllib.request.urlopen(urllib.request.Request(base + "/api/digest", headers={"Accept": "application/json", **({"X-Digest-Key": key} if key else {})}), timeout=20).read())
         lines = [re.sub(r"[\x00-\x1f]", " ", str(x))[:160] for x in j["lines"] if isinstance(x, str)][:14]
         if not lines: raise ValueError("no lines")
         dep_status("dedupearr", True)
         return {"lines": lines, "reclaim_h": str(j.get("reclaim_h") or "")[:12] if j.get("reclaim_bytes") else "", "high": j.get("priority") == "high"}
     except Exception as e:
         log("dedupearr digest:", repr(e)[:160]); dep_status("dedupearr", False, repr(e)[:160])
-        return {"lines": ["no answer this morning - is it running, and does it let your own network in without a sign-in?"], "reclaim_h": "", "high": False}
+        return {"lines": ["no answer this morning - is it running? If it asks for a sign-in, set the same key in both apps (Dedupearr key here, DIGEST_KEY there)"], "reclaim_h": "", "high": False}
 def digest_join(text, dd):
     """Auditarr's lines, then Dedupearr's under its own name."""
     return text if not dd else text + "\n\nDedupearr:\n" + "\n".join(dd["lines"])

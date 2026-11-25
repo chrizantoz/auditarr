@@ -121,4 +121,15 @@ for fid_, app_, code_, name_, sev_, title_, det_, plain_ in (
                      library="Movies" if app_ == "radarr" else "TV", upcoming=False, watching=False, plex=None, arr=f"http://{app_}.test/{'settings/indexers' if code_ == 'INDEXER_DOWN' else 'activity/queue'}"))
 g["state"]["findings"] = rows + base["state"]["findings"][:30]
 write("stuck", g)
+# agreed (2026-11-24): a movie whose re-grabbed replacement has the same 10-bit video. The page hides the re-grab on that row on purpose, and its code (HI10P)
+# has no underscore; a small library puts the row in the first 200. Both tripped the bot on production while the page was right.
+g = copy.deepcopy(base); rows = []
+for fid_, title_, lib_, det_ in (
+        ("agr1", "Harbor Lights (2012)", "Movies", "[two releases agree: the re-grabbed replacement has the same HI10P - probably not a defect; re-grab hidden, ignore it if you agree] || 10-bit H.264 (yuv420p10le) - no hardware decode on any player, Plex software-transcodes"),
+        ("agr2", "Second Harbor (2014)", "Movies", "10-bit H.264 (yuv420p10le) - no hardware decode on any player, Plex software-transcodes"),
+        ("agr3", "Working Harbor (2016)", "Movies", "[working: re-grab] || 10-bit H.264 (yuv420p10le) - no hardware decode on any player, Plex software-transcodes")):
+    rows.append(dict(id=fid_, app="radarr", check="HI10P", name="10-bit video (some players transcode)", severity="medium", sev_name="waiting", title=title_, path=f"/data/media/movies/{title_}/{title_}.mkv", detail=det_,
+                     plain="10-bit H.264 video: normal for anime, but TVs and consoles cannot play it directly, so Plex transcodes.", first_seen="2026-11-18T05:00", age_days=6, library=lib_, upcoming=False, watching=False, plex=None, arr="http://radarr.test/movie/1"))
+g["state"]["findings"] = rows + base["state"]["findings"][:30]
+write("agreed", g)
 print("edge fixtures:", ", ".join(sorted(os.listdir(DST))))

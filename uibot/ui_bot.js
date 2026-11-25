@@ -157,7 +157,7 @@ async function edgeChecks(S) {
   await sleep(400);
   const S = JSON.parse(data.state), F = S.findings;
   const FL = F.filter(f => !(f.busy || /^\[working: .+? \d\d:\d\d\]/.test(f.detail || "")));   // rows in the list: being-fixed rows sit in their own box (2026-11-13: 8 AI-subtitle redos running made the live check fail)
-  if (EDGE && EDGE !== "tidy" && EDGE !== "livebusy") return edgeChecks(S);   // tidy = a clean library, livebusy = every row of some kinds being fixed (seen live 2026-11-13): both must pass the full suite
+  if (EDGE && !["tidy", "livebusy", "agreed"].includes(EDGE)) return edgeChecks(S);   // tidy = a clean library, livebusy = every row of some kinds being fixed (seen live 2026-11-13), agreed = a re-grab hidden because two releases agree (seen live 2026-11-24): all must pass the full suite
   check("header shows last run + files", /last run/.test($("#s-run").textContent) && /files/.test($("#s-run").textContent), $("#s-run").textContent.slice(0, 90));
   const appsSeen = Object.entries((S.run || {}).files_by_app || {}).filter(([, n]) => n > 0).map(([a]) => a);   // only the apps this install has (a demo may run without Whisparr)
   if (appsSeen.length) check("header shows per-app counts", appsSeen.every(a => new RegExp(a + " \\d+").test($("#s-run").textContent)), $("#s-run").textContent.slice(0, 120));
@@ -193,7 +193,7 @@ async function edgeChecks(S) {
   if (has("AUDIO_OFFSET")) check("intentional audio offsets hide fix sync", !F.filter(f => f.check === "AUDIO_OFFSET" && /intentional/.test(f.detail)).some(f => $(`#r-${f.id} button[data-act=fixsync]`)));
   if (shown("DUB_ONLY").length) check("dub-only rows get re-grab", shown("DUB_ONLY").some(f => $(`#r-${f.id} button[data-act=regrab]`)));
   if (shown("NO_SUBS").some(f => f.app === "sonarr")) check("no-subs rows get find subs", shown("NO_SUBS").filter(f => f.app === "sonarr").some(f => $(`#r-${f.id} button[data-act=subsearch]`)));
-  if (shown("HI10P").length) check("HI10P movies get re-grab, anime does not", shown("HI10P").every(f => !!$(`#r-${f.id} button[data-act=regrab]`) === (f.library !== "Anime")));
+  if (shown("HI10P").length) check("HI10P movies get re-grab, anime does not", shown("HI10P").every(f => !!$(`#r-${f.id} button[data-act=regrab]`) === (f.library !== "Anime" && !/^\[(two releases agree|working:)/.test(f.detail || ""))));   // the page hides it on purpose when the replacement has the same problem, and while a job is running
   const BULKABLE = new Set(["NO_SUBS", "UND_AUDIO_NO_SUBS", "RUNTIME_SHORT", "SAMPLE_FILE", "RES_MISLABELED", "CORRUPT_HEADER", "NO_AUDIO", "NO_VIDEO", "RUNTIME_LONG", "DUB_ONLY", "AV1"]);   // mirrors the page's bulk rules
   const perTitle = F.filter(f => BULKABLE.has(f.check) || f.app === "disk").reduce((m, f) => { const k = (f.title || "").replace(/ S\d+E\d+.*$/, ""); m[k] = (m[k] || 0) + 1; return m; }, {}); const biggest = Math.max(0, ...Object.values(perTitle));
   check("group headers offer bulk buttons when a title has several fixable rows", biggest < 2 || btn("button[data-bulk]") > 0, `${btn("button[data-bulk]")} bulk buttons, biggest title has ${biggest} fixable rows`);
@@ -225,8 +225,9 @@ async function edgeChecks(S) {
   check("whole-show button comes back after its confirm (no box stuck on 'working…')", !!$("#w-go") && !$$(".confirm").some(c => /working/.test(c.textContent)));   // seen on the public demo 2026-11-11
   // ---- usability (Layer 1): plain words first, codes only as tooltips, verbs on buttons, help and undo
   const rowsAll = $$("#findings tr[id^=r-]"); check("every row leads with a plain-language sentence", rowsAll.length > 0 && rowsAll.every(r => r.querySelector(".plain") && r.querySelector(".plain").textContent.trim().length > 15), rowsAll.length + " rows");   // fixed: a sentence is longer than 15 characters; not a row count
+  const codeOf = Object.fromEntries(F.map(f => [`r-${f.id}`, f.check]));   // the exact code per row: HI10P and AV1 have no underscore, so a pattern cannot recognise them
   const rawCode = /\b[A-Z]{2,}_[A-Z_]{2,}\b/; check("group headers show no raw check codes", $$("#findings .grp-head").every(sm => !rawCode.test(sm.textContent)), ($$("#findings .grp-head").find(sm => rawCode.test(sm.textContent)) || {}).textContent);
-  check("row problem column shows names, codes only in tooltips", rowsAll.slice(0, 200).every(r => !rawCode.test(r.children[1].textContent) && rawCode.test(r.children[1].title)), (rowsAll.find(r => rawCode.test(r.children[1].textContent)) || { children: [0, { textContent: "" }] }).children[1].textContent);
+  check("row problem column shows names, codes only in tooltips", rowsAll.slice(0, 200).every(r => !rawCode.test(r.children[1].textContent) && codeOf[r.id] === r.children[1].title), (rowsAll.find(r => rawCode.test(r.children[1].textContent)) || { children: [0, { textContent: "" }] }).children[1].textContent);
   const jargon = /^(re-grab|regrab|fix tag|fixtag|subsearch|plexrefresh|fixsync|fixheader|remuxmkv|subtag|acceptlang|verify content|quarantine)$/i;
   check("buttons use plain verbs, not arr jargon", !$$("#findings button").some(x => jargon.test(x.textContent.trim())), ($$("#findings button").find(x => jargon.test(x.textContent.trim())) || {}).textContent);
   check("severity chips use plain words", $$("#s-sev .chip").every(c => /won't play|wrong|waiting|FYI/i.test(c.textContent)), $$("#s-sev .chip").map(c => c.textContent).join(","));
